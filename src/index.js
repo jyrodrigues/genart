@@ -4,6 +4,8 @@
 require("./index.html");
 
 var Elm = require("./Main.elm");
-var mount_node = document.getElementById("main");
 
-var app = Elm.Main.embed(mount_node);
+console.log(Elm)
+var app = Elm.Elm.Main.init({
+    node: document.getElementById('elm')
+});

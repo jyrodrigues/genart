@@ -2,4 +2,4 @@
 
 ---
 
-[Elm-lang][http://elm-lang.org]
+[Elm-lang](http://elm-lang.org)

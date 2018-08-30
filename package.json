@@ -6,5 +6,18 @@
     "url-loader": "^1.1.1",
     "webpack": "^4.17.1",
     "webpack-dev-server": "^3.1.7"
-  }
+  },
+  "scripts": {
+    "build": "webpack",
+    "serve": "webpack-dev-server --port 3000"
+  },
+  "devDependencies": {
+    "webpack-cli": "^3.1.0"
+  },
+  "name": "genart",
+  "version": "0.0.1",
+  "main": "index.js",
+  "repository": "https://github.com/jyrodrigues/genart",
+  "author": "José Rodrigues <jyrodrigues@gmail.com>",
+  "license": "MIT"
 }
