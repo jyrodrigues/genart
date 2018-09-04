@@ -3,9 +3,8 @@ module Main exposing (Model, Msg(..), init, main, update, view)
 import Browser
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
-import Random
-import Svg exposing (Svg, polyline, rect, svg)
-import Svg.Attributes exposing (height, rx, ry, stroke, viewBox, width, x, y)
+import Svg exposing (Svg, polyline, svg)
+import Svg.Attributes exposing (height, stroke, viewBox, width)
 
 
 
