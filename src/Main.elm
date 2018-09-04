@@ -4,6 +4,8 @@ import Browser
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
 import Random
+import Svg exposing (Svg, polyline, rect, svg)
+import Svg.Attributes exposing (height, rx, ry, stroke, viewBox, width, x, y)
 
 
 
@@ -79,7 +81,65 @@ view model =
     div []
         [ button [ onClick AddD ] [ text "Add D" ]
         , div [] [ text (stateToString model.state) ]
+        , div
+            []
+            [ drawSvg model.state
+            ]
         ]
+
+
+drawSvg : State -> Svg Msg
+drawSvg state =
+    svg
+        [ width "120", height "120", viewBox "0 0 120 120" ]
+        [ polyline
+            [ Svg.Attributes.points <| .path <| stateToSvgPath state
+            , stroke "black"
+            ]
+            []
+        ]
+
+
+type Direction
+    = Up
+    | Down
+    | Left
+    | Right
+
+
+type alias Position =
+    { x : Int
+    , y : Int
+    }
+
+
+type alias Drawing =
+    { path : String
+    , pos : Position
+    , dir : Direction
+    }
+
+
+stateToSvgPath state =
+    List.foldr stepToPath (Drawing "0 0, " (Position 0 0) Left) state
+
+
+stepToPath : Step -> Drawing -> Drawing
+stepToPath step drawing =
+    let
+        newPos =
+            Position (drawing.pos.x + 10) (drawing.pos.y + 10)
+
+        newX =
+            String.fromInt <| newPos.x + 10
+
+        newY =
+            String.fromInt <| newPos.y + 10
+
+        newPath =
+            drawing.path ++ newX ++ " " ++ newY ++ ", "
+    in
+    Drawing newPath newPos drawing.dir
 
 
 
