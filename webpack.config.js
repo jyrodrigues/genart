@@ -1,6 +1,8 @@
 var path = require("path");
 
 module.exports = {
+  mode: "development",
+
   entry: {
     app: [
       "./src/index.js"
@@ -43,6 +45,7 @@ module.exports = {
   devServer: {
     inline: true,
     stats: { colors: true },
+    port: 9000,
   },
 
 

@@ -3,23 +3,47 @@ module Main exposing (Model, Msg(..), init, main, update, view)
 import Browser
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
+import Random
+
+
+
+-- MAIN
 
 
 main =
-    Browser.sandbox { init = init, update = update, view = view }
+    Browser.element
+        { init = init
+        , update = update
+        , subscriptions = subscriptions
+        , view = view
+        }
 
 
 
 -- MODEL
 
 
+type Step
+    = D
+    | R
+    | L
+    | S
+
+
+type alias State =
+    List Step
+
+
 type alias Model =
-    Int
+    { state : State
+    }
 
 
-init : Model
-init =
-    0
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( Model []
+    , Cmd.none
+    )
 
 
 
@@ -27,18 +51,23 @@ init =
 
 
 type Msg
-    = Increment
-    | Decrement
+    = AddD
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Increment ->
-            model + 1
+        AddD ->
+            ( { model | state = model.state ++ [ D ] }, Cmd.none )
 
-        Decrement ->
-            model - 1
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
 
 
 
@@ -48,7 +77,32 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div []
-        [ button [ onClick Decrement ] [ text "-" ]
-        , div [] [ text (String.fromInt model) ]
-        , button [ onClick Increment ] [ text "+" ]
+        [ button [ onClick AddD ] [ text "Add D" ]
+        , div [] [ text (stateToString model.state) ]
         ]
+
+
+
+-- AUXILIARY
+
+
+stateToString state =
+    state
+        |> List.map stepToChar
+        |> List.map String.fromChar
+        |> String.join " "
+
+
+stepToChar step =
+    case step of
+        D ->
+            'D'
+
+        R ->
+            'R'
+
+        L ->
+            'L'
+
+        S ->
+            'S'

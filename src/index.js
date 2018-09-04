@@ -1,11 +1,9 @@
 'use strict'
 
-// Require index.html so it gets copied to dist
-require("./index.html");
+// Import index.html so it gets copied to dist
+import "./index.html";
+import { Elm } from "./Main.elm";
 
-var Elm = require("./Main.elm");
-
-console.log(Elm)
-var app = Elm.Elm.Main.init({
+var app = Elm.Main.init({
     node: document.getElementById('elm')
 });
