@@ -122,7 +122,7 @@ type alias Position =
 type alias Drawing =
     { path : String
     , pos : Position
-    , deg : Int
+    , deg : Float
     }
 
 
@@ -153,30 +153,21 @@ stateToSvgPath state =
 stepToPath : Step -> Drawing -> Drawing
 stepToPath step drawing =
     let
-        toRad deg =
-            toFloat deg / 360 * 2 * pi
-
         move pos rad =
             Position (pos.x + cos rad * 10) (pos.y + sin rad * 10)
 
         newPos =
-            move drawing.pos (toRad drawing.deg)
-
-        newX =
-            String.fromFloat newPos.x
-
-        newY =
-            String.fromFloat newPos.y
+            move drawing.pos (degrees drawing.deg)
 
         newPath =
-            drawing.path ++ ", " ++ newX ++ " " ++ newY
+            drawing.path ++ ", " ++ String.fromFloat newPos.x ++ " " ++ String.fromFloat newPos.y
     in
     case step of
         L ->
-            { drawing | deg = modBy 360 (drawing.deg + 90) }
+            { drawing | deg = drawing.deg + 90 }
 
         R ->
-            { drawing | deg = modBy 360 (drawing.deg - 90) }
+            { drawing | deg = drawing.deg - 90 }
 
         D ->
             Drawing newPath newPos drawing.deg
@@ -191,21 +182,20 @@ stepToPath step drawing =
 
 stateToString state =
     state
-        |> List.map stepToChar
-        |> List.map String.fromChar
+        |> List.map stepToString
         |> String.join " "
 
 
-stepToChar step =
+stepToString step =
     case step of
         D ->
-            'D'
+            "D"
 
         R ->
-            'R'
+            "R"
 
         L ->
-            'L'
+            "L"
 
         S ->
-            'S'
+            "S"
