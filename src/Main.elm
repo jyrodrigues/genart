@@ -4,7 +4,7 @@ import Browser
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
 import Svg exposing (Svg, polyline, svg)
-import Svg.Attributes exposing (height, stroke, viewBox, width)
+import Svg.Attributes exposing (fill, height, stroke, viewBox, width)
 
 
 
@@ -100,10 +100,11 @@ view model =
 drawSvg : State -> Svg Msg
 drawSvg state =
     svg
-        [ width "120", height "120", viewBox "0 0 120 120" ]
+        [ width "120", height "120", viewBox "0 0 60 60" ]
         [ polyline
             [ Svg.Attributes.points <| .path <| stateToSvgPath state
             , stroke "black"
+            , fill "none"
             ]
             []
         ]
@@ -123,7 +124,7 @@ type alias Drawing =
 
 
 stateToSvgPath state =
-    List.foldr stepToPath (Drawing "0 0, " (Position 0 0) 0) state
+    List.foldl stepToPath (Drawing "0 0" (Position 0 0) 0) state
 
 
 stepToPath : Step -> Drawing -> Drawing
@@ -139,13 +140,13 @@ stepToPath step drawing =
             move drawing.pos (toRad drawing.deg)
 
         newX =
-            String.fromFloat <| newPos.x + 10
+            String.fromFloat newPos.x
 
         newY =
-            String.fromFloat <| newPos.y + 10
+            String.fromFloat newPos.y
 
         newPath =
-            drawing.path ++ newX ++ " " ++ newY ++ ", "
+            drawing.path ++ ", " ++ newX ++ " " ++ newY
     in
     case step of
         L ->
