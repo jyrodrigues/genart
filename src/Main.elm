@@ -100,7 +100,10 @@ view model =
 drawSvg : State -> Svg Msg
 drawSvg state =
     svg
-        [ width "120", height "120", viewBox "0 0 60 60" ]
+        [ width (String.fromFloat size)
+        , height (String.fromFloat size)
+        , viewBox <| "0 0 " ++ String.fromFloat (size / scale) ++ " " ++ String.fromFloat (size / scale)
+        ]
         [ polyline
             [ Svg.Attributes.points <| .path <| stateToSvgPath state
             , stroke "black"
@@ -123,8 +126,28 @@ type alias Drawing =
     }
 
 
+scale =
+    1.0
+
+
+size =
+    120.0
+
+
+idp =
+    (size / scale) / 2
+
+
+initialPosition =
+    Position idp idp
+
+
+posToStr pos =
+    String.fromFloat pos.x ++ " " ++ String.fromFloat pos.y
+
+
 stateToSvgPath state =
-    List.foldl stepToPath (Drawing "0 0" (Position 0 0) 0) state
+    List.foldl stepToPath (Drawing (posToStr initialPosition) initialPosition 0) state
 
 
 stepToPath : Step -> Drawing -> Drawing
@@ -134,7 +157,7 @@ stepToPath step drawing =
             toFloat deg / 360 * 2 * pi
 
         move pos rad =
-            Position (pos.x + cos rad) (pos.y + sin rad)
+            Position (pos.x + cos rad * 10) (pos.y + sin rad * 10)
 
         newPos =
             move drawing.pos (toRad drawing.deg)
