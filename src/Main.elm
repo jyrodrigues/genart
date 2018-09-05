@@ -53,6 +53,8 @@ init _ =
 
 type Msg
     = AddD
+    | AddL
+    | AddR
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -60,6 +62,12 @@ update msg model =
     case msg of
         AddD ->
             ( { model | state = model.state ++ [ D ] }, Cmd.none )
+
+        AddL ->
+            ( { model | state = model.state ++ [ L ] }, Cmd.none )
+
+        AddR ->
+            ( { model | state = model.state ++ [ R ] }, Cmd.none )
 
 
 
@@ -79,6 +87,8 @@ view : Model -> Html Msg
 view model =
     div []
         [ button [ onClick AddD ] [ text "Add D" ]
+        , button [ onClick AddL ] [ text "Add L" ]
+        , button [ onClick AddR ] [ text "Add R" ]
         , div [] [ text (stateToString model.state) ]
         , div
             []
@@ -99,46 +109,56 @@ drawSvg state =
         ]
 
 
-type Direction
-    = Up
-    | Down
-    | Left
-    | Right
-
-
 type alias Position =
-    { x : Int
-    , y : Int
+    { x : Float
+    , y : Float
     }
 
 
 type alias Drawing =
     { path : String
     , pos : Position
-    , dir : Direction
+    , deg : Int
     }
 
 
 stateToSvgPath state =
-    List.foldr stepToPath (Drawing "0 0, " (Position 0 0) Left) state
+    List.foldr stepToPath (Drawing "0 0, " (Position 0 0) 0) state
 
 
 stepToPath : Step -> Drawing -> Drawing
 stepToPath step drawing =
     let
+        toRad deg =
+            toFloat deg / 360 * 2 * pi
+
+        move pos rad =
+            Position (pos.x + cos rad) (pos.y + sin rad)
+
         newPos =
-            Position (drawing.pos.x + 10) (drawing.pos.y + 10)
+            move drawing.pos (toRad drawing.deg)
 
         newX =
-            String.fromInt <| newPos.x + 10
+            String.fromFloat <| newPos.x + 10
 
         newY =
-            String.fromInt <| newPos.y + 10
+            String.fromFloat <| newPos.y + 10
 
         newPath =
             drawing.path ++ newX ++ " " ++ newY ++ ", "
     in
-    Drawing newPath newPos drawing.dir
+    case step of
+        L ->
+            { drawing | deg = modBy 360 (drawing.deg + 90) }
+
+        R ->
+            { drawing | deg = modBy 360 (drawing.deg - 90) }
+
+        D ->
+            Drawing newPath newPos drawing.deg
+
+        _ ->
+            drawing
 
 
 
