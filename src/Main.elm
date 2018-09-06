@@ -45,6 +45,7 @@ type alias Model =
     , recording : State
     , recOn : Bool
     , history : List State
+    , isShowingNextIteration : Bool
     }
 
 
@@ -55,7 +56,7 @@ initialState =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model initialState [] False []
+    ( Model initialState [] False [] True
     , Cmd.none
     )
 
@@ -65,27 +66,20 @@ init _ =
 
 
 type Msg
-    = AddD
-    | AddL
-    | AddR
+    = Add Step
     | Backspace
     | ClearStep
     | ClearSvg
     | Iterate
     | Deiterate
+    | ToggleShowNextIteration
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        AddD ->
-            ( { model | recording = model.recording ++ [ D ] }, Cmd.none )
-
-        AddL ->
-            ( { model | recording = model.recording ++ [ L ] }, Cmd.none )
-
-        AddR ->
-            ( { model | recording = model.recording ++ [ R ] }, Cmd.none )
+        Add step ->
+            ( { model | recording = model.recording ++ [ step ] }, Cmd.none )
 
         Backspace ->
             ( { model | recording = dropLast model.recording }, Cmd.none )
@@ -117,6 +111,9 @@ update msg model =
               }
             , Cmd.none
             )
+
+        ToggleShowNextIteration ->
+            ( { model | isShowingNextIteration = not model.isShowingNextIteration }, Cmd.none )
 
 
 dropLast : List a -> List a
@@ -162,22 +159,27 @@ mystyle =
     ]
 
 
-
---[ ( "width", "100%" ), ( "height", "120px" ) ]
-
-
 view : Model -> Html Msg
 view model =
     div []
         [ div mystyle
-            [ button [ onClick AddD ] [ text "Add D" ]
-            , button [ onClick AddL ] [ text "Add L" ]
-            , button [ onClick AddR ] [ text "Add R" ]
+            [ button [ onClick <| Add D ] [ text "Add D" ]
+            , button [ onClick <| Add L ] [ text "Add L" ]
+            , button [ onClick <| Add R ] [ text "Add R" ]
             , button [ onClick Backspace ] [ text "Backspace" ]
             , button [ onClick ClearStep ] [ text "Clear Step" ]
             , button [ onClick ClearSvg ] [ text "Clear Svg" ]
             , button [ onClick Iterate ] [ text "Iterate" ]
             , button [ onClick Deiterate ] [ text "Deiterate" ]
+            , button [ onClick ToggleShowNextIteration ] [ text "Toggle" ]
+            , text <|
+                "Status: "
+                    ++ (if model.isShowingNextIteration then
+                            "On"
+
+                        else
+                            "Off"
+                       )
             , div [] [ text (String.fromInt <| List.length model.state) ]
             , div [ Html.Attributes.style "display" "inline-block" ] [ text <| stateToString model.recording ]
             , div
@@ -190,7 +192,15 @@ view model =
             [ Html.Attributes.style "display" "block "
             , Html.Attributes.style "border" "1px solid black"
             ]
-            [ drawSvg model.state size size
+            [ drawSvg
+                (if model.isShowingNextIteration then
+                    apply model.recording model.state
+
+                 else
+                    model.state
+                )
+                size
+                size
             ]
         ]
 
