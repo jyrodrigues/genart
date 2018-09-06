@@ -55,6 +55,7 @@ type Msg
     = AddD
     | AddL
     | AddR
+    | Iterate
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -68,6 +69,9 @@ update msg model =
 
         AddR ->
             ( { model | state = model.state ++ [ R ] }, Cmd.none )
+
+        Iterate ->
+            ( { model | state = apply rule1 model.state }, Cmd.none )
 
 
 
@@ -89,12 +93,17 @@ view model =
         [ button [ onClick AddD ] [ text "Add D" ]
         , button [ onClick AddL ] [ text "Add L" ]
         , button [ onClick AddR ] [ text "Add R" ]
-        , div [] [ text (stateToString model.state) ]
+        , button [ onClick Iterate ] [ text "Iterate" ]
+        , div [] [ text (String.fromInt <| List.length model.state) ]
         , div
             []
             [ drawSvg model.state
             ]
         ]
+
+
+
+-- DRAWING
 
 
 drawSvg : State -> Svg Msg
@@ -199,3 +208,16 @@ stepToString step =
 
         S ->
             "S"
+
+
+rule1 step =
+    case step of
+        D ->
+            [ D, D, L, D, L, D ]
+
+        _ ->
+            [ step ]
+
+
+apply rule state =
+    List.concatMap rule state
