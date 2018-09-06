@@ -36,20 +36,26 @@ type alias State =
     List Step
 
 
+type alias Transformation =
+    State
+
+
 type alias Model =
     { state : State
     , recording : State
     , recOn : Bool
+    , history : List State
     }
 
 
+initialState : State
 initialState =
     [ D, L, D, L, D, L, D ]
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model initialState [] False
+    ( Model initialState [] False []
     , Cmd.none
     )
 
@@ -66,6 +72,7 @@ type Msg
     | ClearStep
     | ClearSvg
     | Iterate
+    | Deiterate
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -81,15 +88,7 @@ update msg model =
             ( { model | recording = model.recording ++ [ R ] }, Cmd.none )
 
         Backspace ->
-            ( { model
-                | recording =
-                    model.recording
-                        |> List.reverse
-                        |> List.drop 1
-                        |> List.reverse
-              }
-            , Cmd.none
-            )
+            ( { model | recording = dropLast model.recording }, Cmd.none )
 
         ClearStep ->
             ( { model | recording = [] }, Cmd.none )
@@ -98,7 +97,48 @@ update msg model =
             ( { model | state = initialState }, Cmd.none )
 
         Iterate ->
-            ( { model | state = apply (makeRule model.recording) model.state }, Cmd.none )
+            ( { model
+                | state =
+                    apply model.recording model.state
+                , history =
+                    model.history ++ [ model.recording ]
+              }
+            , Cmd.none
+            )
+
+        Deiterate ->
+            let
+                newHistory =
+                    dropLast model.history
+            in
+            ( { model
+                | state = rebuildState initialState newHistory
+                , history = newHistory
+              }
+            , Cmd.none
+            )
+
+
+dropLast : List a -> List a
+dropLast list =
+    list
+        |> List.reverse
+        |> List.drop 1
+        |> List.reverse
+
+
+rebuildState : State -> List Transformation -> State
+rebuildState baseState history =
+    List.foldl apply baseState history
+
+
+apply : Transformation -> State -> State
+apply transformation baseState =
+    let
+        rule =
+            makeRule transformation
+    in
+    List.concatMap rule baseState
 
 
 
@@ -114,6 +154,7 @@ subscriptions model =
 -- VIEW
 
 
+mystyle : List (Html.Attribute msg)
 mystyle =
     [ Html.Attributes.style "width" "100%"
     , Html.Attributes.style "height" "130px"
@@ -136,6 +177,7 @@ view model =
             , button [ onClick ClearStep ] [ text "Clear Step" ]
             , button [ onClick ClearSvg ] [ text "Clear Svg" ]
             , button [ onClick Iterate ] [ text "Iterate" ]
+            , button [ onClick Deiterate ] [ text "Deiterate" ]
             , div [] [ text (String.fromInt <| List.length model.state) ]
             , div [ Html.Attributes.style "display" "inline-block" ] [ text <| stateToString model.recording ]
             , div
@@ -187,18 +229,22 @@ type alias Drawing =
     }
 
 
+size : Float
 size =
     1200.0
 
 
+initialPosition : Float -> Float -> Position
 initialPosition w h =
     Position (w / 2) (h / 2)
 
 
+posToStr : Position -> String
 posToStr pos =
     String.fromFloat pos.x ++ " " ++ String.fromFloat pos.y
 
 
+stateToSvgPath : State -> Float -> Float -> Drawing
 stateToSvgPath state w h =
     List.foldl stepToPath (Drawing (posToStr <| initialPosition w h) (initialPosition w h) 0) state
 
@@ -233,12 +279,14 @@ stepToPath step drawing =
 -- AUXILIARY
 
 
+stateToString : State -> String
 stateToString state =
     state
         |> List.map stepToString
         |> String.join " "
 
 
+stepToString : Step -> String
 stepToString step =
     case step of
         D ->
@@ -254,6 +302,7 @@ stepToString step =
             "S"
 
 
+makeRule : Transformation -> Step -> State
 makeRule state step =
     case step of
         D ->
@@ -261,7 +310,3 @@ makeRule state step =
 
         _ ->
             [ step ]
-
-
-apply rule state =
-    List.concatMap rule state
