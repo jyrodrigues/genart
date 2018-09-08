@@ -1,9 +1,11 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
+import Browser.Events exposing (onKeyPress, onKeyUp)
 import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
+import Json.Decode as Decode exposing (Decoder)
 import Svg exposing (Svg, polyline, svg)
 import Svg.Attributes exposing (fill, height, stroke, style, viewBox, width)
 
@@ -46,6 +48,9 @@ type alias Model =
     , recOn : Bool
     , history : List State
     , isShowingNextIteration : Bool
+    , dir : String
+
+    -- , dir : Direction
     }
 
 
@@ -56,7 +61,8 @@ initialState =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model initialState [] False [] True
+    ( Model initialState [] True [] True ""
+      --Other
     , Cmd.none
     )
 
@@ -73,6 +79,11 @@ type Msg
     | Iterate
     | Deiterate
     | ToggleShowNextIteration
+    | KeyPress String
+
+
+
+-- | KeyPress Direction
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -115,6 +126,13 @@ update msg model =
         ToggleShowNextIteration ->
             ( { model | isShowingNextIteration = not model.isShowingNextIteration }, Cmd.none )
 
+        KeyPress dir ->
+            let
+                _ =
+                    Debug.log "direction" dir
+            in
+            ( processKey model dir, Cmd.none )
+
 
 dropLast : List a -> List a
 dropLast list =
@@ -138,16 +156,70 @@ apply transformation baseState =
     List.concatMap rule baseState
 
 
+processKey model dir =
+    case dir of
+        "r" ->
+            { model | recOn = not model.recOn, dir = dir }
+        "ArrowLeft" ->
+            { model | recording = model.recording ++ [ L ], dir = dir }
+        "ArrowRight" ->
+            { model | recording = model.recording ++ [ R ], dir = dir }
+        "ArrowUp" ->
+            { model | recording = model.recording ++ [ D ], dir = dir }
+        " " ->
+            { model | recording = model.recording ++ [ S ], dir = dir }
+        "Backspace" ->
+            { model | recording = dropLast model.recording, dir = dir }
+        "i" ->
+            { model | state = apply model.recording model.state, dir = dir }
+
+        _ ->
+            { model | dir = dir }
+
+
 
 -- SUBSCRIPTIONS
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    Sub.batch
+        [ onKeyUp (Decode.map KeyPress keyDecoder) ]
 
 
 
+-- type Direction
+--     = Left
+--     | Right
+--     | Up
+--     | Skip
+--     | Backspace1
+--     | Other
+-- -- keyDecoder : Decoder Direction
+
+
+keyDecoder : Decoder String
+keyDecoder =
+    Decode.field "key" Decode.string
+
+
+
+-- -- Decode.map toDirection (Decode.field "key" Decode.string)
+-- toDirection : String -> Direction
+-- toDirection string =
+--     case string of
+--         "ArrowLeft" ->
+--             Left
+--         "ArrowRight" ->
+--             Right
+--         "ArrowUp" ->
+--             Up
+--         "Space" ->
+--             Skip
+--         "Backspace" ->
+--             Backspace1
+--         _ ->
+--             Other
 -- VIEW
 
 
@@ -180,7 +252,19 @@ view model =
                         else
                             "Off"
                        )
-            , div [] [ text (String.fromInt <| List.length model.state) ]
+            , text <|
+                "  Rec: "
+                    ++ (if model.recOn then
+                            "On"
+
+                        else
+                            "Off"
+                       )
+            , div []
+                [ text (String.fromInt <| List.length model.state)
+                , text <| "->" ++ model.dir ++ "<-"
+                , text (String.fromInt <| (*) (List.length model.recording) <| List.length model.state)
+                ]
             , div [ Html.Attributes.style "display" "inline-block" ] [ text <| stateToString model.recording ]
             , div
                 [ Html.Attributes.style "display" "block "
@@ -320,3 +404,5 @@ makeRule state step =
 
         _ ->
             [ step ]
+
+-- [D L D D L D D D D L D D L D D D D D D R D L D L D D D D D D D L]
