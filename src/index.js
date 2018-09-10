@@ -5,7 +5,8 @@ import "./index.html";
 import { Elm } from "./Main.elm";
 
 var app = Elm.Main.init({
-    node: document.getElementById('elm')
+    node: document.getElementById('elm'),
+    flags: JSON.parse(localStorage.getItem('genart/cache'))
 });
 
 app.ports.cache.subscribe(data => {

@@ -60,10 +60,18 @@ initialState =
     [ D, L, D, L, D, L, D ]
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( Model initialState [] True [] True ""
-      --Other
+init : Maybe (List String) -> ( Model, Cmd Msg )
+init localStorageState =
+    let
+        savedState =
+            case localStorageState of
+                Just storedList ->
+                    List.map stringToStep storedList
+
+                Nothing ->
+                    initialState
+    in
+    ( Model savedState [ D ] True [] True ""
     , Cmd.none
     )
 
@@ -133,7 +141,7 @@ update msg model =
             ( processKey model (Debug.log "direction" dir), Cmd.none )
 
         SaveState ->
-            ( model, cache <| Encode.string <| stateToString model.state )
+            ( model, cache <| Encode.list Encode.string <| List.map stepToString model.state )
 
 
 dropLast : List a -> List a
@@ -158,6 +166,7 @@ apply transformation baseState =
     List.concatMap rule baseState
 
 
+processKey : Model -> String -> Model
 processKey model dir =
     case dir of
         "r" ->
@@ -400,6 +409,25 @@ stepToString step =
 
         S ->
             "S"
+
+
+stringToStep : String -> Step
+stringToStep char =
+    case char of
+        "D" ->
+            D
+
+        "R" ->
+            R
+
+        "L" ->
+            L
+
+        "S" ->
+            S
+
+        _ ->
+            S
 
 
 makeRule : Transformation -> Step -> State
