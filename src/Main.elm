@@ -50,8 +50,6 @@ type alias Model =
     , history : List State
     , isShowingNextIteration : Bool
     , dir : String
-
-    -- , dir : Direction
     }
 
 
@@ -99,6 +97,10 @@ type Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        _ =
+            Debug.log "model" model
+    in
     case msg of
         Add step ->
             ( { model | recording = model.recording ++ [ step ] }, Cmd.none )
@@ -113,35 +115,41 @@ update msg model =
             ( { model | state = initialState }, Cmd.none )
 
         Iterate ->
-            ( { model
-                | state =
-                    apply model.recording model.state
-                , history =
-                    model.history ++ [ model.recording ]
-              }
-            , Cmd.none
-            )
+            ( iterate model, Cmd.none )
 
         Deiterate ->
-            let
-                newHistory =
-                    dropLast model.history
-            in
-            ( { model
-                | state = rebuildState initialState newHistory
-                , history = newHistory
-              }
-            , Cmd.none
-            )
+            ( deiterate model, Cmd.none )
 
         ToggleShowNextIteration ->
             ( { model | isShowingNextIteration = not model.isShowingNextIteration }, Cmd.none )
 
         KeyPress dir ->
-            ( processKey model (Debug.log "direction" dir), Cmd.none )
+            ( processKey model dir, Cmd.none )
 
         SaveState ->
             ( model, cache <| Encode.list Encode.string <| List.map stepToString model.state )
+
+
+iterate : Model -> Model
+iterate model =
+    { model
+        | state =
+            apply model.recording model.state
+        , history =
+            model.history ++ [ model.recording ]
+    }
+
+
+deiterate : Model -> Model
+deiterate model =
+    let
+        newHistory =
+            dropLast model.history
+    in
+    { model
+        | state = rebuildState initialState newHistory
+        , history = newHistory
+    }
 
 
 dropLast : List a -> List a
@@ -181,14 +189,28 @@ processKey model dir =
         "ArrowUp" ->
             { model | recording = model.recording ++ [ D ], dir = dir }
 
-        " " ->
+        "ArrowDown" ->
             { model | recording = model.recording ++ [ S ], dir = dir }
+
+        " " ->
+            { model | isShowingNextIteration = not model.isShowingNextIteration }
 
         "Backspace" ->
             { model | recording = dropLast model.recording, dir = dir }
 
         "i" ->
-            { model | state = apply model.recording model.state, dir = dir }
+            let
+                newModel =
+                    iterate model
+            in
+            { newModel | dir = dir }
+
+        "d" ->
+            let
+                newModel =
+                    deiterate model
+            in
+            { newModel | dir = dir }
 
         _ ->
             { model | dir = dir }
