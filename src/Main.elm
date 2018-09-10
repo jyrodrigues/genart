@@ -1,4 +1,4 @@
-module Main exposing (Model, Msg(..), init, main, update, view)
+port module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
 import Browser.Events exposing (onKeyPress, onKeyUp)
@@ -6,6 +6,7 @@ import Html exposing (Html, button, div, text)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 import Svg exposing (Svg, polyline, svg)
 import Svg.Attributes exposing (fill, height, stroke, style, viewBox, width)
 
@@ -80,9 +81,11 @@ type Msg
     | Deiterate
     | ToggleShowNextIteration
     | KeyPress String
+    | SaveState
 
 
 
+-- | LoadLocalStorage String
 -- | KeyPress Direction
 
 
@@ -127,11 +130,10 @@ update msg model =
             ( { model | isShowingNextIteration = not model.isShowingNextIteration }, Cmd.none )
 
         KeyPress dir ->
-            let
-                _ =
-                    Debug.log "direction" dir
-            in
-            ( processKey model dir, Cmd.none )
+            ( processKey model (Debug.log "direction" dir), Cmd.none )
+
+        SaveState ->
+            ( model, cache <| Encode.string <| stateToString model.state )
 
 
 dropLast : List a -> List a
@@ -160,16 +162,22 @@ processKey model dir =
     case dir of
         "r" ->
             { model | recOn = not model.recOn, dir = dir }
+
         "ArrowLeft" ->
             { model | recording = model.recording ++ [ L ], dir = dir }
+
         "ArrowRight" ->
             { model | recording = model.recording ++ [ R ], dir = dir }
+
         "ArrowUp" ->
             { model | recording = model.recording ++ [ D ], dir = dir }
+
         " " ->
             { model | recording = model.recording ++ [ S ], dir = dir }
+
         "Backspace" ->
             { model | recording = dropLast model.recording, dir = dir }
+
         "i" ->
             { model | state = apply model.recording model.state, dir = dir }
 
@@ -235,9 +243,7 @@ view : Model -> Html Msg
 view model =
     div []
         [ div mystyle
-            [ button [ onClick <| Add D ] [ text "Add D" ]
-            , button [ onClick <| Add L ] [ text "Add L" ]
-            , button [ onClick <| Add R ] [ text "Add R" ]
+            [ button [ onClick <| SaveState ] [ text "Save State" ]
             , button [ onClick Backspace ] [ text "Backspace" ]
             , button [ onClick ClearStep ] [ text "Clear Step" ]
             , button [ onClick ClearSvg ] [ text "Clear Svg" ]
@@ -405,4 +411,12 @@ makeRule state step =
         _ ->
             [ step ]
 
+
+
 -- [D L D D L D D D D L D D L D D D D D D R D L D L D D D D D D D L]
+-- PORTS
+-- | LoadLocalStorage String
+-- | SaveState
+
+
+port cache : Encode.Value -> Cmd msg
