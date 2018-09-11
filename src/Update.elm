@@ -3,7 +3,7 @@ module Update exposing (update)
 import Auxiliary exposing (dropLast)
 import Json.Encode as Encode
 import LSystem exposing (Step(..), apply, rebuildState, stepToString)
-import Models exposing (Model, initialState)
+import Models exposing (Model)
 import Msgs exposing (Msg(..))
 import Ports
 
@@ -25,7 +25,7 @@ update msg model =
             ( { model | recording = [] }, Cmd.none )
 
         ClearSvg ->
-            ( { model | state = initialState }, Cmd.none )
+            ( { model | state = Models.defaultInitialState }, Cmd.none )
 
         Iterate ->
             ( iterate model, Cmd.none )
@@ -60,7 +60,7 @@ deiterate model =
             dropLast model.history
     in
     { model
-        | state = rebuildState initialState newHistory
+        | state = rebuildState Models.defaultInitialState newHistory
         , history = newHistory
     }
 

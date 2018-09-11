@@ -1,6 +1,6 @@
-module Models exposing (Model, initialState)
+module Models exposing (Model, createInitialStateWith, defaultInitialState)
 
-import LSystem exposing (State, Step(..), Transformation)
+import LSystem exposing (State, Step(..), Transformation, stringToStep)
 
 
 type alias Model =
@@ -13,6 +13,25 @@ type alias Model =
     }
 
 
-initialState : State
-initialState =
+defaultInitialState : State
+defaultInitialState =
     [ D, L, D, L, D, L, D ]
+
+
+defaultInitialRecording : Transformation
+defaultInitialRecording =
+    [ D ]
+
+
+createInitialStateWith : Maybe (List String) -> Model
+createInitialStateWith localStorage =
+    let
+        initialState =
+            case localStorage of
+                Just stored ->
+                    List.map stringToStep stored
+
+                Nothing ->
+                    defaultInitialState
+    in
+    Model initialState defaultInitialRecording True [] True ""
