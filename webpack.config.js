@@ -31,7 +31,12 @@ module.exports = {
       {
         test: /\.elm$/,
         exclude: [/elm-stuff/, /node_modules/],
-        loader: "elm-webpack-loader?verbose=true",
+        use: {
+          loader: "elm-webpack-loader?verbose=true",
+          options: {
+            optimize: false,
+          },
+        },
       },
       {
         test: /\.svg$/,
