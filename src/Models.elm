@@ -23,11 +23,11 @@ defaultInitialRecording =
     [ D ]
 
 
-createInitialStateWith : Maybe (List String) -> Model
+createInitialStateWith : List (List String) -> Model
 createInitialStateWith localStorage =
     let
         initialState =
-            case localStorage of
+            case List.head localStorage of
                 Just stored ->
                     List.map stringToStep stored
 

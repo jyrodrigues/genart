@@ -17,6 +17,6 @@ main =
         }
 
 
-init : Maybe (List String) -> ( Model, Cmd Msg )
+init : List (List String) -> ( Model, Cmd Msg )
 init localStorage =
     ( Models.createInitialStateWith localStorage, Cmd.none )
