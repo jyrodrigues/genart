@@ -1,6 +1,7 @@
-module Main exposing (init, main)
+module Main exposing (main)
 
 import Browser
+import Experiment exposing (experiment)
 import Models exposing (Model)
 import Msgs exposing (Msg)
 import Subscriptions exposing (subscriptions)
@@ -8,6 +9,15 @@ import Update exposing (update)
 import View exposing (view)
 
 
+
+{--}
+main =
+    experiment
+--}
+
+
+
+{--
 main =
     Browser.element
         { init = init
@@ -20,3 +30,4 @@ main =
 init : List (List String) -> ( Model, Cmd Msg )
 init localStorage =
     ( Models.createInitialStateWith localStorage, Cmd.none )
+--}

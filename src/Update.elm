@@ -10,10 +10,10 @@ import Ports
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        _ =
-            Debug.log "model" model
-    in
+    -- let
+    --     _ =
+    --         Debug.log "model" model
+    -- in
     case msg of
         Add step ->
             ( { model | recording = model.recording ++ [ step ] }, Cmd.none )

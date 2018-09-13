@@ -9,6 +9,8 @@ import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
+import Html
+import Html.Attributes
 import LSystem exposing (apply, stateToString)
 import Models exposing (Model)
 import Msgs exposing (Msg(..))
@@ -16,41 +18,58 @@ import Msgs exposing (Msg(..))
 
 size : Float
 size =
-    1200.0
+    1500.0
 
 
-hiel wf =
+withBorder e a b =
+    e
+        ([ Border.color <| rgb 0 0 0
+         , Border.solid
+         , Border.width 1
+         ]
+            ++ a
+        )
+        b
+
+
+hiel w h =
+    let
+        wf =
+            fillPortion w
+
+        hf =
+            fillPortion h
+    in
+    withBorder el [ width wf, height hf ] (text "Hi")
+
+
+svghere model =
     el
-        [ width wf
+        [ width (fillPortion 3)
         , height (fillPortion 1)
-        , Border.color <| rgb 0 0 0
-        , Border.solid
-        , Border.width 1
+        , scrollbars
         ]
-        (text "Hi")
-
-
-svghere =
-    el [ width (fillPortion 3), height (fillPortion 3) ] (text "SVG")
+        (html <| svgDiv model)
 
 
 view model =
-    layout
+    withBorder layout
         [ width fill
         , height fill
         , Background.color <| rgba255 255 0 0 0.2
-        , Border.color <| rgb 0 0 0
-        , Border.solid
-        , Border.width 1
         ]
     <|
         column [ width fill, height fill ]
-            [ hiel <| fillPortion 1
-            , row [ width fill, height <| fillPortion 7 ]
-                [ hiel (fillPortion 1)
-                , svghere
-                , hiel (fillPortion 1)
+            [ hiel 1 1
+            , row [ width fill, height (fillPortion 10), scrollbars ]
+                [ hiel 1 1
+                , column [ width (fillPortion 3), scrollbars ]
+                    [ hiel 1 20
+                    , svghere model
+                    , hiel 1 20
+                    ]
                 ]
+            , hiel 1 1
             ]
 
 
@@ -95,28 +114,35 @@ view2 model =
                 [ drawSvg model.recording 120 80
                 ]
             ]
-        , div
-            [ Html.Attributes.style "display" "block "
-            , Html.Attributes.style "border" "1px solid black"
-            ]
-            [ drawSvg
-                (if model.isShowingNextIteration then
-                    apply model.recording model.state
+        , svgDiv model
+        ]
+--}
 
-                 else
-                    model.state
-                )
-                size
-                size
-            ]
+
+svgDiv model =
+    Html.div
+        [ Html.Attributes.style "display" "block "
+        , Html.Attributes.style "border" "1px solid black"
+        , Html.Attributes.style "height" "100%"
+        ]
+        [ drawSvg
+            (if model.isShowingNextIteration then
+                apply model.recording model.state
+
+             else
+                model.state
+            )
+            size
+            size
         ]
 
 
+
+{--
 mystyle : List (Html.Attribute msg)
 mystyle =
     [ Html.Attributes.style "width" "100%"
     , Html.Attributes.style "height" "130px"
     , Html.Attributes.style "border" "1px solid black"
     ]
-
 --}
