@@ -21,56 +21,46 @@ size =
     1500.0
 
 
-withBorder e a b =
-    e
-        ([ Border.color <| rgb 0 0 0
-         , Border.solid
-         , Border.width 1
-         ]
-            ++ a
-        )
-        b
+addBorder =
+    [ Border.color <| rgba 0 0 0 0.8
+    , Border.solid
+    , Border.width 1
+    ]
 
 
-hiel w h =
-    let
-        wf =
-            fillPortion w
-
-        hf =
-            fillPortion h
-    in
-    withBorder el [ width wf, height hf ] (text "Hi")
-
-
-svghere model =
-    el
-        [ width (fillPortion 3)
-        , height (fillPortion 1)
-        , scrollbars
-        ]
-        (html <| svgDiv model)
+filling w h =
+    [ width <| fillPortion w
+    , height <| fillPortion h
+    ]
 
 
 view model =
-    withBorder layout
+    layout
         [ width fill
         , height fill
-        , Background.color <| rgba255 255 0 0 0.2
+        , Background.color <| rgba255 0 100 200 0.5
+        , padding 20
         ]
     <|
-        column [ width fill, height fill ]
-            [ hiel 1 1
-            , row [ width fill, height (fillPortion 10), scrollbars ]
-                [ hiel 1 1
-                , column [ width (fillPortion 3), scrollbars ]
-                    [ hiel 1 20
-                    , svghere model
-                    , hiel 1 20
-                    ]
-                ]
-            , hiel 1 1
+        column
+            [ width fill
+            , height fill
+            , Background.color <| rgba255 200 100 0 0.5
+            , padding 20
+            , scrollbars
             ]
+            [ el (addBorder ++ filling 1 1 ++ [ scrollbars ]) (genText 50)
+            , row (addBorder ++ filling 1 7 ++ [ scrollbars, spacing 5, padding 5 ])
+                [ el (addBorder ++ filling 1 1) (text "whoa")
+                , el (addBorder ++ filling 7 1 ++ [ scrollbars ]) (genText 50) --(html <| svgDiv model)
+                ]
+            ]
+
+
+genText textSize =
+    List.repeat textSize "abcdefghijklmnopqrstuvwxyz\n12345678901234567890123456\n"
+        |> List.foldl (++) ""
+        |> text
 
 
 
@@ -120,11 +110,7 @@ view2 model =
 
 
 svgDiv model =
-    Html.div
-        [ Html.Attributes.style "display" "block "
-        , Html.Attributes.style "border" "1px solid black"
-        , Html.Attributes.style "height" "100%"
-        ]
+    Html.div []
         [ drawSvg
             (if model.isShowingNextIteration then
                 apply model.recording model.state
