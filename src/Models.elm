@@ -8,6 +8,9 @@ type alias Model =
     , recording : Transformation
     , recOn : Bool
     , history : List Transformation
+
+    -- , savedStates : List State
+    -- , savedTransformations : List Transformation
     , isShowingNextIteration : Bool
     , dir : String
     }

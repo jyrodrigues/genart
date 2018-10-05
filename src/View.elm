@@ -35,12 +35,6 @@ filling w h =
     ]
 
 
-genText textSize =
-    List.repeat textSize "abcdefghijklmnopqrstuvwxyz\n12345678901234567890123456\n"
-        |> List.foldl (++) ""
-        |> text
-
-
 bf11 =
     addBorder ++ filling 1 1
 
@@ -60,93 +54,51 @@ view model =
             , padding 20
             , scrollbars
             ]
-            [ row (bf11 ++ [ scrollbars, spacing 5, padding 20 ])
-                [ button bf11 { onPress = Just SaveState, label = text "Save State" }
-                , button bf11 { onPress = Just Backspace, label = text "Backspace" }
-                , button bf11 { onPress = Just ClearStep, label = text "ClearStep" }
-                , button bf11 { onPress = Just ClearSvg, label = text "ClearSvg" }
-                , button bf11 { onPress = Just Iterate, label = text "Iterate" }
-                , button bf11 { onPress = Just Deiterate, label = text "Deiterate" }
-                , button bf11 { onPress = Just ToggleShowNextIteration, label = text "ToggleShowNextIteration" }
-                , el bf11
-                    (text <|
-                        "Status: "
-                            ++ (if model.isShowingNextIteration then
-                                    "On"
+            [ column (bf11 ++ [ scrollbars, spacing 5 ])
+                [ row (bf11 ++ [ scrollbars, spacing 5 ])
+                    [ button bf11 { onPress = Just SaveState, label = text "Save State" }
+                    , button bf11 { onPress = Just Backspace, label = text "Backspace" }
+                    , button bf11 { onPress = Just ClearStep, label = text "ClearStep" }
+                    , button bf11 { onPress = Just ClearSvg, label = text "ClearSvg" }
+                    , button bf11 { onPress = Just Iterate, label = text "Iterate" }
+                    , button bf11 { onPress = Just Deiterate, label = text "Deiterate" }
+                    , button bf11 { onPress = Just ToggleShowNextIteration, label = text "ToggleShowNextIteration" }
+                    , el bf11
+                        (text <|
+                            "Status: "
+                                ++ (if model.isShowingNextIteration then
+                                        "On"
 
-                                else
-                                    "Off"
-                               )
-                    )
-                , el bf11
-                    (text <|
-                        "  Rec: "
-                            ++ (if model.recOn then
-                                    "On"
+                                    else
+                                        "Off"
+                                   )
+                        )
+                    , el bf11
+                        (text <|
+                            "  Rec: "
+                                ++ (if model.recOn then
+                                        "On"
 
-                                else
-                                    "Off"
-                               )
-                    )
-                , el (addBorder ++ filling 1 1 ++ [ scrollbars ]) (html <| svgDiv2 model)
+                                    else
+                                        "Off"
+                                   )
+                        )
+                    ]
+                , row (filling 1 4 ++ [ scrollbars, spacing 5 ])
+                    [ column (bf11 ++ [ scrollbars ])
+                        [ el (filling 1 1) (text (String.fromInt <| List.length model.state))
+                        , el (filling 1 1) (text <| "->" ++ model.dir ++ "<-")
+                        , el (filling 1 1) (text (String.fromInt <| (*) (List.length model.recording) <| List.length model.state))
+                        , el (filling 1 1) (text <| stateToString model.recording)
+                        ]
+                    , el (addBorder ++ filling 1 1 ++ [ scrollbars ]) (html <| drawSvg model.recording 120 80)
+                    ]
                 ]
-            , row (addBorder ++ filling 1 7 ++ [ scrollbars, spacing 5, padding 5 ])
+            , row (addBorder ++ filling 1 5 ++ [ scrollbars, spacing 5 ])
                 [ el (addBorder ++ filling 1 1) (text "whoa")
                 , el (addBorder ++ filling 7 1 ++ [ scrollbars ]) (html <| svgDiv model)
                 ]
             ]
-
-
-
-{--
-view2 : Model -> Html Msg
-view2 model =
-    div []
-        [ div mystyle
-            [ button [ onClick <| SaveState ] [ text "Save State" ]
-            , button [ onClick Backspace ] [ text "Backspace" ]
-            , button [ onClick ClearStep ] [ text "Clear Step" ]
-            , button [ onClick ClearSvg ] [ text "Clear Svg" ]
-            , button [ onClick Iterate ] [ text "Iterate" ]
-            , button [ onClick Deiterate ] [ text "Deiterate" ]
-            , button [ onClick ToggleShowNextIteration ] [ text "Toggle" ]
-            , text <|
-                "Status: "
-                    ++ (if model.isShowingNextIteration then
-                            "On"
-
-                        else
-                            "Off"
-                       )
-            , text <|
-                "  Rec: "
-                    ++ (if model.recOn then
-                            "On"
-
-                        else
-                            "Off"
-                       )
-            , div []
-                [ text (String.fromInt <| List.length model.state)
-                , text <| "->" ++ model.dir ++ "<-"
-                , text (String.fromInt <| (*) (List.length model.recording) <| List.length model.state)
-                ]
-            , div [ Html.Attributes.style "display" "inline-block" ] [ text <| stateToString model.recording ]
-            , div
-                [ Html.Attributes.style "display" "block "
-                ]
-                [ drawSvg model.recording 120 80
-                ]
-            ]
-        , svgDiv model
-        ]
---}
-
-
-svgDiv2 model =
-    Html.div []
-        [ drawSvg model.recording 120 80
-        ]
 
 
 svgDiv model =
@@ -161,14 +113,3 @@ svgDiv model =
             size
             size
         ]
-
-
-
-{--
-mystyle : List (Html.Attribute msg)
-mystyle =
-    [ Html.Attributes.style "width" "100%"
-    , Html.Attributes.style "height" "130px"
-    , Html.Attributes.style "border" "1px solid black"
-    ]
---}
