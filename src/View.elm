@@ -9,6 +9,7 @@ import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
+import Element.Input exposing (button)
 import Html
 import Html.Attributes
 import LSystem exposing (apply, stateToString)
@@ -34,6 +35,16 @@ filling w h =
     ]
 
 
+genText textSize =
+    List.repeat textSize "abcdefghijklmnopqrstuvwxyz\n12345678901234567890123456\n"
+        |> List.foldl (++) ""
+        |> text
+
+
+bf11 =
+    addBorder ++ filling 1 1
+
+
 view model =
     layout
         [ width fill
@@ -45,22 +56,45 @@ view model =
         column
             [ width fill
             , height fill
-            , Background.color <| rgba255 200 100 0 0.5
+            , Background.color <| rgb255 250 250 220
             , padding 20
             , scrollbars
             ]
-            [ el (addBorder ++ filling 1 1 ++ [ scrollbars ]) (genText 50)
+            [ row (bf11 ++ [ scrollbars, spacing 5, padding 20 ])
+                [ button bf11 { onPress = Just SaveState, label = text "Save State" }
+                , button bf11 { onPress = Just Backspace, label = text "Backspace" }
+                , button bf11 { onPress = Just ClearStep, label = text "ClearStep" }
+                , button bf11 { onPress = Just ClearSvg, label = text "ClearSvg" }
+                , button bf11 { onPress = Just Iterate, label = text "Iterate" }
+                , button bf11 { onPress = Just Deiterate, label = text "Deiterate" }
+                , button bf11 { onPress = Just ToggleShowNextIteration, label = text "ToggleShowNextIteration" }
+                , el bf11
+                    (text <|
+                        "Status: "
+                            ++ (if model.isShowingNextIteration then
+                                    "On"
+
+                                else
+                                    "Off"
+                               )
+                    )
+                , el bf11
+                    (text <|
+                        "  Rec: "
+                            ++ (if model.recOn then
+                                    "On"
+
+                                else
+                                    "Off"
+                               )
+                    )
+                , el (addBorder ++ filling 1 1 ++ [ scrollbars ]) (html <| svgDiv2 model)
+                ]
             , row (addBorder ++ filling 1 7 ++ [ scrollbars, spacing 5, padding 5 ])
                 [ el (addBorder ++ filling 1 1) (text "whoa")
-                , el (addBorder ++ filling 7 1 ++ [ scrollbars ]) (genText 50) --(html <| svgDiv model)
+                , el (addBorder ++ filling 7 1 ++ [ scrollbars ]) (html <| svgDiv model)
                 ]
             ]
-
-
-genText textSize =
-    List.repeat textSize "abcdefghijklmnopqrstuvwxyz\n12345678901234567890123456\n"
-        |> List.foldl (++) ""
-        |> text
 
 
 
@@ -107,6 +141,12 @@ view2 model =
         , svgDiv model
         ]
 --}
+
+
+svgDiv2 model =
+    Html.div []
+        [ drawSvg model.recording 120 80
+        ]
 
 
 svgDiv model =
