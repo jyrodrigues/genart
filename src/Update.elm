@@ -42,6 +42,9 @@ update msg model =
         SaveState ->
             ( model, Ports.cache <| Encode.list Encode.string <| List.map stepToString model.state )
 
+        Zoom deltaX deltaY shiftKey ->
+            ( { model | zoomLevel = model.zoomLevel + deltaY }, Cmd.none )
+
 
 iterate : Model -> Model
 iterate model =

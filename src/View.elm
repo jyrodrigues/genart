@@ -12,6 +12,8 @@ import Element.Events as Events
 import Element.Input exposing (button)
 import Html
 import Html.Attributes
+import Html.Events exposing (preventDefaultOn)
+import Json.Decode as Decoder exposing (Decoder, bool, field, int)
 import LSystem exposing (apply, stateToString)
 import Models exposing (Model)
 import Msgs exposing (Msg(..))
@@ -63,26 +65,8 @@ view model =
                     , button bf11 { onPress = Just Iterate, label = text "Iterate" }
                     , button bf11 { onPress = Just Deiterate, label = text "Deiterate" }
                     , button bf11 { onPress = Just ToggleShowNextIteration, label = text "ToggleShowNextIteration" }
-                    , el bf11
-                        (text <|
-                            "Status: "
-                                ++ (if model.isShowingNextIteration then
-                                        "On"
-
-                                    else
-                                        "Off"
-                                   )
-                        )
-                    , el bf11
-                        (text <|
-                            "  Rec: "
-                                ++ (if model.recOn then
-                                        "On"
-
-                                    else
-                                        "Off"
-                                   )
-                        )
+                    , el bf11 (text <| "Status: " ++ onOff model.isShowingNextIteration)
+                    , el bf11 (text <| " Rec: " ++ onOff model.recOn)
                     ]
                 , row (filling 1 4 ++ [ scrollbars, spacing 5 ])
                     [ column (bf11 ++ [ scrollbars ])
@@ -95,10 +79,38 @@ view model =
                     ]
                 ]
             , row (addBorder ++ filling 1 5 ++ [ scrollbars, spacing 5 ])
-                [ el (addBorder ++ filling 1 1) (text "whoa")
-                , el (addBorder ++ filling 7 1 ++ [ scrollbars ]) (html <| svgDiv model)
+                [ column (addBorder ++ filling 1 1)
+                    [ el (filling 1 1) (text "whoa")
+                    , el (filling 1 1) (text (String.fromInt model.zoomLevel))
+                    ]
+                , el (addBorder ++ filling 7 1 ++ [ scrollbars, modifyWheelEvent ]) (html <| svgDiv model)
                 ]
             ]
+
+
+onOff bool =
+    if bool then
+        "On"
+
+    else
+        "Off"
+
+
+modifyWheelEvent =
+    htmlAttribute <| preventDefaultOn "wheel" (Decoder.map alwaysPreventDefault myDecoder)
+
+
+alwaysPreventDefault : Msg -> ( Msg, Bool )
+alwaysPreventDefault msg =
+    ( msg, True )
+
+
+myDecoder : Decoder Msg
+myDecoder =
+    Decoder.map3 Zoom
+        (field "deltaX" int)
+        (field "deltaY" int)
+        (field "shiftKey" bool)
 
 
 svgDiv model =
@@ -110,6 +122,10 @@ svgDiv model =
              else
                 model.state
             )
-            size
-            size
+            (mapZoomLevelToSize model.zoomLevel)
+            (mapZoomLevelToSize model.zoomLevel)
         ]
+
+
+mapZoomLevelToSize zl =
+    max 300.0 (toFloat zl * 4.0)

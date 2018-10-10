@@ -13,3 +13,16 @@ type Msg
     | ToggleShowNextIteration
     | KeyPress String
     | SaveState
+    | Zoom DeltaX DeltaY ShiftKey
+
+
+type alias DeltaX =
+    Int
+
+
+type alias DeltaY =
+    Int
+
+
+type alias ShiftKey =
+    Bool

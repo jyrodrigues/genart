@@ -22,8 +22,8 @@ type alias Drawing =
 drawSvg : State -> Float -> Float -> Svg Msg
 drawSvg state w h =
     svg
-        [ width (String.fromFloat w)
-        , height (String.fromFloat h)
+        [ width "1000"
+        , height "800"
         , viewBox <| "0 0 " ++ String.fromFloat w ++ " " ++ String.fromFloat h
         , style "border: 1px dashed black; display: block"
         ]
