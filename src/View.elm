@@ -13,7 +13,7 @@ import Element.Input exposing (button)
 import Html
 import Html.Attributes
 import Html.Events exposing (preventDefaultOn)
-import Json.Decode as Decoder exposing (Decoder, bool, field, int)
+import Json.Decode as Decoder exposing (Decoder, bool, field, float)
 import LSystem exposing (apply, stateToString)
 import Models exposing (Model)
 import Msgs exposing (Msg(..))
@@ -41,6 +41,7 @@ bf11 =
     addBorder ++ filling 1 1
 
 
+view : Model -> Html.Html Msg
 view model =
     layout
         [ width fill
@@ -75,13 +76,13 @@ view model =
                         , el (filling 1 1) (text (String.fromInt <| (*) (List.length model.recording) <| List.length model.state))
                         , el (filling 1 1) (text <| stateToString model.recording)
                         ]
-                    , el (addBorder ++ filling 1 1 ++ [ scrollbars ]) (html <| drawSvg model.recording 120 80)
+                    , el (addBorder ++ filling 1 1 ++ [ scrollbars ]) (html <| drawSvg model.recording 120 80 0 0)
                     ]
                 ]
             , row (addBorder ++ filling 1 5 ++ [ scrollbars, spacing 5 ])
                 [ column (addBorder ++ filling 1 1)
                     [ el (filling 1 1) (text "whoa")
-                    , el (filling 1 1) (text (String.fromInt model.zoomLevel))
+                    , el (filling 1 1) (text (String.fromFloat model.zoomLevel))
                     ]
                 , el (addBorder ++ filling 7 1 ++ [ scrollbars, modifyWheelEvent ]) (html <| svgDiv model)
                 ]
@@ -108,11 +109,12 @@ alwaysPreventDefault msg =
 myDecoder : Decoder Msg
 myDecoder =
     Decoder.map3 Zoom
-        (field "deltaX" int)
-        (field "deltaY" int)
+        (field "deltaX" float)
+        (field "deltaY" float)
         (field "shiftKey" bool)
 
 
+svgDiv : Model -> Html.Html Msg
 svgDiv model =
     Html.div []
         [ drawSvg
@@ -124,8 +126,10 @@ svgDiv model =
             )
             (mapZoomLevelToSize model.zoomLevel)
             (mapZoomLevelToSize model.zoomLevel)
+            model.wDelta
+            model.hDelta
         ]
 
 
 mapZoomLevelToSize zl =
-    max 300.0 (toFloat zl * 4.0)
+    max 10.0 (zl * 4.0)

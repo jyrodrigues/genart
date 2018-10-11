@@ -19,12 +19,12 @@ type alias Drawing =
     }
 
 
-drawSvg : State -> Float -> Float -> Svg Msg
-drawSvg state w h =
+drawSvg : State -> Float -> Float -> Float -> Float -> Svg Msg
+drawSvg state w h wDelta hDelta =
     svg
         [ width "1000"
         , height "800"
-        , viewBox <| "0 0 " ++ String.fromFloat w ++ " " ++ String.fromFloat h
+        , viewBox <| buildViewBox w h wDelta hDelta
         , style "border: 1px dashed black; display: block"
         ]
         [ polyline
@@ -34,6 +34,11 @@ drawSvg state w h =
             ]
             []
         ]
+
+
+buildViewBox : Float -> Float -> Float -> Float -> String
+buildViewBox w h wDelta hDelta =
+    String.join " " <| List.map String.fromFloat [ wDelta, hDelta, w + wDelta, h + hDelta ]
 
 
 initialPosition : Float -> Float -> Position

@@ -13,15 +13,7 @@ type Msg
     | ToggleShowNextIteration
     | KeyPress String
     | SaveState
-    | Zoom DeltaX DeltaY ShiftKey
-
-
-type alias DeltaX =
-    Int
-
-
-type alias DeltaY =
-    Int
+    | Zoom Float Float ShiftKey
 
 
 type alias ShiftKey =

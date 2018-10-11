@@ -43,7 +43,11 @@ update msg model =
             ( model, Ports.cache <| Encode.list Encode.string <| List.map stepToString model.state )
 
         Zoom deltaX deltaY shiftKey ->
-            ( { model | zoomLevel = model.zoomLevel + deltaY }, Cmd.none )
+            if shiftKey then
+                ( { model | wDelta = model.wDelta + deltaX, hDelta = model.hDelta + deltaY }, Cmd.none )
+
+            else
+                ( { model | zoomLevel = model.zoomLevel + deltaY }, Cmd.none )
 
 
 iterate : Model -> Model

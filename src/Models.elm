@@ -13,7 +13,9 @@ type alias Model =
     -- , savedTransformations : List Transformation
     , isShowingNextIteration : Bool
     , dir : String
-    , zoomLevel : Int
+    , zoomLevel : Float
+    , wDelta : Float
+    , hDelta : Float
     }
 
 
@@ -38,4 +40,4 @@ createInitialStateWith localStorage =
                 Nothing ->
                     defaultInitialState
     in
-    Model initialState defaultInitialRecording True [] True "" 0
+    Model initialState defaultInitialRecording True [] True "" 0 0 0

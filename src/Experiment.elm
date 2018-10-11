@@ -102,4 +102,4 @@ experiment =
 
 
 svgMock =
-    drawSvg (List.foldr (++) [] <| List.repeat 1000 [ D, R, D, L, D, L, D, R ]) 1200 1200
+    drawSvg (List.foldr (++) [] <| List.repeat 1000 [ D, R, D, L, D, L, D, R ]) 1200 1200 0 0
