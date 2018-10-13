@@ -46,14 +46,14 @@ view model =
     layout
         [ width fill
         , height fill
-        , Background.color <| rgba255 0 100 200 0.5
+        , Background.color <| rgba255 10 80 180 0.5
         , padding 20
         ]
     <|
         column
             [ width fill
             , height fill
-            , Background.color <| rgb255 250 250 220
+            , Background.color <| rgba255 15 15 60 0.95
             , padding 20
             , scrollbars
             ]

@@ -29,7 +29,7 @@ drawSvg state w h wDelta hDelta =
         ]
         [ polyline
             [ Svg.Attributes.points <| .path <| stateToSvgPath state w h
-            , stroke "black"
+            , stroke "rgba(0,180,110,0.7)"
             , fill "none"
             ]
             []
@@ -80,3 +80,10 @@ stepToPath step drawing =
 
         _ ->
             drawing
+
+
+
+--
+-- countSize : State -> Float -> Float -> Float -> Float
+-- countSize state =
+--     List.foldl (\step)
