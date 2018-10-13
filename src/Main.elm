@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Experiment exposing (experiment)
+import Html exposing (div, text)
 import Models exposing (Model)
 import Msgs exposing (Msg)
 import Subscriptions exposing (subscriptions)
@@ -26,6 +27,15 @@ main =
         }
 
 
+
+{--
+init : List (List String) -> ( Model, Cmd Msg )
+init _ =
+    ( Models.defaultInitialModel, Cmd.none )
+--}
+
+
+{--}
 init : List (List String) -> ( Model, Cmd Msg )
 init localStorage =
     ( Models.createInitialStateWith localStorage, Cmd.none )

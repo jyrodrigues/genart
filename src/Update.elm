@@ -2,7 +2,7 @@ module Update exposing (update)
 
 import Auxiliary exposing (dropLast)
 import Json.Encode as Encode
-import LSystem exposing (Step(..), apply, rebuildState, stepToString)
+import LSystem exposing (Step(..), applyRule, rebuildState, stepToString)
 import Models exposing (Model)
 import Msgs exposing (Msg(..))
 import Ports
@@ -54,7 +54,7 @@ iterate : Model -> Model
 iterate model =
     { model
         | state =
-            apply model.recording model.state
+            applyRule model.recording model.state
         , history =
             model.history ++ [ model.recording ]
     }
@@ -91,7 +91,7 @@ processKey model dir =
             { model | recording = model.recording ++ [ S ], dir = dir }
 
         " " ->
-            { model | isShowingNextIteration = not model.isShowingNextIteration }
+            { model | fixed = not model.fixed }
 
         "Backspace" ->
             { model | recording = dropLast model.recording, dir = dir }

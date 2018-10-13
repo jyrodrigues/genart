@@ -1,4 +1,4 @@
-module Models exposing (Model, createInitialStateWith, defaultInitialState)
+module Models exposing (Model, createInitialStateWith, defaultInitialModel, defaultInitialState)
 
 import LSystem exposing (State, Step(..), Transformation, stringToStep)
 
@@ -16,6 +16,7 @@ type alias Model =
     , zoomLevel : Float
     , wDelta : Float
     , hDelta : Float
+    , fixed : Bool
     }
 
 
@@ -40,4 +41,8 @@ createInitialStateWith localStorage =
                 Nothing ->
                     defaultInitialState
     in
-    Model initialState defaultInitialRecording True [] True "" 0 0 0
+    Model initialState defaultInitialRecording True [] True "" 0 0 0 False
+
+
+defaultInitialModel =
+    Model defaultInitialState defaultInitialRecording True [] True "" 0 0 0 False

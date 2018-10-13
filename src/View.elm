@@ -4,7 +4,7 @@ module View exposing (view)
 -- import Html.Attributes exposing (style)
 -- import Html.Events exposing (onClick)
 
-import Draw exposing (drawSvg)
+import Draw exposing (countSize, drawSvg, drawSvgFixed)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -14,7 +14,7 @@ import Html
 import Html.Attributes
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as Decoder exposing (Decoder, bool, field, float)
-import LSystem exposing (apply, stateToString)
+import LSystem exposing (applyRule, stateToString)
 import Models exposing (Model)
 import Msgs exposing (Msg(..))
 
@@ -67,7 +67,7 @@ view model =
                     , button bf11 { onPress = Just Deiterate, label = text "Deiterate" }
                     , button bf11 { onPress = Just ToggleShowNextIteration, label = text "ToggleShowNextIteration" }
                     , el bf11 (text <| "Status: " ++ onOff model.isShowingNextIteration)
-                    , el bf11 (text <| " Rec: " ++ onOff model.recOn)
+                    , el bf11 (text <| " Fixed: " ++ onOff model.fixed)
                     ]
                 , row (filling 1 4 ++ [ scrollbars, spacing 5 ])
                     [ column (bf11 ++ [ scrollbars ])
@@ -83,8 +83,16 @@ view model =
                 [ column (addBorder ++ filling 1 1)
                     [ el (filling 1 1) (text "whoa")
                     , el (filling 1 1) (text (String.fromFloat model.zoomLevel))
+                    , el (filling 1 1) (text (Debug.toString <| countSize model.state))
                     ]
-                , el (addBorder ++ filling 7 1 ++ [ scrollbars, modifyWheelEvent ]) (html <| svgDiv model)
+                , el (addBorder ++ filling 7 1 ++ [ scrollbars, modifyWheelEvent ])
+                    (html <|
+                        if model.fixed then
+                            svgDivFixed model
+
+                        else
+                            svgDiv model
+                    )
                 ]
             ]
 
@@ -119,7 +127,7 @@ svgDiv model =
     Html.div []
         [ drawSvg
             (if model.isShowingNextIteration then
-                apply model.recording model.state
+                applyRule model.recording model.state
 
              else
                 model.state
@@ -133,3 +141,16 @@ svgDiv model =
 
 mapZoomLevelToSize zl =
     max 10.0 (zl * 4.0)
+
+
+svgDivFixed : Model -> Html.Html Msg
+svgDivFixed model =
+    Html.div []
+        [ drawSvgFixed
+            (if model.isShowingNextIteration then
+                applyRule model.recording model.state
+
+             else
+                model.state
+            )
+        ]

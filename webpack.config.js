@@ -35,6 +35,7 @@ module.exports = {
           loader: "elm-webpack-loader?verbose=true",
           options: {
             optimize: false,
+            debug: false,
           },
         },
       },

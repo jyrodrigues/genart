@@ -1,4 +1,4 @@
-module Draw exposing (drawSvg)
+module Draw exposing (countSize, drawSvg, drawSvgFixed)
 
 import LSystem exposing (State, Step(..))
 import Msgs exposing (Msg)
@@ -23,12 +23,12 @@ drawSvg : State -> Float -> Float -> Float -> Float -> Svg Msg
 drawSvg state w h wDelta hDelta =
     svg
         [ width "1000"
-        , height "800"
-        , viewBox <| buildViewBox w h wDelta hDelta
+        , height "700"
+        , viewBox <| toSpacedString wDelta hDelta (w + wDelta) (h + hDelta)
         , style "border: 1px dashed black; display: block"
         ]
         [ polyline
-            [ Svg.Attributes.points <| .path <| stateToSvgPath state w h
+            [ Svg.Attributes.points <| .path <| stateToSvgPath state (w / 2) (h / 2)
             , stroke "rgba(0,180,110,0.7)"
             , fill "none"
             ]
@@ -36,14 +36,66 @@ drawSvg state w h wDelta hDelta =
         ]
 
 
-buildViewBox : Float -> Float -> Float -> Float -> String
-buildViewBox w h wDelta hDelta =
-    String.join " " <| List.map String.fromFloat [ wDelta, hDelta, w + wDelta, h + hDelta ]
+drawSvgFixed : State -> Svg Msg
+drawSvgFixed state =
+    let
+        maxes =
+            countSize state
+
+        x0 =
+            toFloat maxes.minX
+
+        x1 =
+            toFloat maxes.maxX
+
+        y0 =
+            toFloat maxes.minY
+
+        y1 =
+            toFloat maxes.maxY
+
+        w =
+            x1 - x0
+
+        h =
+            y1 - y0
+
+        margin =
+            0.5
+
+        xBegin =
+            (*) scale <| -x0 + (margin / 2 * w)
+
+        yBegin =
+            (*) scale <| -y0 + (margin / 2 * h)
+
+        scale =
+            10
+
+        fw =
+            (1 + margin) * scale * w
+
+        fh =
+            (1 + margin) * scale * h
+    in
+    svg
+        [ width "690"
+        , height "690"
+        , viewBox <| toSpacedString 0 0 fw fh
+        , style "border: 1px dashed black; display: block"
+        ]
+        [ polyline
+            [ Svg.Attributes.points <| .path <| stateToSvgPath state xBegin yBegin
+            , stroke "rgba(0,180,110,0.7)"
+            , fill "none"
+            ]
+            []
+        ]
 
 
-initialPosition : Float -> Float -> Position
-initialPosition w h =
-    Position (w / 2) (h / 2)
+toSpacedString : Float -> Float -> Float -> Float -> String
+toSpacedString a b c d =
+    String.join " " <| List.map String.fromFloat [ a, b, c, d ]
 
 
 positionToString : Position -> String
@@ -52,8 +104,8 @@ positionToString pos =
 
 
 stateToSvgPath : State -> Float -> Float -> Drawing
-stateToSvgPath state w h =
-    List.foldl stepToPath (Drawing (positionToString <| initialPosition w h) (initialPosition w h) 0) state
+stateToSvgPath state x0 y0 =
+    List.foldl stepToPath (Drawing (String.fromFloat x0 ++ " " ++ String.fromFloat y0) (Position x0 y0) 0) state
 
 
 stepToPath : Step -> Drawing -> Drawing
@@ -82,8 +134,132 @@ stepToPath step drawing =
             drawing
 
 
+type Direction
+    = N
+    | S
+    | E
+    | W
 
---
--- countSize : State -> Float -> Float -> Float -> Float
--- countSize state =
---     List.foldl (\step)
+
+type alias Maxes =
+    { maxX : Int
+    , minX : Int
+    , maxY : Int
+    , minY : Int
+    }
+
+
+type alias Pos =
+    { x : Int
+    , y : Int
+    , direction : Direction
+    }
+
+
+initialMaxes : Maxes
+initialMaxes =
+    { maxX = 0
+    , minX = 0
+    , maxY = 0
+    , minY = 0
+    }
+
+
+initialPos : Pos
+initialPos =
+    { x = 0
+    , y = 0
+    , direction = E
+    }
+
+
+countMax : Step -> ( Pos, Maxes ) -> ( Pos, Maxes )
+countMax step ( pos, maxes ) =
+    let
+        nextPos =
+            case pos.direction of
+                N ->
+                    { pos | y = pos.y - 1 }
+
+                S ->
+                    { pos | y = pos.y + 1 }
+
+                E ->
+                    { pos | x = pos.x + 1 }
+
+                W ->
+                    { pos | x = pos.x - 1 }
+
+        -- Could change to a list [maxx, minx, maxy, miny] for simplicity?
+        nextMaxes =
+            if nextPos.x > maxes.maxX then
+                { maxes | maxX = nextPos.x }
+
+            else if nextPos.x < maxes.minX then
+                { maxes | minX = nextPos.x }
+
+            else if nextPos.y > maxes.maxY then
+                { maxes | maxY = nextPos.y }
+
+            else if nextPos.y < maxes.minY then
+                { maxes | minY = nextPos.y }
+
+            else
+                maxes
+    in
+    case step of
+        -- L ->
+        --     changeDirection step accTuple
+        D ->
+            ( nextPos, nextMaxes )
+
+        _ ->
+            ( { pos | direction = changeDirection step pos.direction }, maxes )
+
+
+changeDirection : Step -> Direction -> Direction
+changeDirection step dir =
+    case step of
+        L ->
+            case dir of
+                N ->
+                    W
+
+                W ->
+                    S
+
+                S ->
+                    E
+
+                E ->
+                    N
+
+        R ->
+            case dir of
+                N ->
+                    E
+
+                E ->
+                    S
+
+                S ->
+                    W
+
+                W ->
+                    N
+
+        _ ->
+            dir
+
+
+countSize : State -> Maxes
+countSize state =
+    Tuple.second <| List.foldl countMax ( initialPos, initialMaxes ) state
+
+
+
+-- let
+--     { maxX, minX, maxY, minY } =
+--         Tuple.second <| List.foldl countMax ( initialPos, initialMaxes ) state
+-- in
+-- ( maxX - minX, maxY - minY )

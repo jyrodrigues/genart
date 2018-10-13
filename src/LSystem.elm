@@ -1,4 +1,4 @@
-module LSystem exposing (State, Step(..), Transformation, apply, makeRule, rebuildState, stateToString, stepToString, stringToStep)
+module LSystem exposing (State, Step(..), Transformation, applyRule, makeRule, rebuildState, stateToString, stepToString, stringToStep)
 
 
 type Step
@@ -18,11 +18,11 @@ type alias Transformation =
 
 rebuildState : State -> List Transformation -> State
 rebuildState baseState history =
-    List.foldl apply baseState history
+    List.foldl applyRule baseState history
 
 
-apply : Transformation -> State -> State
-apply transformation baseState =
+applyRule : Transformation -> State -> State
+applyRule transformation baseState =
     let
         rule =
             makeRule transformation
