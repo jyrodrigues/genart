@@ -1,4 +1,15 @@
-module LSystem exposing (State, Step(..), Transformation, applyRule, makeRule, rebuildState, stateToString, stepToString, stringToStep)
+module LSystem exposing
+    ( State
+    , Step(..)
+    , Transformation
+    , applyRule
+    , countSize
+    , makeRule
+    , rebuildState
+    , stateToString
+    , stepToString
+    , stringToStep
+    )
 
 
 type Step
@@ -6,6 +17,10 @@ type Step
     | R
     | L
     | S
+
+
+
+-- Todo: Change State to be Base + List Transformations
 
 
 type alias State =
@@ -40,6 +55,33 @@ makeRule state step =
             [ step ]
 
 
+
+-- Todo: make a decoder directly to state from js array
+
+
+stringToStep : String -> Step
+stringToStep char =
+    case char of
+        "D" ->
+            D
+
+        "R" ->
+            R
+
+        "L" ->
+            L
+
+        "S" ->
+            S
+
+        _ ->
+            S
+
+
+
+-- toString Methods
+
+
 stateToString : State -> String
 stateToString state =
     state
@@ -63,20 +105,147 @@ stepToString step =
             "S"
 
 
-stringToStep : String -> Step
-stringToStep char =
-    case char of
-        "D" ->
-            D
 
-        "R" ->
-            R
+-- MEASURING
 
-        "L" ->
-            L
 
-        "S" ->
-            S
+type Direction
+    = Up
+    | Down
+    | Right
+    | Left
+
+
+type alias Maxes =
+    { maxX : Int
+    , minX : Int
+    , maxY : Int
+    , minY : Int
+    }
+
+
+type alias Pos =
+    { x : Int
+    , y : Int
+    , direction : Direction
+    }
+
+
+initialMaxes : Maxes
+initialMaxes =
+    { maxX = 0
+    , minX = 0
+    , maxY = 0
+    , minY = 0
+    }
+
+
+
+-- Todo: make `E` a parameter
+
+
+initialPos : Pos
+initialPos =
+    { x = 0
+    , y = 0
+    , direction = Right
+    }
+
+
+countMax : Step -> ( Pos, Maxes ) -> ( Pos, Maxes )
+countMax step ( pos, maxes ) =
+    let
+        nextPos =
+            case pos.direction of
+                Up ->
+                    { pos | y = pos.y - 1 }
+
+                Down ->
+                    { pos | y = pos.y + 1 }
+
+                Right ->
+                    { pos | x = pos.x + 1 }
+
+                Left ->
+                    { pos | x = pos.x - 1 }
+
+        -- Could change to a list [maxx, minx, maxy, miny] for simplicity?
+        nextMaxes =
+            if nextPos.x > maxes.maxX then
+                { maxes | maxX = nextPos.x }
+
+            else if nextPos.x < maxes.minX then
+                { maxes | minX = nextPos.x }
+
+            else if nextPos.y > maxes.maxY then
+                { maxes | maxY = nextPos.y }
+
+            else if nextPos.y < maxes.minY then
+                { maxes | minY = nextPos.y }
+
+            else
+                maxes
+    in
+    case step of
+        -- L ->
+        --     changeDirection step accTuple
+        D ->
+            ( nextPos, nextMaxes )
 
         _ ->
-            S
+            ( { pos | direction = changeDirection step pos.direction }, maxes )
+
+
+
+-- Todo: Try to make a simpler changeDirection function
+-- type GNState a
+--     = NotSeen a
+--     | GetNext
+--     | Found a
+-- getNext : a -> List a -> a
+-- getNext sym symList =
+--     let
+--         fn gnState =
+--             Found
+--     in
+--     List.foldl fn (NotSeen sym) symList
+
+
+changeDirection : Step -> Direction -> Direction
+changeDirection step dir =
+    case step of
+        L ->
+            case dir of
+                Up ->
+                    Left
+
+                Left ->
+                    Down
+
+                Down ->
+                    Right
+
+                Right ->
+                    Up
+
+        R ->
+            case dir of
+                Up ->
+                    Right
+
+                Right ->
+                    Down
+
+                Down ->
+                    Left
+
+                Left ->
+                    Up
+
+        _ ->
+            dir
+
+
+countSize : State -> Maxes
+countSize state =
+    Tuple.second <| List.foldl countMax ( initialPos, initialMaxes ) state

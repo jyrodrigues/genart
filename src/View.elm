@@ -4,7 +4,7 @@ module View exposing (view)
 -- import Html.Attributes exposing (style)
 -- import Html.Events exposing (onClick)
 
-import Draw exposing (countSize, drawSvg, drawSvgFixed)
+import Draw exposing (drawSvg, drawSvgFixed)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -14,7 +14,7 @@ import Html
 import Html.Attributes
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as Decoder exposing (Decoder, bool, field, float)
-import LSystem exposing (applyRule, stateToString)
+import LSystem exposing (applyRule, countSize, stateToString)
 import Models exposing (Model)
 import Msgs exposing (Msg(..))
 
@@ -105,8 +105,12 @@ onOff bool =
         "Off"
 
 
+
+-- Todo: refactor modifyWheelEvent/alwaysPreventDefault/wheelDecoder out of here
+
+
 modifyWheelEvent =
-    htmlAttribute <| preventDefaultOn "wheel" (Decoder.map alwaysPreventDefault myDecoder)
+    htmlAttribute <| preventDefaultOn "wheel" (Decoder.map alwaysPreventDefault wheelDecoder)
 
 
 alwaysPreventDefault : Msg -> ( Msg, Bool )
@@ -114,8 +118,8 @@ alwaysPreventDefault msg =
     ( msg, True )
 
 
-myDecoder : Decoder Msg
-myDecoder =
+wheelDecoder : Decoder Msg
+wheelDecoder =
     Decoder.map3 Zoom
         (field "deltaX" float)
         (field "deltaY" float)
