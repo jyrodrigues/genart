@@ -63,7 +63,7 @@ createInitialModelWith localStorage =
         0
         0
         0
-        False
+        True
 
 
 defaultInitialModel =
@@ -79,7 +79,7 @@ defaultInitialModel =
         0
         0
         0
-        False
+        True
 
 
 

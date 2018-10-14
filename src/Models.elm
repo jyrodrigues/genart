@@ -20,6 +20,8 @@ type alias Model =
     , zoomLevel : Float
     , wDelta : Float
     , hDelta : Float
+
+    -- Todo: remove fixed. "space" should just center the image
     , fixed : Bool
     }
 
