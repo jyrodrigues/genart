@@ -1,6 +1,6 @@
 module Msgs exposing (Msg(..))
 
-import LSystem exposing (Step)
+import LSystem.Core exposing (Step)
 
 
 type Msg

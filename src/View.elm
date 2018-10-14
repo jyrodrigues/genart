@@ -4,7 +4,7 @@ module View exposing (view)
 -- import Html.Attributes exposing (style)
 -- import Html.Events exposing (onClick)
 
-import Draw exposing (drawSvg, drawSvgFixed)
+import LSystem.Draw exposing (drawSvg, drawSvgFixed)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -14,7 +14,7 @@ import Html
 import Html.Attributes
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as Decoder exposing (Decoder, bool, field, float)
-import LSystem exposing (applyRule, countSize, stateToString)
+import LSystem.Core exposing (applyRule, countSize, stateToString)
 import Models exposing (Model)
 import Msgs exposing (Msg(..))
 

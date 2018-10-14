@@ -4,7 +4,7 @@ import Browser
 import Browser.Events
 import Html exposing (div, text)
 import Json.Decode exposing (Decoder)
-import LSystem exposing (State, Step(..), Transformation, stringToStep)
+import LSystem.Core exposing (State, Step(..), Transformation, stringToStep)
 import Models exposing (Model, defaultInitialRecording, defaultInitialState)
 import Msgs exposing (Msg)
 import Update exposing (update)
@@ -24,6 +24,10 @@ type alias Flags =
     List (List String)
 
 
+
+-- put ports here. To do that put an update function here with, say, 2 msg cases that calls update from the Update.elm file
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
@@ -35,7 +39,6 @@ keyDecoder =
     Json.Decode.field "key" Json.Decode.string
 
 
-{--}
 init : Flags -> ( Model, Cmd Msg )
 init localStorage =
     ( createInitialStateWith localStorage, Cmd.none )
@@ -57,7 +60,6 @@ createInitialStateWith localStorage =
 
 defaultInitialModel =
     Model defaultInitialState defaultInitialRecording True [] True "" 0 0 0 False
---}
 
 
 

@@ -1,11 +1,13 @@
-module Update exposing (update)
+port module Update exposing (update)
 
 import Auxiliary exposing (dropLast)
 import Json.Encode as Encode
-import LSystem exposing (Step(..), applyRule, rebuildState, stepToString)
+import LSystem.Core exposing (Step(..), applyRule, rebuildState, stepToString)
 import Models exposing (Model)
 import Msgs exposing (Msg(..))
-import Ports
+
+
+port cache : Encode.Value -> Cmd msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -40,7 +42,7 @@ update msg model =
             ( processKey model dir, Cmd.none )
 
         SaveState ->
-            ( model, Ports.cache <| Encode.list Encode.string <| List.map stepToString model.state )
+            ( model, cache <| Encode.list Encode.string <| List.map stepToString model.state )
 
         Zoom deltaX deltaY shiftKey ->
             if shiftKey then

@@ -1,6 +1,6 @@
-module Draw exposing (drawSvg, drawSvgFixed)
+module LSystem.Draw exposing (drawSvg, drawSvgFixed)
 
-import LSystem exposing (State, Step(..), countSize)
+import LSystem.Core exposing (State, Step(..), countSize)
 import Msgs exposing (Msg)
 import Svg exposing (Svg, polyline, svg)
 import Svg.Attributes exposing (fill, height, stroke, style, viewBox, width)

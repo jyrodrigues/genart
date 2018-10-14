@@ -1,6 +1,6 @@
 module Models exposing (Model, defaultInitialRecording, defaultInitialState)
 
-import LSystem exposing (State, Step(..), Transformation)
+import LSystem.Core exposing (State, Step(..), Transformation)
 
 
 type alias Model =

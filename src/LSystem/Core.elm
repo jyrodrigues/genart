@@ -1,4 +1,4 @@
-module LSystem exposing
+module LSystem.Core exposing
     ( State
     , Step(..)
     , Transformation
