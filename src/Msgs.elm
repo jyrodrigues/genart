@@ -1,6 +1,6 @@
 module Msgs exposing (Msg(..))
 
-import LSystem.Core exposing (Step)
+import LSystem.Core exposing (State, Step)
 
 
 type Msg
@@ -14,6 +14,10 @@ type Msg
     | KeyPress String
     | SaveState
     | Zoom Float Float ShiftKey
+
+
+
+-- | UpdateSaved (List (List State))
 
 
 type alias ShiftKey =

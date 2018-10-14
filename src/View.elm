@@ -4,7 +4,6 @@ module View exposing (view)
 -- import Html.Attributes exposing (style)
 -- import Html.Events exposing (onClick)
 
-import LSystem.Draw exposing (drawSvg, drawSvgFixed)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -15,6 +14,7 @@ import Html.Attributes
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as Decoder exposing (Decoder, bool, field, float)
 import LSystem.Core exposing (applyRule, countSize, stateToString)
+import LSystem.Draw exposing (drawSvg, drawSvgFixed)
 import Models exposing (Model)
 import Msgs exposing (Msg(..))
 
@@ -57,34 +57,10 @@ view model =
             , padding 20
             , scrollbars
             ]
-            [ column (bf11 ++ [ scrollbars, spacing 5 ])
-                [ row (bf11 ++ [ scrollbars, spacing 5 ])
-                    [ button bf11 { onPress = Just SaveState, label = text "Save State" }
-                    , button bf11 { onPress = Just Backspace, label = text "Backspace" }
-                    , button bf11 { onPress = Just ClearStep, label = text "ClearStep" }
-                    , button bf11 { onPress = Just ClearSvg, label = text "ClearSvg" }
-                    , button bf11 { onPress = Just Iterate, label = text "Iterate" }
-                    , button bf11 { onPress = Just Deiterate, label = text "Deiterate" }
-                    , button bf11 { onPress = Just ToggleShowNextIteration, label = text "ToggleShowNextIteration" }
-                    , el bf11 (text <| "Status: " ++ onOff model.isShowingNextIteration)
-                    , el bf11 (text <| " Fixed: " ++ onOff model.fixed)
-                    ]
-                , row (filling 1 4 ++ [ scrollbars, spacing 5 ])
-                    [ column (bf11 ++ [ scrollbars ])
-                        [ el (filling 1 1) (text (String.fromInt <| List.length model.state))
-                        , el (filling 1 1) (text <| "->" ++ model.dir ++ "<-")
-                        , el (filling 1 1) (text (String.fromInt <| (*) (List.length model.recording) <| List.length model.state))
-                        , el (filling 1 1) (text <| stateToString model.recording)
-                        ]
-                    , el (addBorder ++ filling 1 1 ++ [ scrollbars ]) (html <| drawSvg model.recording 120 80 0 0)
-                    ]
-                ]
+            [ topRow model
             , row (addBorder ++ filling 1 5 ++ [ scrollbars, spacing 5 ])
-                [ column (addBorder ++ filling 1 1)
-                    [ el (filling 1 1) (text "whoa")
-                    , el (filling 1 1) (text (String.fromFloat model.zoomLevel))
-                    , el (filling 1 1) (text (Debug.toString <| countSize model.state))
-                    ]
+                [ column (addBorder ++ filling 1 1 ++ [ scrollbars ])
+                    (List.map elFromState model.savedStates)
                 , el (addBorder ++ filling 7 1 ++ [ scrollbars, modifyWheelEvent ])
                     (html <|
                         if model.fixed then
@@ -97,12 +73,50 @@ view model =
             ]
 
 
+topRow model =
+    column (bf11 ++ [ scrollbars, spacing 5 ])
+        [ row (bf11 ++ [ scrollbars, spacing 5 ])
+            [ button bf11 { onPress = Just SaveState, label = text "Save State" }
+            , button bf11 { onPress = Just Backspace, label = text "Backspace" }
+            , button bf11 { onPress = Just ClearStep, label = text "ClearStep" }
+            , button bf11 { onPress = Just ClearSvg, label = text "ClearSvg" }
+            , button bf11 { onPress = Just Iterate, label = text "Iterate" }
+            , button bf11 { onPress = Just Deiterate, label = text "Deiterate" }
+            , button bf11 { onPress = Just ToggleShowNextIteration, label = text "ToggleShowNextIteration" }
+            , el bf11 (text <| "Status: " ++ onOff model.isShowingNextIteration)
+            , el bf11 (text <| " Fixed: " ++ onOff model.fixed)
+            ]
+        , row (filling 1 4 ++ [ scrollbars, spacing 5 ])
+            [ column (bf11 ++ [ scrollbars ])
+                [ el (filling 1 1) (text (String.fromInt <| List.length model.state))
+                , el (filling 1 1) (text <| "->" ++ model.dir ++ "<-")
+                , el (filling 1 1) (text (String.fromInt <| (*) (List.length model.recording) <| List.length model.state))
+                , el (filling 1 1) (text <| stateToString model.recording)
+                ]
+            , el (addBorder ++ filling 1 1 ++ [ scrollbars ]) (html <| drawSvg model.recording 120 80 0 0)
+            ]
+        ]
+
+
 onOff bool =
     if bool then
         "On"
 
     else
         "Off"
+
+
+elFromState state =
+    row (addBorder ++ [ height (fill |> minimum 100), width fill ])
+        [ column []
+            [ text "Here go btn"
+
+            -- [ button bf11 { onPress = Just SetAsBase, label = text "SetAsBase" }
+            -- , button bf11 { onPress = Just Exclude, label = text "Exclude" }
+            -- , button bf11 { onPress = Just Iterate, label = text "Iterate" }
+            ]
+        , el (filling 1 1) <| html <| drawSvgFixed state
+        ]
 
 
 

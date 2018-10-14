@@ -10,8 +10,5 @@ var app = Elm.Main.init({
 });
 
 app.ports.cache.subscribe(data => {
-    console.log(data);
-    const cache = JSON.parse(localStorage.getItem('genart/cache')) || [];
-    cache.push(data);
-    localStorage.setItem('genart/cache', JSON.stringify(cache));
+    localStorage.setItem('genart/cache', JSON.stringify(data));
 });

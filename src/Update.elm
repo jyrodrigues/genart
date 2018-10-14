@@ -3,7 +3,7 @@ port module Update exposing (update)
 import Auxiliary exposing (dropLast)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..), applyRule, rebuildState, stepToString)
-import Models exposing (Model)
+import Models exposing (Model, squareState)
 import Msgs exposing (Msg(..))
 
 
@@ -27,7 +27,7 @@ update msg model =
             ( { model | recording = [] }, Cmd.none )
 
         ClearSvg ->
-            ( { model | state = Models.defaultInitialState }, Cmd.none )
+            ( { model | state = Models.squareState }, Cmd.none )
 
         Iterate ->
             ( iterate model, Cmd.none )
@@ -42,8 +42,18 @@ update msg model =
             ( processKey model dir, Cmd.none )
 
         SaveState ->
-            ( model, cache <| Encode.list Encode.string <| List.map stepToString model.state )
+            let
+                newSavedStates =
+                    model.savedStates ++ [ model.state ]
+            in
+            ( { model | savedStates = newSavedStates }
+            , newSavedStates
+                |> List.map (\state -> List.map stepToString state)
+                |> Encode.list (\state -> Encode.list Encode.string state)
+                |> cache
+            )
 
+        -- cache <| Encode.list Encode.string <| List.map (\state -> List.map stepToString state) )
         Zoom deltaX deltaY shiftKey ->
             if shiftKey then
                 ( { model | wDelta = model.wDelta + deltaX, hDelta = model.hDelta + deltaY }, Cmd.none )
@@ -69,7 +79,7 @@ deiterate model =
             dropLast model.history
     in
     { model
-        | state = rebuildState Models.defaultInitialState newHistory
+        | state = rebuildState model.baseState newHistory
         , history = newHistory
     }
 

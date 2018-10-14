@@ -1,5 +1,7 @@
 module LSystem.Draw exposing (drawSvg, drawSvgFixed)
 
+-- Todo: remove Msgs from here. Msgs should live on Update and LSystem.Draw should have its own msgs
+
 import LSystem.Core exposing (State, Step(..), countSize)
 import Msgs exposing (Msg)
 import Svg exposing (Svg, polyline, svg)
@@ -79,9 +81,7 @@ drawSvgFixed state =
             (1 + margin) * scale * h
     in
     svg
-        [ width "690"
-        , height "690"
-        , viewBox <| toSpacedString 0 0 fw fh
+        [ viewBox <| toSpacedString 0 0 fw fh
         , style "border: 1px dashed black; display: block"
         ]
         [ polyline

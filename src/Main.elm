@@ -5,7 +5,7 @@ import Browser.Events
 import Html exposing (div, text)
 import Json.Decode exposing (Decoder)
 import LSystem.Core exposing (State, Step(..), Transformation, stringToStep)
-import Models exposing (Model, defaultInitialRecording, defaultInitialState)
+import Models exposing (Model, onlyD, squareState)
 import Msgs exposing (Msg)
 import Update exposing (update)
 import View exposing (view)
@@ -41,25 +41,45 @@ keyDecoder =
 
 init : Flags -> ( Model, Cmd Msg )
 init localStorage =
-    ( createInitialStateWith localStorage, Cmd.none )
+    ( createInitialModelWith localStorage, Cmd.none )
 
 
-createInitialStateWith : List (List String) -> Model
-createInitialStateWith localStorage =
+createInitialModelWith : List (List String) -> Model
+createInitialModelWith localStorage =
     let
-        initialState =
-            case List.head localStorage of
-                Just stored ->
-                    List.map stringToStep stored
-
-                Nothing ->
-                    defaultInitialState
+        savedStates =
+            localStorage
+                |> List.map (\state -> List.map stringToStep state)
     in
-    Model initialState defaultInitialRecording True [] True "" 0 0 0 False
+    Model
+        squareState
+        onlyD
+        True
+        []
+        savedStates
+        squareState
+        True
+        ""
+        0
+        0
+        0
+        False
 
 
 defaultInitialModel =
-    Model defaultInitialState defaultInitialRecording True [] True "" 0 0 0 False
+    Model
+        squareState
+        onlyD
+        True
+        []
+        []
+        squareState
+        True
+        ""
+        0
+        0
+        0
+        False
 
 
 
