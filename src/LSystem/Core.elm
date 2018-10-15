@@ -141,7 +141,7 @@ initialMaxes =
 
 
 
--- Todo: make `E` a parameter
+-- Todo: make `Right` a parameter
 
 
 initialPos : Pos

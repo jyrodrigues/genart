@@ -1,6 +1,6 @@
 module Msgs exposing (Msg(..))
 
-import LSystem.Core exposing (State, Step)
+import LSystem.Core exposing (State, Step, Transformation)
 
 
 type Msg
@@ -8,11 +8,13 @@ type Msg
     | Backspace
     | ClearStep
     | ClearSvg
-    | Iterate
+    | SetAsBase State
+    | Iterate Transformation
     | Deiterate
     | ToggleShowNextIteration
     | KeyPress String
     | SaveState
+    | Exclude Int
     | Zoom Float Float ShiftKey
 
 

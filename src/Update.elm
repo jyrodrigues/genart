@@ -2,7 +2,7 @@ port module Update exposing (update)
 
 import Auxiliary exposing (dropLast)
 import Json.Encode as Encode
-import LSystem.Core exposing (Step(..), applyRule, rebuildState, stepToString)
+import LSystem.Core exposing (Step(..), Transformation, applyRule, rebuildState, stepToString)
 import Models exposing (Model, squareState)
 import Msgs exposing (Msg(..))
 
@@ -29,8 +29,11 @@ update msg model =
         ClearSvg ->
             ( { model | state = Models.squareState }, Cmd.none )
 
-        Iterate ->
-            ( iterate model, Cmd.none )
+        SetAsBase state ->
+            ( { model | state = state }, Cmd.none )
+
+        Iterate transformation ->
+            ( iterate model transformation, Cmd.none )
 
         Deiterate ->
             ( deiterate model, Cmd.none )
@@ -44,14 +47,22 @@ update msg model =
         SaveState ->
             let
                 newSavedStates =
-                    model.savedStates ++ [ model.state ]
+                    if model.isShowingNextIteration then
+                        [ applyRule model.recording model.state ] ++ model.savedStates
+
+                    else
+                        [ model.state ] ++ model.savedStates
             in
             ( { model | savedStates = newSavedStates }
-            , newSavedStates
-                |> List.map (\state -> List.map stepToString state)
-                |> Encode.list (\state -> Encode.list Encode.string state)
-                |> cache
+            , cacheSavedStates newSavedStates
             )
+
+        Exclude index ->
+            let
+                newSavedStates =
+                    List.take index model.savedStates ++ List.drop (index + 1) model.savedStates
+            in
+            ( { model | savedStates = newSavedStates }, cacheSavedStates newSavedStates )
 
         -- cache <| Encode.list Encode.string <| List.map (\state -> List.map stepToString state) )
         Zoom deltaX deltaY shiftKey ->
@@ -62,13 +73,20 @@ update msg model =
                 ( { model | zoomLevel = model.zoomLevel + deltaY }, Cmd.none )
 
 
-iterate : Model -> Model
-iterate model =
+cacheSavedStates savedStates =
+    savedStates
+        |> List.map (\state -> List.map stepToString state)
+        |> Encode.list (\state -> Encode.list Encode.string state)
+        |> cache
+
+
+iterate : Model -> Transformation -> Model
+iterate model transformation =
     { model
         | state =
-            applyRule model.recording model.state
+            applyRule transformation model.state
         , history =
-            model.history ++ [ model.recording ]
+            model.history ++ [ transformation ]
     }
 
 
@@ -111,7 +129,7 @@ processKey model dir =
         "i" ->
             let
                 newModel =
-                    iterate model
+                    iterate model model.recording
             in
             { newModel | dir = dir }
 

@@ -78,7 +78,7 @@ view model =
             [ topRow model
             , row (addBorder ++ filling 1 5 ++ [ spacing 5 ])
                 [ column (addBorder ++ filling 1 1 ++ [ scrollbars ])
-                    (List.map elFromState model.savedStates)
+                    (List.indexedMap elFromState model.savedStates)
                 , el (addBorder ++ filling 7 1 ++ [ scrollbars, modifyWheelEvent ])
                     (html <|
                         if model.fixed then
@@ -98,7 +98,7 @@ topRow model =
             , styledButton { onPress = Just Backspace, label = text "Backspace" }
             , styledButton { onPress = Just ClearStep, label = text "ClearStep" }
             , styledButton { onPress = Just ClearSvg, label = text "ClearSvg" }
-            , styledButton { onPress = Just Iterate, label = text "Iterate" }
+            , styledButton { onPress = Just (Iterate model.recording), label = text "Iterate" }
             , styledButton { onPress = Just Deiterate, label = text "Deiterate" }
             , styledButton { onPress = Just ToggleShowNextIteration, label = text "ToggleShowNextIteration" }
             , styledEl bf11 (text <| "Status: " ++ onOff model.isShowingNextIteration)
@@ -124,16 +124,15 @@ onOff bool =
         "Off"
 
 
-elFromState : State -> Element Msg
-elFromState state =
+elFromState : Int -> State -> Element Msg
+elFromState index state =
     row (addBorder ++ [ height (fill |> minimum 100), width fill, Background.color <| rgb 170 170 170 ])
         [ column []
-            [ styledEl bf11 (text "Inativo")
-
             -- Todo: fazer função de remoção
-            -- [ styledButton { onPress = Just Exclude, label = text "Exclude" }
-            -- , styledButton { onPress = Just SetAsBase, label = text "SetAsBase" }
-            -- , styledButton { onPress = Just Iterate, label = text "Iterate" }
+            [ styledButton { onPress = Just (Exclude index), label = text "Exclude" }
+            , styledButton { onPress = Just (SetAsBase state), label = text "Use this svg" }
+            , styledButton { onPress = Just (Iterate state), label = text "Iterate" }
+            , styledEl (filling 1 1) (text ((++) "Size: " <| String.fromInt <| List.length state))
             ]
         , el (filling 1 1) <| html <| drawSvgFixed state
         ]
