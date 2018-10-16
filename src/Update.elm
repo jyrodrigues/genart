@@ -1,10 +1,32 @@
-port module Update exposing (update)
+port module Update exposing (Msg(..), update)
 
 import Auxiliary exposing (dropLast)
 import Json.Encode as Encode
-import LSystem.Core exposing (Step(..), Transformation, applyRule, rebuildState, stepToString)
+import LSystem.Core exposing (State, Step(..), Transformation, applyRule, rebuildState, stepToString)
 import Models exposing (Model, squareState)
-import Msgs exposing (Msg(..))
+
+
+type Msg
+    = Add Step
+    | Backspace
+    | ClearStep
+    | ClearSvg
+    | SetAsBase State
+    | Iterate Transformation
+    | Deiterate
+    | ToggleShowNextIteration
+    | KeyPress String
+    | SaveState
+    | Exclude Int
+    | Zoom Float Float ShiftKey
+
+
+
+-- | UpdateSaved (List (List State))
+
+
+type alias ShiftKey =
+    Bool
 
 
 port cache : Encode.Value -> Cmd msg

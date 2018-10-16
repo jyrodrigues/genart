@@ -1,9 +1,5 @@
 module View exposing (view)
 
--- import Html exposing (Html, styledButton, div, text)
--- import Html.Attributes exposing (style)
--- import Html.Events exposing (onClick)
-
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -16,7 +12,7 @@ import Json.Decode as Decoder exposing (Decoder, bool, field, float)
 import LSystem.Core exposing (State, applyRule, countSize, stateToString)
 import LSystem.Draw exposing (drawSvg, drawSvgFixed)
 import Models exposing (Model)
-import Msgs exposing (Msg(..))
+import Update exposing (Msg(..))
 
 
 size : Float
@@ -39,10 +35,6 @@ filling w h =
 
 bf11 =
     addBorder ++ filling 1 1
-
-
-
--- styledButton : Attribute -> Html -> Html
 
 
 styledButton :
@@ -128,7 +120,6 @@ elFromState : Int -> State -> Element Msg
 elFromState index state =
     row (addBorder ++ [ height (fill |> minimum 100), width fill, Background.color <| rgb 170 170 170 ])
         [ column []
-            -- Todo: fazer função de remoção
             [ styledButton { onPress = Just (Exclude index), label = text "Exclude" }
             , styledButton { onPress = Just (SetAsBase state), label = text "Use this svg" }
             , styledButton { onPress = Just (Iterate state), label = text "Iterate" }

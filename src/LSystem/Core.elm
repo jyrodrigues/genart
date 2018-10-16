@@ -187,8 +187,6 @@ countMax step ( pos, maxes ) =
                 maxes
     in
     case step of
-        -- L ->
-        --     changeDirection step accTuple
         D ->
             ( nextPos, nextMaxes )
 

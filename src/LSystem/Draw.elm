@@ -3,7 +3,6 @@ module LSystem.Draw exposing (drawSvg, drawSvgFixed)
 -- Todo: remove Msgs from here. Msgs should live on Update and LSystem.Draw should have its own msgs
 
 import LSystem.Core exposing (State, Step(..), countSize)
-import Msgs exposing (Msg)
 import Svg exposing (Svg, polyline, svg)
 import Svg.Attributes exposing (fill, height, stroke, style, viewBox, width)
 
@@ -21,7 +20,7 @@ type alias Drawing =
     }
 
 
-drawSvg : State -> Float -> Float -> Float -> Float -> Svg Msg
+drawSvg : State -> Float -> Float -> Float -> Float -> Svg msg
 drawSvg state w h wDelta hDelta =
     svg
         [ width "1000"
@@ -38,7 +37,7 @@ drawSvg state w h wDelta hDelta =
         ]
 
 
-drawSvgFixed : State -> Svg Msg
+drawSvgFixed : State -> Svg msg
 drawSvgFixed state =
     let
         maxes =

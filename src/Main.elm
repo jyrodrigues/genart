@@ -6,8 +6,7 @@ import Html exposing (div, text)
 import Json.Decode exposing (Decoder)
 import LSystem.Core exposing (State, Step(..), Transformation, stringToStep)
 import Models exposing (Model, onlyD, squareState)
-import Msgs exposing (Msg)
-import Update exposing (update)
+import Update exposing (Msg(..), update)
 import View exposing (view)
 
 
@@ -31,7 +30,7 @@ type alias Flags =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Browser.Events.onKeyUp (Json.Decode.map Msgs.KeyPress keyDecoder) ]
+        [ Browser.Events.onKeyUp (Json.Decode.map KeyPress keyDecoder) ]
 
 
 keyDecoder : Decoder String
