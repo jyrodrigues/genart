@@ -9,7 +9,18 @@ import Html
 import Html.Attributes
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as Decoder exposing (Decoder, bool, field, float)
-import LSystem.Core exposing (State, applyRule, countSize, stateToString)
+import LSystem.Core
+    exposing
+        ( State
+        , Step(..)
+        , applyRule
+        , buildState
+        , countSize
+        , getLastTransform
+        , stateLength
+        , stateToString
+        , transformToString
+        )
 import LSystem.Draw exposing (drawSvg, drawSvgFixed)
 import Models exposing (Model)
 import Update exposing (Msg(..))
@@ -83,14 +94,21 @@ view model =
             ]
 
 
+topRow : Model -> Element Msg
 topRow model =
+    let
+        recState =
+            { base = [ D ]
+            , transforms = [ getLastTransform model.state ]
+            }
+    in
     column (bf11 ++ [ scrollbars, spacing 5 ])
         [ row (bf11 ++ [ scrollbars, spacing 5 ])
             [ styledButton { onPress = Just SaveState, label = text "Save State" }
             , styledButton { onPress = Just Backspace, label = text "Backspace" }
             , styledButton { onPress = Just ClearStep, label = text "ClearStep" }
             , styledButton { onPress = Just ClearSvg, label = text "ClearSvg" }
-            , styledButton { onPress = Just (Iterate model.recording), label = text "Iterate" }
+            , styledButton { onPress = Just (Iterate <| getLastTransform model.state), label = text "Iterate" }
             , styledButton { onPress = Just Deiterate, label = text "Deiterate" }
             , styledButton { onPress = Just ToggleShowNextIteration, label = text "ToggleShowNextIteration" }
             , styledEl bf11 (text <| "Status: " ++ onOff model.isShowingNextIteration)
@@ -98,12 +116,11 @@ topRow model =
             ]
         , row (filling 1 4 ++ [ scrollbars, spacing 5 ])
             [ column (bf11 ++ [ scrollbars ])
-                [ styledEl (filling 1 1) (text (String.fromInt <| List.length model.state))
+                [ styledEl (filling 1 1) (text <| String.fromInt <| stateLength model.state)
                 , styledEl (filling 1 1) (text <| "->" ++ model.dir ++ "<-")
-                , styledEl (filling 1 1) (text (String.fromInt <| (*) (List.length model.recording) <| List.length model.state))
-                , styledEl (filling 1 1) (text <| stateToString model.recording)
+                , styledEl (filling 1 1) (text <| transformToString <| getLastTransform model.state)
                 ]
-            , styledEl (addBorder ++ filling 1 1 ++ [ scrollbars ]) (html <| drawSvg model.recording 60 60 0 0)
+            , styledEl (addBorder ++ filling 1 1 ++ [ scrollbars ]) (html <| drawSvg recState 60 60 0 0)
             ]
         ]
 
@@ -122,8 +139,8 @@ elFromState index state =
         [ column []
             [ styledButton { onPress = Just (Exclude index), label = text "Exclude" }
             , styledButton { onPress = Just (SetAsBase state), label = text "Use this svg" }
-            , styledButton { onPress = Just (Iterate state), label = text "Iterate" }
-            , styledEl (filling 1 1) (text ((++) "Size: " <| String.fromInt <| List.length state))
+            , styledButton { onPress = Just (Iterate <| buildState state), label = text "Iterate" }
+            , styledEl (filling 1 1) (text ((++) "Size: " <| String.fromInt <| stateLength state))
             ]
         , el (filling 1 1) <| html <| drawSvgFixed state
         ]
@@ -154,12 +171,11 @@ svgDiv : Model -> Html.Html Msg
 svgDiv model =
     Html.div []
         [ drawSvg
-            (if model.isShowingNextIteration then
-                applyRule model.recording model.state
-
-             else
-                model.state
-            )
+            -- (if model.isShowingNextIteration then
+            --     applyRule model.recording model.state
+            --  else
+            model.state
+            -- )
             (mapZoomLevelToSize model.zoomLevel)
             (mapZoomLevelToSize model.zoomLevel)
             model.wDelta
@@ -174,9 +190,15 @@ mapZoomLevelToSize zl =
 svgDivFixed : Model -> Html.Html Msg
 svgDivFixed model =
     drawSvgFixed
-        (if model.isShowingNextIteration then
-            applyRule model.recording model.state
+        -- (if model.isShowingNextIteration then
+        --     let
+        --         state =
+        --             model.state
+        --     in
+        --     { state | transforms = state.transforms ++ [ model.recording ] }
+        --  else
+        model.state
 
-         else
-            model.state
-        )
+
+
+-- )

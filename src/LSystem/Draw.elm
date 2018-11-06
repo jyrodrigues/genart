@@ -2,7 +2,7 @@ module LSystem.Draw exposing (drawSvg, drawSvgFixed)
 
 -- Todo: remove Msgs from here. Msgs should live on Update and LSystem.Draw should have its own msgs
 
-import LSystem.Core exposing (State, Step(..), countSize)
+import LSystem.Core exposing (State, Step(..), buildState, countSize)
 import Svg exposing (Svg, polyline, svg)
 import Svg.Attributes exposing (fill, height, stroke, style, viewBox, width)
 
@@ -104,7 +104,7 @@ positionToString pos =
 
 stateToSvgPath : State -> Float -> Float -> Drawing
 stateToSvgPath state x0 y0 =
-    List.foldl stepToPath (Drawing (String.fromFloat x0 ++ " " ++ String.fromFloat y0) (Position x0 y0) 0) state
+    List.foldl stepToPath (Drawing (String.fromFloat x0 ++ " " ++ String.fromFloat y0) (Position x0 y0) 0) <| buildState state
 
 
 stepToPath : Step -> Drawing -> Drawing

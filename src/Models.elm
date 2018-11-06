@@ -1,16 +1,13 @@
-module Models exposing (Model, onlyD, squareState)
+module Models exposing (Model, squareState)
 
 import LSystem.Core exposing (State, Step(..), Transformation)
 
 
 type alias Model =
-    -- Todo: remove state, since it can be replaced by baseState + history!
     { state : State
-    , recording : Transformation
 
     -- Todo: remove recOn. Those update branches affected by this refactor problaby should be grouped on a type
     , recOn : Bool
-    , history : List Transformation
     , savedStates : List State
     , baseState : State
 
@@ -28,9 +25,6 @@ type alias Model =
 
 squareState : State
 squareState =
-    [ D, L, D, L, D, L, D ]
-
-
-onlyD : Transformation
-onlyD =
-    [ D ]
+    { base = [ D, L, D, L, D, L, D ]
+    , transforms = [ [ D ] ]
+    }

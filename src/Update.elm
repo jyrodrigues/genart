@@ -2,7 +2,19 @@ port module Update exposing (Msg(..), update)
 
 import Auxiliary exposing (dropLast)
 import Json.Encode as Encode
-import LSystem.Core exposing (State, Step(..), Transformation, applyRule, rebuildState, stepToString)
+import LSystem.Core
+    exposing
+        ( State
+        , Step(..)
+        , Transformation
+        , appendToLastTransform
+        , applyRule
+        , buildState
+        , dropFromLastTransform
+        , dropLastTransform
+        , getLastTransform
+        , stepToString
+        )
 import Models exposing (Model, squareState)
 
 
@@ -40,13 +52,13 @@ update msg model =
     -- in
     case msg of
         Add step ->
-            ( { model | recording = model.recording ++ [ step ] }, Cmd.none )
+            ( { model | state = appendToLastTransform [ step ] model.state }, Cmd.none )
 
         Backspace ->
-            ( { model | recording = dropLast model.recording }, Cmd.none )
+            ( { model | state = dropFromLastTransform model.state }, Cmd.none )
 
         ClearStep ->
-            ( { model | recording = [] }, Cmd.none )
+            ( { model | state = dropLastTransform model.state }, Cmd.none )
 
         ClearSvg ->
             ( { model | state = Models.squareState }, Cmd.none )
@@ -69,14 +81,14 @@ update msg model =
         SaveState ->
             let
                 newSavedStates =
-                    if model.isShowingNextIteration then
-                        [ applyRule model.recording model.state ] ++ model.savedStates
-
-                    else
-                        [ model.state ] ++ model.savedStates
+                    -- if model.isShowingNextIteration then
+                    --     [ applyRule model.recording model.state ] :: model.savedStates
+                    -- else
+                    model.state :: model.savedStates
             in
             ( { model | savedStates = newSavedStates }
-            , cacheSavedStates newSavedStates
+            , Cmd.none
+              -- , cacheSavedStates newSavedStates
             )
 
         Exclude index ->
@@ -84,8 +96,9 @@ update msg model =
                 newSavedStates =
                     List.take index model.savedStates ++ List.drop (index + 1) model.savedStates
             in
-            ( { model | savedStates = newSavedStates }, cacheSavedStates newSavedStates )
+            ( { model | savedStates = newSavedStates }, Cmd.none )
 
+        -- ( { model | savedStates = newSavedStates }, cacheSavedStates newSavedStates )
         -- cache <| Encode.list Encode.string <| List.map (\state -> List.map stepToString state) )
         Zoom deltaX deltaY shiftKey ->
             if shiftKey then
@@ -104,24 +117,30 @@ cacheSavedStates savedStates =
 
 iterate : Model -> Transformation -> Model
 iterate model transformation =
-    { model
-        | state =
-            applyRule transformation model.state
-        , history =
-            model.history ++ [ transformation ]
-    }
+    let
+        state =
+            model.state
+
+        newState =
+            { state
+                | transforms = state.transforms ++ [ transformation ]
+            }
+    in
+    { model | state = newState }
 
 
 deiterate : Model -> Model
 deiterate model =
     let
-        newHistory =
-            dropLast model.history
+        state =
+            model.state
+
+        newState =
+            { state
+                | transforms = dropLast state.transforms
+            }
     in
-    { model
-        | state = rebuildState model.baseState newHistory
-        , history = newHistory
-    }
+    { model | state = newState }
 
 
 processKey : Model -> String -> Model
@@ -130,28 +149,32 @@ processKey model dir =
         "r" ->
             { model | recOn = not model.recOn, dir = dir }
 
+        -- Add step ->
+        -- { model | state = appendToLastTransform [ step ] model.state }
+        -- ClearStep ->
+        --     ( { model | state = dropLastTransform model.state }, Cmd.none )
         "ArrowLeft" ->
-            { model | recording = model.recording ++ [ L ], dir = dir }
+            { model | state = appendToLastTransform [ L ] model.state }
 
         "ArrowRight" ->
-            { model | recording = model.recording ++ [ R ], dir = dir }
+            { model | state = appendToLastTransform [ R ] model.state }
 
         "ArrowUp" ->
-            { model | recording = model.recording ++ [ D ], dir = dir }
+            { model | state = appendToLastTransform [ D ] model.state }
 
         "ArrowDown" ->
-            { model | recording = model.recording ++ [ S ], dir = dir }
+            { model | state = appendToLastTransform [ S ] model.state }
 
         " " ->
             { model | fixed = not model.fixed }
 
         "Backspace" ->
-            { model | recording = dropLast model.recording, dir = dir }
+            { model | state = dropFromLastTransform model.state }
 
         "i" ->
             let
                 newModel =
-                    iterate model model.recording
+                    iterate model <| getLastTransform model.state
             in
             { newModel | dir = dir }
 

@@ -5,7 +5,7 @@ import Browser.Events
 import Html exposing (div, text)
 import Json.Decode exposing (Decoder)
 import LSystem.Core exposing (State, Step(..), Transformation, stringToStep)
-import Models exposing (Model, onlyD, squareState)
+import Models exposing (Model, squareState)
 import Update exposing (Msg(..), update)
 import View exposing (view)
 
@@ -24,7 +24,7 @@ type alias Flags =
 
 
 
--- put ports here. To do that put an update function here with, say, 2 msg cases that calls update from the Update.elm file
+-- Todo: put ports here. To do that put an update function here with, say, 2 msg cases that calls update from the Update.elm file
 
 
 subscriptions : Model -> Sub Msg
@@ -46,15 +46,16 @@ init localStorage =
 createInitialModelWith : List (List String) -> Model
 createInitialModelWith localStorage =
     let
+        -- Todo: next version of storage, i.e. 'genart/v1/savedStates' or something in those lines
+        -- savedStates =
+        --     localStorage
+        --         |> List.map (\state -> List.map stringToStep state)
         savedStates =
-            localStorage
-                |> List.map (\state -> List.map stringToStep state)
+            []
     in
     Model
         squareState
-        onlyD
         True
-        []
         savedStates
         squareState
         True
@@ -68,9 +69,7 @@ createInitialModelWith localStorage =
 defaultInitialModel =
     Model
         squareState
-        onlyD
         True
-        []
         []
         squareState
         True
@@ -82,37 +81,4 @@ defaultInitialModel =
 
 
 
-{--
-init _ =
-    ( Models.defaultInitialModel, Cmd.none )
---}
--- SUBS ALTER
--- type Direction
---     = Left
---     | Right
---     | Up
---     | Skip
---     | Backspace1
---     | Other
--- -- keyDecoder : Decoder Direction
--- -- Decode.map toDirection (Decode.field "key" Decode.string)
---
---
---
---
--- toDirection : String -> Direction
--- toDirection string =
---     case string of
---         "ArrowLeft" ->
---             Left
---         "ArrowRight" ->
---             Right
---         "ArrowUp" ->
---             Up
---         "Space" ->
---             Skip
---         "Backspace" ->
---             Backspace1
---         _ ->
---             Other
 -- [D L D D L D D D D L D D L D D D D D D R D L D L D D D D D D D L]

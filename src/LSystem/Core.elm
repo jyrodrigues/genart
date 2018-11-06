@@ -2,14 +2,22 @@ module LSystem.Core exposing
     ( State
     , Step(..)
     , Transformation
+    , appendToLastTransform
     , applyRule
+    , buildState
     , countSize
+    , dropFromLastTransform
+    , dropLastTransform
+    , getLastTransform
     , makeRule
-    , rebuildState
+    , stateLength
     , stateToString
     , stepToString
     , stringToStep
+    , transformToString
     )
+
+import Auxiliary exposing (dropLast)
 
 
 type Step
@@ -19,24 +27,22 @@ type Step
     | S
 
 
-
--- Todo: Change State to be Base + List Transformations
-
-
-type alias State =
+type alias Transformation =
     List Step
 
 
-type alias Transformation =
-    State
+type alias State =
+    { base : Transformation
+    , transforms : List Transformation
+    }
 
 
-rebuildState : State -> List Transformation -> State
-rebuildState baseState history =
-    List.foldl applyRule baseState history
+buildState : State -> Transformation
+buildState state =
+    List.foldl applyRule state.base state.transforms
 
 
-applyRule : Transformation -> State -> State
+applyRule : Transformation -> Transformation -> Transformation
 applyRule transformation baseState =
     let
         rule =
@@ -45,14 +51,64 @@ applyRule transformation baseState =
     List.concatMap rule baseState
 
 
-makeRule : Transformation -> Step -> State
-makeRule state step =
+makeRule : Transformation -> Step -> Transformation
+makeRule transformation step =
     case step of
         D ->
-            state
+            transformation
 
         _ ->
             [ step ]
+
+
+appendToLastTransform : Transformation -> State -> State
+appendToLastTransform transform state =
+    changeLastTransform (\t -> t ++ transform) state
+
+
+dropFromLastTransform : State -> State
+dropFromLastTransform state =
+    changeLastTransform (\t -> dropLast t) state
+
+
+dropLastTransform : State -> State
+dropLastTransform state =
+    changeLastTransform (\t -> [ D ]) state
+
+
+changeLastTransform : (Transformation -> Transformation) -> State -> State
+changeLastTransform fn state =
+    let
+        lastTransform =
+            case
+                state.transforms
+                    |> List.reverse
+                    |> List.head
+            of
+                Just a ->
+                    a
+
+                Nothing ->
+                    []
+
+        newLastTransform =
+            fn lastTransform
+    in
+    { state | transforms = List.take (List.length state.transforms - 1) state.transforms ++ [ newLastTransform ] }
+
+
+getLastTransform : State -> Transformation
+getLastTransform state =
+    case
+        state.transforms
+            |> List.reverse
+            |> List.head
+    of
+        Just a ->
+            a
+
+        Nothing ->
+            []
 
 
 
@@ -78,17 +134,6 @@ stringToStep char =
             S
 
 
-
--- toString Methods
-
-
-stateToString : State -> String
-stateToString state =
-    state
-        |> List.map stepToString
-        |> String.join " "
-
-
 stepToString : Step -> String
 stepToString step =
     case step of
@@ -105,10 +150,26 @@ stepToString step =
             "S"
 
 
+stateToString : State -> String
+stateToString state =
+    buildState state
+        |> List.map stepToString
+        |> String.join " "
 
--- MEASURING
+
+transformToString : Transformation -> String
+transformToString transformation =
+    transformation
+        |> List.map stepToString
+        |> String.join " "
 
 
+{-|
+
+
+## MEASURING
+
+-}
 type Direction
     = Up
     | Down
@@ -246,4 +307,16 @@ changeDirection step dir =
 
 countSize : State -> Maxes
 countSize state =
-    Tuple.second <| List.foldl countMax ( initialPos, initialMaxes ) state
+    Tuple.second <| List.foldl countMax ( initialPos, initialMaxes ) <| buildState state
+
+
+
+-- Todo: multiply each D by length of next transform
+
+
+stateLength : State -> Int
+stateLength state =
+    List.foldl
+        (\l acc -> List.length l + acc)
+        (List.length state.base)
+        state.transforms
