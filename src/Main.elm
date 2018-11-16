@@ -55,7 +55,6 @@ createInitialModelWith localStorage =
     in
     Model
         squareState
-        True
         savedStates
         squareState
         True
@@ -69,7 +68,6 @@ createInitialModelWith localStorage =
 defaultInitialModel =
     Model
         squareState
-        True
         []
         squareState
         True

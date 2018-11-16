@@ -5,9 +5,6 @@ import LSystem.Core exposing (State, Step(..), Transformation)
 
 type alias Model =
     { state : State
-
-    -- Todo: remove recOn. Those update branches affected by this refactor problaby should be grouped on a type
-    , recOn : Bool
     , savedStates : List State
     , baseState : State
 

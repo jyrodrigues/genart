@@ -19,15 +19,13 @@ import Models exposing (Model, squareState)
 
 
 type Msg
-    = Add Step
-    | Backspace
+    = KeyPress String
     | ClearStep
     | ClearSvg
     | SetAsBase State
     | Iterate Transformation
     | Deiterate
     | ToggleShowNextIteration
-    | KeyPress String
     | SaveState
     | Exclude Int
     | Zoom Float Float ShiftKey
@@ -51,12 +49,6 @@ update msg model =
     --         Debug.log "model" model
     -- in
     case msg of
-        Add step ->
-            ( { model | state = appendToLastTransform [ step ] model.state }, Cmd.none )
-
-        Backspace ->
-            ( { model | state = dropFromLastTransform model.state }, Cmd.none )
-
         ClearStep ->
             ( { model | state = dropLastTransform model.state }, Cmd.none )
 
@@ -146,13 +138,6 @@ deiterate model =
 processKey : Model -> String -> Model
 processKey model dir =
     case dir of
-        "r" ->
-            { model | recOn = not model.recOn, dir = dir }
-
-        -- Add step ->
-        -- { model | state = appendToLastTransform [ step ] model.state }
-        -- ClearStep ->
-        --     ( { model | state = dropLastTransform model.state }, Cmd.none )
         "ArrowLeft" ->
             { model | state = appendToLastTransform [ L ] model.state }
 
