@@ -105,7 +105,7 @@ topRow model =
     column (bf11 ++ [ scrollbars, spacing 5 ])
         [ row (bf11 ++ [ scrollbars, spacing 5 ])
             [ styledButton { onPress = Just SaveState, label = text "Save State" }
-            , styledButton { onPress = Just ClearStep, label = text "ClearStep" }
+            , styledButton { onPress = Just ResetStep, label = text "ResetStep" }
             , styledButton { onPress = Just ClearSvg, label = text "ClearSvg" }
             , styledButton { onPress = Just (Iterate <| getLastTransform model.state), label = text "Iterate" }
             , styledButton { onPress = Just Deiterate, label = text "Deiterate" }

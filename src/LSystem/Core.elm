@@ -316,7 +316,20 @@ countSize state =
 
 stateLength : State -> Int
 stateLength state =
+    let
+        countD transform =
+            List.foldl
+                (\step acc ->
+                    if step == D then
+                        acc + 1
+
+                    else
+                        acc
+                )
+                0
+                transform
+    in
     List.foldl
-        (\l acc -> List.length l + acc)
-        (List.length state.base)
+        (\l acc -> countD l * acc)
+        (countD state.base)
         state.transforms

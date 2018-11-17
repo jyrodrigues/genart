@@ -20,7 +20,7 @@ import Models exposing (Model, squareState)
 
 type Msg
     = KeyPress String
-    | ClearStep
+    | ResetStep
     | ClearSvg
     | SetAsBase State
     | Iterate Transformation
@@ -44,12 +44,8 @@ port cache : Encode.Value -> Cmd msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    -- let
-    --     _ =
-    --         Debug.log "model" model
-    -- in
     case msg of
-        ClearStep ->
+        ResetStep ->
             ( { model | state = dropLastTransform model.state }, Cmd.none )
 
         ClearSvg ->
@@ -71,17 +67,7 @@ update msg model =
             ( processKey model dir, Cmd.none )
 
         SaveState ->
-            let
-                newSavedStates =
-                    -- if model.isShowingNextIteration then
-                    --     [ applyRule model.recording model.state ] :: model.savedStates
-                    -- else
-                    model.state :: model.savedStates
-            in
-            ( { model | savedStates = newSavedStates }
-            , Cmd.none
-              -- , cacheSavedStates newSavedStates
-            )
+            ( { model | savedStates = model.state :: model.savedStates }, Cmd.none )
 
         Exclude index ->
             let
@@ -90,8 +76,9 @@ update msg model =
             in
             ( { model | savedStates = newSavedStates }, Cmd.none )
 
-        -- ( { model | savedStates = newSavedStates }, cacheSavedStates newSavedStates )
-        -- cache <| Encode.list Encode.string <| List.map (\state -> List.map stepToString state) )
+        -- use svg property `transform="scale(2 3.5)"` see: https://developer.mozilla.org/pt-BR/docs/Web/SVG/Attribute/transform
+        -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
+        -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
         Zoom deltaX deltaY shiftKey ->
             if shiftKey then
                 ( { model | wDelta = model.wDelta + deltaX, hDelta = model.hDelta + deltaY }, Cmd.none )
