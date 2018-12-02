@@ -147,10 +147,14 @@ stateCompositionView state =
         (List.indexedMap elFromTransform transforms)
 
 
+
+-- todo: change (El.fill |> El.minimum 80 |> El.maximum 80) to (El.px 80) and make it work
+
+
 elFromTransform : Int -> Transformation -> Element Msg
 elFromTransform index transform =
     El.row
-        ([ El.height (El.maximum 100 El.fill)
+        ([ El.height (El.fill |> El.minimum 80 |> El.maximum 80)
          , El.width El.fill
          , Background.color Colors.gray
          ]

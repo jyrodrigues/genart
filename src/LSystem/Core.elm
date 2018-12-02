@@ -5,10 +5,10 @@ module LSystem.Core exposing
     , appendToLastTransform
     , applyRule
     , buildState
-    , countSize
     , dropFromLastTransform
     , dropLastTransform
     , getLastTransform
+    , getSvgBorders
     , makeRule
     , stateLength
     )
@@ -264,6 +264,14 @@ changeDirection step dir =
             dir
 
 
-countSize : Transformation -> Maxes
-countSize transform =
-    Tuple.second <| List.foldl countMax ( initialPos Right, initialMaxes ) transform
+getSvgBorders : Transformation -> Maxes
+getSvgBorders transform =
+    let
+        ( finalPos, finalMaxes ) =
+            List.foldl countMax ( initialPos Right, initialMaxes ) transform
+    in
+    { maxX = finalMaxes.maxX + 1
+    , minX = finalMaxes.minX - 1
+    , maxY = finalMaxes.maxY + 1
+    , minY = finalMaxes.minY - 1
+    }
