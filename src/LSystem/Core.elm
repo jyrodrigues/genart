@@ -11,10 +11,6 @@ module LSystem.Core exposing
     , getLastTransform
     , makeRule
     , stateLength
-    , stateToString
-    , stepToString
-    , stringToStep
-    , transformToString
     )
 
 import Auxiliary exposing (dropLast)
@@ -37,9 +33,14 @@ type alias State =
     }
 
 
-buildState : State -> Transformation
-buildState state =
-    List.foldl applyRule state.base state.transforms
+makeRule : Transformation -> Step -> Transformation
+makeRule transform step =
+    case step of
+        D ->
+            transform
+
+        _ ->
+            [ step ]
 
 
 applyRule : Transformation -> Transformation -> Transformation
@@ -51,14 +52,53 @@ applyRule transform baseState =
     List.concatMap rule baseState
 
 
-makeRule : Transformation -> Step -> Transformation
-makeRule transform step =
-    case step of
-        D ->
-            transform
+buildState : State -> Transformation
+buildState state =
+    List.foldl applyRule state.base state.transforms
 
-        _ ->
-            [ step ]
+
+stateLength : State -> ( Int, Int )
+stateLength state =
+    let
+        countSteps transform =
+            List.foldl
+                (\step acc ->
+                    if step == D then
+                        ( Tuple.first acc + 1, Tuple.second acc )
+
+                    else
+                        ( Tuple.first acc, Tuple.second acc + 1 )
+                )
+                ( 0, 0 )
+                transform
+    in
+    List.foldl
+        (\l acc ->
+            let
+                ( ld, lo ) =
+                    countSteps l
+
+                ( accd, acco ) =
+                    acc
+            in
+            ( accd * ld, accd * lo + acco )
+        )
+        (countSteps state.base)
+        state.transforms
+
+
+getLastTransform : State -> Transformation
+getLastTransform state =
+    case
+        state.transforms
+            |> List.reverse
+            |> List.head
+    of
+        Just a ->
+            a
+
+        Nothing ->
+            []
 
 
 appendToLastTransform : Transformation -> State -> State
@@ -95,73 +135,6 @@ changeLastTransform fn state =
             fn lastTransform
     in
     { state | transforms = List.take (List.length state.transforms - 1) state.transforms ++ [ newLastTransform ] }
-
-
-getLastTransform : State -> Transformation
-getLastTransform state =
-    case
-        state.transforms
-            |> List.reverse
-            |> List.head
-    of
-        Just a ->
-            a
-
-        Nothing ->
-            []
-
-
-
--- Todo: make a decoder directly to state from js array
-
-
-stringToStep : String -> Step
-stringToStep char =
-    case char of
-        "D" ->
-            D
-
-        "R" ->
-            R
-
-        "L" ->
-            L
-
-        "S" ->
-            S
-
-        _ ->
-            S
-
-
-stepToString : Step -> String
-stepToString step =
-    case step of
-        D ->
-            "D"
-
-        R ->
-            "R"
-
-        L ->
-            "L"
-
-        S ->
-            "S"
-
-
-stateToString : State -> String
-stateToString state =
-    buildState state
-        |> List.map stepToString
-        |> String.join " "
-
-
-transformToString : Transformation -> String
-transformToString transform =
-    transform
-        |> List.map stepToString
-        |> String.join " "
 
 
 {-|
@@ -308,33 +281,3 @@ changeDirection step dir =
 countSize : Transformation -> Maxes
 countSize transform =
     Tuple.second <| List.foldl countMax ( initialPos, initialMaxes ) transform
-
-
-stateLength : State -> ( Int, Int )
-stateLength state =
-    let
-        countSteps transform =
-            List.foldl
-                (\step acc ->
-                    if step == D then
-                        ( Tuple.first acc + 1, Tuple.second acc )
-
-                    else
-                        ( Tuple.first acc, Tuple.second acc + 1 )
-                )
-                ( 0, 0 )
-                transform
-    in
-    List.foldl
-        (\l acc ->
-            let
-                ( ld, lo ) =
-                    countSteps l
-
-                ( accd, acco ) =
-                    acc
-            in
-            ( accd * ld, accd * lo + acco )
-        )
-        (countSteps state.base)
-        state.transforms

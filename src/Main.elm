@@ -4,7 +4,7 @@ import Browser
 import Browser.Events
 import Html exposing (div, text)
 import Json.Decode exposing (Decoder)
-import LSystem.Core exposing (State, Step(..), Transformation, stringToStep)
+import LSystem.Core exposing (State, Step(..), Transformation)
 import Models exposing (Model, squareState)
 import Update exposing (Msg(..), update)
 import View exposing (view)

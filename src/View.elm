@@ -19,10 +19,9 @@ import LSystem.Core
         , buildState
         , getLastTransform
         , stateLength
-        , stateToString
-        , transformToString
         )
 import LSystem.Draw exposing (drawSvg, drawSvgFixed)
+import LSystem.String
 import Models exposing (Model)
 import Update exposing (Msg(..))
 
@@ -122,7 +121,7 @@ topRow model =
                             ++ (String.fromInt <| Tuple.second <| stateLength model.state)
                     )
                 , styledEl (filling 1 1) (El.text <| "->" ++ model.dir ++ "<-")
-                , styledEl (filling 1 1) (El.text <| transformToString <| getLastTransform model.state)
+                , styledEl (filling 1 1) (El.text <| LSystem.String.fromTransform <| getLastTransform model.state)
                 ]
             , styledEl (addBorder ++ filling 1 1 ++ [ El.scrollbars ]) (El.html <| drawSvg recState 60 60 0 0)
             ]
@@ -204,9 +203,6 @@ elFromTransform index transform =
 stateCompositionView : State -> Element Msg
 stateCompositionView state =
     let
-        x =
-            Debug.log state
-
         transforms =
             List.reverse <| state.base :: state.transforms
     in

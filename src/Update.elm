@@ -13,8 +13,8 @@ import LSystem.Core
         , dropFromLastTransform
         , dropLastTransform
         , getLastTransform
-        , stepToString
         )
+import LSystem.String
 import Models exposing (Model, squareState)
 
 
@@ -89,7 +89,7 @@ update msg model =
 
 cacheSavedStates savedStates =
     savedStates
-        |> List.map (\state -> List.map stepToString state)
+        |> List.map (\state -> List.map LSystem.String.fromStep state)
         |> Encode.list (\state -> Encode.list Encode.string state)
         |> cache
 
