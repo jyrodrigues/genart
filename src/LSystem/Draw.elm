@@ -41,35 +41,23 @@ drawSvg state w h wDelta hDelta =
 drawSvgFixed : Transformation -> Svg msg
 drawSvgFixed transform =
     let
-        maxes =
+        { minX, maxX, minY, maxY } =
             countSize transform
 
-        x0 =
-            toFloat maxes.minX
-
-        x1 =
-            toFloat maxes.maxX
-
-        y0 =
-            toFloat maxes.minY
-
-        y1 =
-            toFloat maxes.maxY
-
         w =
-            x1 - x0
+            maxX - minX
 
         h =
-            y1 - y0
+            maxY - minY
 
         margin =
             0.5
 
         xBegin =
-            (*) scale <| -x0 + (margin / 2 * w)
+            (*) scale <| -minX + (margin / 2 * w)
 
         yBegin =
-            (*) scale <| -y0 + (margin / 2 * h)
+            (*) scale <| -minY + (margin / 2 * h)
 
         scale =
             10

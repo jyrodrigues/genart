@@ -45,14 +45,7 @@ view model =
             [ topRow model
             , El.row (addBorder ++ filling 1 5 ++ [ El.spacing 5 ])
                 [ stateCompositionView model.state
-                , El.el (addBorder ++ filling 7 1 ++ [ El.scrollbars, modifyWheelEvent ])
-                    (El.html <|
-                        if model.fixed then
-                            svgDivFixed model
-
-                        else
-                            svgDiv model
-                    )
+                , mainSvgView model
                 ]
             ]
 
@@ -136,78 +129,51 @@ onOff bool =
         "Off"
 
 
-elFromState : Int -> State -> Element Msg
-elFromState index state =
+stateCompositionView : State -> Element Msg
+stateCompositionView state =
     let
-        stateComposition =
-            buildState state
+        transforms =
+            List.reverse <|
+                state.base
+                    :: state.transforms
     in
-    El.row
-        (addBorder
-            ++ [ El.height (El.fill |> El.minimum 100)
-               , El.width El.fill
-               , Background.color Colors.gray
-               ]
+    El.column
+        ([ El.width (El.minimum 200 El.fill)
+         , El.height El.fill
+         , El.scrollbars
+         ]
+            ++ addBorder
         )
-        [ El.column []
-            [ styledButton { onPress = Just (Exclude index), label = El.text "Exclude" }
-            , styledButton { onPress = Just (SetAsBase state), label = El.text "Use this svg" }
-            , styledButton { onPress = Just (Iterate stateComposition), label = El.text "Iterate" }
-            , styledEl (filling 1 1)
-                (El.text
-                    ((++) "Size: " <|
-                        String.fromInt <|
-                            let
-                                ( ds, os ) =
-                                    stateLength state
-                            in
-                            ds + os
-                    )
-                )
-            ]
-        , El.el (filling 1 1) <| El.html <| drawSvgFixed stateComposition
-        ]
+        (List.indexedMap elFromTransform transforms)
 
 
 elFromTransform : Int -> Transformation -> Element Msg
 elFromTransform index transform =
     El.row
-        (addBorder
-            ++ [ El.height (El.fill |> El.minimum 100)
-               , El.width El.fill
-               , Background.color Colors.gray
-               ]
+        ([ El.height (El.maximum 100 El.fill)
+         , El.width El.fill
+         , Background.color Colors.gray
+         ]
+            ++ addBorder
         )
-        [ El.column []
+        [ El.el (filling 1 1) <| El.html <| drawSvgFixed transform
+        , El.column []
             [ styledButton { onPress = Just (Exclude index), label = El.text "Exclude" }
-
-            -- , styledButton { onPress = Just (SetAsBase state), label = El.text "Use this svg" }
             , styledButton { onPress = Just (Iterate transform), label = El.text "Iterate" }
-
-            -- , styledEl (filling 1 1)
-            --     (El.text
-            --         ((++) "Size: " <|
-            --             String.fromInt <|
-            --                 let
-            --                     ( ds, os ) =
-            --                         stateLength state
-            --                 in
-            --                 ds + os
-            --         )
-            --     )
             ]
-        , El.el (filling 1 1) <| El.html <| drawSvgFixed transform
         ]
 
 
-stateCompositionView : State -> Element Msg
-stateCompositionView state =
-    let
-        transforms =
-            List.reverse <| state.base :: state.transforms
-    in
-    El.column (addBorder ++ filling 1 1 ++ [ El.scrollbars ])
-        (List.indexedMap elFromTransform transforms)
+mainSvgView : Model -> Element Msg
+mainSvgView model =
+    El.el ([ El.scrollbars, modifyWheelEvent ] ++ addBorder ++ filling 7 1)
+        (El.html <|
+            if model.fixed then
+                svgDivFixed model
+
+            else
+                svgDiv model
+        )
 
 
 

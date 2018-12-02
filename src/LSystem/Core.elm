@@ -151,35 +151,31 @@ type Direction
 
 
 type alias Maxes =
-    { maxX : Int
-    , minX : Int
-    , maxY : Int
-    , minY : Int
+    { maxX : Float
+    , minX : Float
+    , maxY : Float
+    , minY : Float
     }
 
 
 type alias Pos =
-    { x : Int
-    , y : Int
+    { x : Float
+    , y : Float
     , direction : Direction
     }
 
 
 initialMaxes : Maxes
 initialMaxes =
-    { maxX = 0
-    , minX = 0
-    , maxY = 0
-    , minY = 0
+    { maxX = 1
+    , minX = -1
+    , maxY = 1
+    , minY = -1
     }
 
 
-
--- Todo: make `Right` a parameter
-
-
-initialPos : Pos
-initialPos =
+initialPos : Direction -> Pos
+initialPos dir =
     { x = 0
     , y = 0
     , direction = Right
@@ -188,40 +184,30 @@ initialPos =
 
 countMax : Step -> ( Pos, Maxes ) -> ( Pos, Maxes )
 countMax step ( pos, maxes ) =
-    let
-        nextPos =
-            case pos.direction of
-                Up ->
-                    { pos | y = pos.y - 1 }
-
-                Down ->
-                    { pos | y = pos.y + 1 }
-
-                Right ->
-                    { pos | x = pos.x + 1 }
-
-                Left ->
-                    { pos | x = pos.x - 1 }
-
-        -- Could change to a list [maxx, minx, maxy, miny] for simplicity?
-        nextMaxes =
-            if nextPos.x > maxes.maxX then
-                { maxes | maxX = nextPos.x }
-
-            else if nextPos.x < maxes.minX then
-                { maxes | minX = nextPos.x }
-
-            else if nextPos.y > maxes.maxY then
-                { maxes | maxY = nextPos.y }
-
-            else if nextPos.y < maxes.minY then
-                { maxes | minY = nextPos.y }
-
-            else
-                maxes
-    in
     case step of
         D ->
+            let
+                nextPos =
+                    case pos.direction of
+                        Up ->
+                            { pos | y = pos.y - 1 }
+
+                        Down ->
+                            { pos | y = pos.y + 1 }
+
+                        Right ->
+                            { pos | x = pos.x + 1 }
+
+                        Left ->
+                            { pos | x = pos.x - 1 }
+
+                nextMaxes =
+                    { maxX = max maxes.maxX nextPos.x
+                    , minX = min maxes.minX nextPos.x
+                    , maxY = max maxes.maxY nextPos.y
+                    , minY = min maxes.minY nextPos.y
+                    }
+            in
             ( nextPos, nextMaxes )
 
         _ ->
@@ -280,4 +266,4 @@ changeDirection step dir =
 
 countSize : Transformation -> Maxes
 countSize transform =
-    Tuple.second <| List.foldl countMax ( initialPos, initialMaxes ) transform
+    Tuple.second <| List.foldl countMax ( initialPos Right, initialMaxes ) transform
