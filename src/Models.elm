@@ -8,7 +8,7 @@ type alias Model =
     , savedStates : List State
     , baseState : State
 
-    -- , savedTransformations : List Transformation
+    -- , savedTransforms : List Transform
     , isShowingNextIteration : Bool
     , dir : String
     , zoomLevel : Float

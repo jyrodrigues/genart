@@ -54,8 +54,8 @@ update msg model =
         SetAsBase state ->
             ( { model | state = state }, Cmd.none )
 
-        Iterate transformation ->
-            ( iterate model transformation, Cmd.none )
+        Iterate transform ->
+            ( iterate model transform, Cmd.none )
 
         Deiterate ->
             ( deiterate model, Cmd.none )
@@ -95,14 +95,14 @@ cacheSavedStates savedStates =
 
 
 iterate : Model -> Transformation -> Model
-iterate model transformation =
+iterate model transform =
     let
         state =
             model.state
 
         newState =
             { state
-                | transforms = state.transforms ++ [ transformation ]
+                | transforms = state.transforms ++ [ transform ]
             }
     in
     { model | state = newState }

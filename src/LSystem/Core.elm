@@ -43,19 +43,19 @@ buildState state =
 
 
 applyRule : Transformation -> Transformation -> Transformation
-applyRule transformation baseState =
+applyRule transform baseState =
     let
         rule =
-            makeRule transformation
+            makeRule transform
     in
     List.concatMap rule baseState
 
 
 makeRule : Transformation -> Step -> Transformation
-makeRule transformation step =
+makeRule transform step =
     case step of
         D ->
-            transformation
+            transform
 
         _ ->
             [ step ]
@@ -158,8 +158,8 @@ stateToString state =
 
 
 transformToString : Transformation -> String
-transformToString transformation =
-    transformation
+transformToString transform =
+    transform
         |> List.map stepToString
         |> String.join " "
 
