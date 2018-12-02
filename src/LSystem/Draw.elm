@@ -2,7 +2,8 @@ module LSystem.Draw exposing (drawSvg, drawSvgFixed)
 
 -- Todo: remove Msgs from here. Msgs should live on Update and LSystem.Draw should have its own msgs
 
-import LSystem.Core exposing (State, Step(..), buildState, countSize)
+import Auxiliary exposing (floatsToSpacedString)
+import LSystem.Core exposing (State, Step(..), Transformation, buildState, countSize)
 import Svg exposing (Svg, polyline, svg)
 import Svg.Attributes exposing (fill, height, stroke, style, viewBox, width)
 
@@ -25,7 +26,7 @@ drawSvg state w h wDelta hDelta =
     svg
         [ width "1000"
         , height "700"
-        , viewBox <| toSpacedString wDelta hDelta (w + wDelta) (h + hDelta)
+        , viewBox <| floatsToSpacedString [ wDelta, hDelta, w + wDelta, h + hDelta ]
         , style "border: 1px dashed black; display: block"
         ]
         [ polyline
@@ -80,7 +81,7 @@ drawSvgFixed state =
             (1 + margin) * scale * h
     in
     svg
-        [ viewBox <| toSpacedString 0 0 fw fh
+        [ viewBox <| floatsToSpacedString [ 0, 0, fw, fh ]
         , style "border: 1px dashed black; display: block"
         ]
         [ polyline
@@ -92,19 +93,19 @@ drawSvgFixed state =
         ]
 
 
-toSpacedString : Float -> Float -> Float -> Float -> String
-toSpacedString a b c d =
-    String.join " " <| List.map String.fromFloat [ a, b, c, d ]
-
-
 positionToString : Position -> String
 positionToString pos =
     String.fromFloat pos.x ++ " " ++ String.fromFloat pos.y
 
 
+transformToSvgPath : Transformation -> Float -> Float -> Drawing
+transformToSvgPath transform x0 y0 =
+    List.foldl stepToPath (Drawing (String.fromFloat x0 ++ " " ++ String.fromFloat y0) (Position x0 y0) 0) transform
+
+
 stateToSvgPath : State -> Float -> Float -> Drawing
 stateToSvgPath state x0 y0 =
-    List.foldl stepToPath (Drawing (String.fromFloat x0 ++ " " ++ String.fromFloat y0) (Position x0 y0) 0) <| buildState state
+    transformToSvgPath (buildState state) x0 y0
 
 
 stepToPath : Step -> Drawing -> Drawing

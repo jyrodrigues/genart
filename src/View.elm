@@ -1,6 +1,7 @@
 module View exposing (view)
 
-import Element exposing (..)
+import Colors exposing (..)
+import Element as El exposing (Attribute, Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
@@ -13,6 +14,7 @@ import LSystem.Core
     exposing
         ( State
         , Step(..)
+        , Transformation
         , applyRule
         , buildState
         , countSize
@@ -26,21 +28,53 @@ import Models exposing (Model)
 import Update exposing (Msg(..))
 
 
+view : Model -> Html.Html Msg
+view model =
+    El.layout
+        [ El.width El.fill
+        , El.height El.fill
+        , Background.color Colors.lightBlue
+        , El.padding 20
+        ]
+    <|
+        El.column
+            [ El.width El.fill
+            , El.height El.fill
+            , Background.color Colors.darkBlue
+            , El.padding 20
+            , El.scrollbars
+            ]
+            [ topRow model
+            , El.row (addBorder ++ filling 1 5 ++ [ El.spacing 5 ])
+                [ El.column (addBorder ++ filling 1 1 ++ [ El.scrollbars ])
+                    (List.indexedMap elFromState model.savedStates)
+                , El.el (addBorder ++ filling 7 1 ++ [ El.scrollbars, modifyWheelEvent ])
+                    (El.html <|
+                        if model.fixed then
+                            svgDivFixed model
+
+                        else
+                            svgDiv model
+                    )
+                ]
+            ]
+
+
 size : Float
 size =
     1500.0
 
 
 addBorder =
-    [ Border.color <| rgba 0 0 0 0.8
+    [ Border.color Colors.darkGray
     , Border.solid
     , Border.width 1
     ]
 
 
 filling w h =
-    [ width <| fillPortion w
-    , height <| fillPortion h
+    [ El.width <| El.fillPortion w
+    , El.height <| El.fillPortion h
     ]
 
 
@@ -54,44 +88,12 @@ styledButton :
     }
     -> Element Msg
 styledButton =
-    button <| bf11 ++ [ Background.color <| rgb 200 200 200 ]
+    button <| bf11 ++ [ Background.color Colors.offWhite ]
 
 
 styledEl : List (Attribute Msg) -> Element Msg -> Element Msg
 styledEl attr =
-    el <| attr ++ [ Background.color <| rgb 200 200 200 ]
-
-
-view : Model -> Html.Html Msg
-view model =
-    layout
-        [ width fill
-        , height fill
-        , Background.color <| rgba255 10 80 180 0.5
-        , padding 20
-        ]
-    <|
-        column
-            [ width fill
-            , height fill
-            , Background.color <| rgba255 15 15 60 0.95
-            , padding 20
-            , scrollbars
-            ]
-            [ topRow model
-            , row (addBorder ++ filling 1 5 ++ [ spacing 5 ])
-                [ column (addBorder ++ filling 1 1 ++ [ scrollbars ])
-                    (List.indexedMap elFromState model.savedStates)
-                , el (addBorder ++ filling 7 1 ++ [ scrollbars, modifyWheelEvent ])
-                    (html <|
-                        if model.fixed then
-                            svgDivFixed model
-
-                        else
-                            svgDiv model
-                    )
-                ]
-            ]
+    El.el <| attr ++ [ Background.color Colors.offWhite ]
 
 
 topRow : Model -> Element Msg
@@ -102,29 +104,29 @@ topRow model =
             , transforms = [ getLastTransform model.state ]
             }
     in
-    column (bf11 ++ [ scrollbars, spacing 5 ])
-        [ row (bf11 ++ [ scrollbars, spacing 5 ])
-            [ styledButton { onPress = Just SaveState, label = text "Save State" }
-            , styledButton { onPress = Just ResetStep, label = text "ResetStep" }
-            , styledButton { onPress = Just ClearSvg, label = text "ClearSvg" }
-            , styledButton { onPress = Just (Iterate <| getLastTransform model.state), label = text "Iterate" }
-            , styledButton { onPress = Just Deiterate, label = text "Deiterate" }
-            , styledButton { onPress = Just ToggleShowNextIteration, label = text "ToggleShowNextIteration" }
-            , styledEl bf11 (text <| "Status: " ++ onOff model.isShowingNextIteration)
-            , styledEl bf11 (text <| " Fixed: " ++ onOff model.fixed)
+    El.column (bf11 ++ [ El.scrollbars, El.spacing 5 ])
+        [ El.row (bf11 ++ [ El.scrollbars, El.spacing 5 ])
+            [ styledButton { onPress = Just SaveState, label = El.text "Save State" }
+            , styledButton { onPress = Just ResetStep, label = El.text "ResetStep" }
+            , styledButton { onPress = Just ClearSvg, label = El.text "ClearSvg" }
+            , styledButton { onPress = Just (Iterate <| getLastTransform model.state), label = El.text "Iterate" }
+            , styledButton { onPress = Just Deiterate, label = El.text "Deiterate" }
+            , styledButton { onPress = Just ToggleShowNextIteration, label = El.text "ToggleShowNextIteration" }
+            , styledEl bf11 (El.text <| "Status: " ++ onOff model.isShowingNextIteration)
+            , styledEl bf11 (El.text <| " Fixed: " ++ onOff model.fixed)
             ]
-        , row (filling 1 4 ++ [ scrollbars, spacing 5 ])
-            [ column (bf11 ++ [ scrollbars ])
+        , El.row (filling 1 4 ++ [ El.scrollbars, El.spacing 5 ])
+            [ El.column (bf11 ++ [ El.scrollbars ])
                 [ styledEl (filling 1 1)
-                    (text <|
+                    (El.text <|
                         (String.fromInt <| Tuple.first <| stateLength model.state)
                             ++ ", "
                             ++ (String.fromInt <| Tuple.second <| stateLength model.state)
                     )
-                , styledEl (filling 1 1) (text <| "->" ++ model.dir ++ "<-")
-                , styledEl (filling 1 1) (text <| transformToString <| getLastTransform model.state)
+                , styledEl (filling 1 1) (El.text <| "->" ++ model.dir ++ "<-")
+                , styledEl (filling 1 1) (El.text <| transformToString <| getLastTransform model.state)
                 ]
-            , styledEl (addBorder ++ filling 1 1 ++ [ scrollbars ]) (html <| drawSvg recState 60 60 0 0)
+            , styledEl (addBorder ++ filling 1 1 ++ [ El.scrollbars ]) (El.html <| drawSvg recState 60 60 0 0)
             ]
         ]
 
@@ -139,13 +141,19 @@ onOff bool =
 
 elFromState : Int -> State -> Element Msg
 elFromState index state =
-    row (addBorder ++ [ height (fill |> minimum 100), width fill, Background.color <| rgb 170 170 170 ])
-        [ column []
-            [ styledButton { onPress = Just (Exclude index), label = text "Exclude" }
-            , styledButton { onPress = Just (SetAsBase state), label = text "Use this svg" }
-            , styledButton { onPress = Just (Iterate <| buildState state), label = text "Iterate" }
+    El.row
+        (addBorder
+            ++ [ El.height (El.fill |> El.minimum 100)
+               , El.width El.fill
+               , Background.color Colors.gray
+               ]
+        )
+        [ El.column []
+            [ styledButton { onPress = Just (Exclude index), label = El.text "Exclude" }
+            , styledButton { onPress = Just (SetAsBase state), label = El.text "Use this svg" }
+            , styledButton { onPress = Just (Iterate <| buildState state), label = El.text "Iterate" }
             , styledEl (filling 1 1)
-                (text
+                (El.text
                     ((++) "Size: " <|
                         String.fromInt <|
                             let
@@ -156,7 +164,21 @@ elFromState index state =
                     )
                 )
             ]
-        , el (filling 1 1) <| html <| drawSvgFixed state
+        , El.el (filling 1 1) <| El.html <| drawSvgFixed state
+        ]
+
+
+elFromTransform : Transformation -> Element Msg
+elFromTransform transform =
+    El.row
+        []
+        [ El.text "SVG Here"
+        , El.column
+            []
+            [ El.text "Eye"
+            , El.text "Edit"
+            , El.text "Trash"
+            ]
         ]
 
 
@@ -165,7 +187,7 @@ elFromState index state =
 
 
 modifyWheelEvent =
-    htmlAttribute <| preventDefaultOn "wheel" (Decoder.map alwaysPreventDefault wheelDecoder)
+    El.htmlAttribute <| preventDefaultOn "wheel" (Decoder.map alwaysPreventDefault wheelDecoder)
 
 
 alwaysPreventDefault : Msg -> ( Msg, Bool )
