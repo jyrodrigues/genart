@@ -305,30 +305,9 @@ changeDirection step dir =
             dir
 
 
-countSize : State -> Maxes
-countSize state =
-    Tuple.second <| List.foldl countMax ( initialPos, initialMaxes ) <| buildState state
-
-
-stateLength2 : State -> Int
-stateLength2 state =
-    let
-        countD transform =
-            List.foldl
-                (\step acc ->
-                    if step == D then
-                        acc + 1
-
-                    else
-                        acc
-                )
-                0
-                transform
-    in
-    List.foldl
-        (\l acc -> countD l * acc)
-        (countD state.base)
-        state.transforms
+countSize : Transformation -> Maxes
+countSize transform =
+    Tuple.second <| List.foldl countMax ( initialPos, initialMaxes ) transform
 
 
 stateLength : State -> ( Int, Int )

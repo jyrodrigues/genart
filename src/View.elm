@@ -17,7 +17,6 @@ import LSystem.Core
         , Transformation
         , applyRule
         , buildState
-        , countSize
         , getLastTransform
         , stateLength
         , stateToString
@@ -46,8 +45,7 @@ view model =
             ]
             [ topRow model
             , El.row (addBorder ++ filling 1 5 ++ [ El.spacing 5 ])
-                [ El.column (addBorder ++ filling 1 1 ++ [ El.scrollbars ])
-                    (List.indexedMap elFromState model.savedStates)
+                [ stateCompositionView model.state
                 , El.el (addBorder ++ filling 7 1 ++ [ El.scrollbars, modifyWheelEvent ])
                     (El.html <|
                         if model.fixed then
@@ -141,6 +139,10 @@ onOff bool =
 
 elFromState : Int -> State -> Element Msg
 elFromState index state =
+    let
+        stateComposition =
+            buildState state
+    in
     El.row
         (addBorder
             ++ [ El.height (El.fill |> El.minimum 100)
@@ -151,7 +153,7 @@ elFromState index state =
         [ El.column []
             [ styledButton { onPress = Just (Exclude index), label = El.text "Exclude" }
             , styledButton { onPress = Just (SetAsBase state), label = El.text "Use this svg" }
-            , styledButton { onPress = Just (Iterate <| buildState state), label = El.text "Iterate" }
+            , styledButton { onPress = Just (Iterate stateComposition), label = El.text "Iterate" }
             , styledEl (filling 1 1)
                 (El.text
                     ((++) "Size: " <|
@@ -164,22 +166,52 @@ elFromState index state =
                     )
                 )
             ]
-        , El.el (filling 1 1) <| El.html <| drawSvgFixed state
+        , El.el (filling 1 1) <| El.html <| drawSvgFixed stateComposition
         ]
 
 
-elFromTransform : Transformation -> Element Msg
-elFromTransform transform =
+elFromTransform : Int -> Transformation -> Element Msg
+elFromTransform index transform =
     El.row
-        []
-        [ El.text "SVG Here"
-        , El.column
-            []
-            [ El.text "Eye"
-            , El.text "Edit"
-            , El.text "Trash"
+        (addBorder
+            ++ [ El.height (El.fill |> El.minimum 100)
+               , El.width El.fill
+               , Background.color Colors.gray
+               ]
+        )
+        [ El.column []
+            [ styledButton { onPress = Just (Exclude index), label = El.text "Exclude" }
+
+            -- , styledButton { onPress = Just (SetAsBase state), label = El.text "Use this svg" }
+            , styledButton { onPress = Just (Iterate transform), label = El.text "Iterate" }
+
+            -- , styledEl (filling 1 1)
+            --     (El.text
+            --         ((++) "Size: " <|
+            --             String.fromInt <|
+            --                 let
+            --                     ( ds, os ) =
+            --                         stateLength state
+            --                 in
+            --                 ds + os
+            --         )
+            --     )
             ]
+        , El.el (filling 1 1) <| El.html <| drawSvgFixed transform
         ]
+
+
+stateCompositionView : State -> Element Msg
+stateCompositionView state =
+    let
+        x =
+            Debug.log state
+
+        transforms =
+            List.reverse <| state.base :: state.transforms
+    in
+    El.column (addBorder ++ filling 1 1 ++ [ El.scrollbars ])
+        (List.indexedMap elFromTransform transforms)
 
 
 
@@ -225,16 +257,4 @@ mapZoomLevelToSize zl =
 
 svgDivFixed : Model -> Html.Html Msg
 svgDivFixed model =
-    drawSvgFixed
-        -- (if model.isShowingNextIteration then
-        --     let
-        --         state =
-        --             model.state
-        --     in
-        --     { state | transforms = state.transforms ++ [ model.recording ] }
-        --  else
-        model.state
-
-
-
--- )
+    drawSvgFixed <| buildState model.state

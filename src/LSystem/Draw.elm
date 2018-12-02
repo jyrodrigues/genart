@@ -38,11 +38,11 @@ drawSvg state w h wDelta hDelta =
         ]
 
 
-drawSvgFixed : State -> Svg msg
-drawSvgFixed state =
+drawSvgFixed : Transformation -> Svg msg
+drawSvgFixed transform =
     let
         maxes =
-            countSize state
+            countSize transform
 
         x0 =
             toFloat maxes.minX
@@ -85,7 +85,7 @@ drawSvgFixed state =
         , style "border: 1px dashed black; display: block"
         ]
         [ polyline
-            [ Svg.Attributes.points <| .path <| stateToSvgPath state xBegin yBegin
+            [ Svg.Attributes.points <| .path <| transformToSvgPath transform xBegin yBegin
             , stroke "rgba(0,180,110,0.7)"
             , fill "none"
             ]
@@ -101,6 +101,10 @@ positionToString pos =
 transformToSvgPath : Transformation -> Float -> Float -> Drawing
 transformToSvgPath transform x0 y0 =
     List.foldl stepToPath (Drawing (String.fromFloat x0 ++ " " ++ String.fromFloat y0) (Position x0 y0) 0) transform
+
+
+
+-- todo: remove state to svg path
 
 
 stateToSvgPath : State -> Float -> Float -> Drawing
