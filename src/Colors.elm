@@ -4,9 +4,23 @@ module Colors exposing
     , gray
     , lightBlue
     , offWhite
+    , toString
     )
 
-import Element as El
+import Element as El exposing (Color)
+
+
+toString : Color -> String
+toString color =
+    let
+        { red, green, blue, alpha } =
+            El.toRgb color
+    in
+    "rgba("
+        ++ String.fromInt (round (red * 255))
+        ++ ("," ++ String.fromInt (round (green * 255)))
+        ++ ("," ++ String.fromInt (round (blue * 255)))
+        ++ ("," ++ String.fromFloat alpha ++ ")")
 
 
 gray =

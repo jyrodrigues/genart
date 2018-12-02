@@ -9,6 +9,7 @@ import Element.Input exposing (button)
 import Html
 import Html.Attributes
 import Html.Events exposing (preventDefaultOn)
+import Icons exposing (icons)
 import Json.Decode as Decoder exposing (Decoder, bool, field, float)
 import LSystem.Core
     exposing
@@ -147,13 +148,10 @@ stateCompositionView state =
         (List.indexedMap elFromTransform transforms)
 
 
-
--- todo: change (El.fill |> El.minimum 80 |> El.maximum 80) to (El.px 80) and make it work
-
-
 elFromTransform : Int -> Transformation -> Element Msg
 elFromTransform index transform =
     El.row
+        -- todo: change (El.fill |> El.minimum 80 |> El.maximum 80) to (El.px 80) and make it work
         ([ El.height (El.fill |> El.minimum 80 |> El.maximum 80)
          , El.width El.fill
          , Background.color Colors.gray
@@ -162,8 +160,9 @@ elFromTransform index transform =
         )
         [ El.el (filling 1 1) <| El.html <| drawSvgFixed transform
         , El.column []
-            [ styledButton { onPress = Just (Exclude index), label = El.text "Exclude" }
-            , styledButton { onPress = Just (Iterate transform), label = El.text "Iterate" }
+            [ El.html <| Icons.draw24px icons.eye
+            , El.html <| Icons.draw24px icons.pen
+            , El.html <| Icons.draw24px icons.trash
             ]
         ]
 
