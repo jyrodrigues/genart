@@ -115,7 +115,12 @@ topRow model =
             ]
         , row (filling 1 4 ++ [ scrollbars, spacing 5 ])
             [ column (bf11 ++ [ scrollbars ])
-                [ styledEl (filling 1 1) (text <| String.fromInt <| stateLength model.state)
+                [ styledEl (filling 1 1)
+                    (text <|
+                        (String.fromInt <| Tuple.first <| stateLength model.state)
+                            ++ ", "
+                            ++ (String.fromInt <| Tuple.second <| stateLength model.state)
+                    )
                 , styledEl (filling 1 1) (text <| "->" ++ model.dir ++ "<-")
                 , styledEl (filling 1 1) (text <| transformToString <| getLastTransform model.state)
                 ]
@@ -139,7 +144,17 @@ elFromState index state =
             [ styledButton { onPress = Just (Exclude index), label = text "Exclude" }
             , styledButton { onPress = Just (SetAsBase state), label = text "Use this svg" }
             , styledButton { onPress = Just (Iterate <| buildState state), label = text "Iterate" }
-            , styledEl (filling 1 1) (text ((++) "Size: " <| String.fromInt <| stateLength state))
+            , styledEl (filling 1 1)
+                (text
+                    ((++) "Size: " <|
+                        String.fromInt <|
+                            let
+                                ( ds, os ) =
+                                    stateLength state
+                            in
+                            ds + os
+                    )
+                )
             ]
         , el (filling 1 1) <| html <| drawSvgFixed state
         ]

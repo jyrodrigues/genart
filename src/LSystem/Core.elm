@@ -310,12 +310,8 @@ countSize state =
     Tuple.second <| List.foldl countMax ( initialPos, initialMaxes ) <| buildState state
 
 
-
--- Todo: multiply each D by length of next transform
-
-
-stateLength : State -> Int
-stateLength state =
+stateLength2 : State -> Int
+stateLength2 state =
     let
         countD transform =
             List.foldl
@@ -332,4 +328,34 @@ stateLength state =
     List.foldl
         (\l acc -> countD l * acc)
         (countD state.base)
+        state.transforms
+
+
+stateLength : State -> ( Int, Int )
+stateLength state =
+    let
+        countSteps transform =
+            List.foldl
+                (\step acc ->
+                    if step == D then
+                        ( Tuple.first acc + 1, Tuple.second acc )
+
+                    else
+                        ( Tuple.first acc, Tuple.second acc + 1 )
+                )
+                ( 0, 0 )
+                transform
+    in
+    List.foldl
+        (\l acc ->
+            let
+                ( ld, lo ) =
+                    countSteps l
+
+                ( accd, acco ) =
+                    acc
+            in
+            ( accd * ld, accd * lo + acco )
+        )
+        (countSteps state.base)
         state.transforms
