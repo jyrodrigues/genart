@@ -2,8 +2,10 @@ module Colors exposing
     ( darkBlue
     , darkGray
     , gray
+    , green_
     , lightBlue
     , offWhite
+    , red_
     , toString
     )
 
@@ -41,3 +43,11 @@ darkGray =
 
 offWhite =
     El.rgb 200 200 200
+
+
+red_ =
+    El.rgb 240 0 0
+
+
+green_ =
+    El.rgb 0 240 0

@@ -2,17 +2,17 @@ port module Update exposing (Msg(..), update)
 
 import Auxiliary exposing (dropLast)
 import Json.Encode as Encode
-import LSystem.Core
+import LSystem.Core as LCore
     exposing
         ( State
         , Step(..)
         , Transformation
-        , appendToLastTransform
+        , appendToStateAt
         , applyRule
         , buildState
-        , dropFromLastTransform
-        , dropLastTransform
-        , getLastTransform
+        , dropLastStepFromStateAt
+        , dropStateAt
+        , getTransformAt
         )
 import LSystem.String
 import Models exposing (Model, squareState)
@@ -20,7 +20,6 @@ import Models exposing (Model, squareState)
 
 type Msg
     = KeyPress String
-    | ResetStep
     | ClearSvg
     | SetAsBase State
     | Iterate Transformation
@@ -29,6 +28,9 @@ type Msg
     | SaveState
     | Exclude Int
     | Zoom Float Float ShiftKey
+      --
+    | SetEditingIndex Int
+    | DropFromState Int
 
 
 
@@ -45,9 +47,6 @@ port cache : Encode.Value -> Cmd msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ResetStep ->
-            ( { model | state = dropLastTransform model.state }, Cmd.none )
-
         ClearSvg ->
             ( { model | state = Models.squareState }, Cmd.none )
 
@@ -63,8 +62,8 @@ update msg model =
         ToggleShowNextIteration ->
             ( { model | isShowingNextIteration = not model.isShowingNextIteration }, Cmd.none )
 
-        KeyPress dir ->
-            ( processKey model dir, Cmd.none )
+        KeyPress keyString ->
+            ( processKey model keyString, Cmd.none )
 
         SaveState ->
             ( { model | savedStates = model.state :: model.savedStates }, Cmd.none )
@@ -86,6 +85,62 @@ update msg model =
             else
                 ( { model | zoomLevel = model.zoomLevel + deltaY }, Cmd.none )
 
+        SetEditingIndex index ->
+            ( { model | editingIndex = index }, Cmd.none )
+
+        DropFromState index ->
+            let
+                newEditingIndex =
+                    if model.editingIndex == index then
+                        List.length model.state.transforms - 1
+
+                    else if model.editingIndex > index then
+                        model.editingIndex - 1
+
+                    else
+                        model.editingIndex
+            in
+            ( { model | state = LCore.dropStateAt index model.state, editingIndex = newEditingIndex }, Cmd.none )
+
+
+processKey : Model -> String -> Model
+processKey model dir =
+    case dir of
+        "ArrowLeft" ->
+            { model | state = LCore.appendToStateAt [ L ] model.editingIndex model.state }
+
+        "ArrowRight" ->
+            { model | state = LCore.appendToStateAt [ R ] model.editingIndex model.state }
+
+        "ArrowUp" ->
+            { model | state = LCore.appendToStateAt [ D ] model.editingIndex model.state }
+
+        "ArrowDown" ->
+            { model | state = LCore.appendToStateAt [ S ] model.editingIndex model.state }
+
+        " " ->
+            { model | fixed = not model.fixed }
+
+        "Backspace" ->
+            { model | state = LCore.dropLastStepFromStateAt model.editingIndex model.state }
+
+        "i" ->
+            let
+                newModel =
+                    Debug.log "newModel after `i`:" <| iterate model <| LCore.getTransformAt model.editingIndex model.state
+            in
+            { newModel | dir = dir }
+
+        "d" ->
+            let
+                newModel =
+                    deiterate model
+            in
+            { newModel | dir = dir }
+
+        _ ->
+            { model | dir = dir }
+
 
 cacheSavedStates savedStates =
     savedStates
@@ -105,7 +160,7 @@ iterate model transform =
                 | transforms = state.transforms ++ [ transform ]
             }
     in
-    { model | state = newState }
+    { model | state = newState, editingIndex = List.length newState.transforms }
 
 
 deiterate : Model -> Model
@@ -120,42 +175,3 @@ deiterate model =
             }
     in
     { model | state = newState }
-
-
-processKey : Model -> String -> Model
-processKey model dir =
-    case dir of
-        "ArrowLeft" ->
-            { model | state = appendToLastTransform [ L ] model.state }
-
-        "ArrowRight" ->
-            { model | state = appendToLastTransform [ R ] model.state }
-
-        "ArrowUp" ->
-            { model | state = appendToLastTransform [ D ] model.state }
-
-        "ArrowDown" ->
-            { model | state = appendToLastTransform [ S ] model.state }
-
-        " " ->
-            { model | fixed = not model.fixed }
-
-        "Backspace" ->
-            { model | state = dropFromLastTransform model.state }
-
-        "i" ->
-            let
-                newModel =
-                    iterate model <| getLastTransform model.state
-            in
-            { newModel | dir = dir }
-
-        "d" ->
-            let
-                newModel =
-                    deiterate model
-            in
-            { newModel | dir = dir }
-
-        _ ->
-            { model | dir = dir }

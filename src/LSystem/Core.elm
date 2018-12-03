@@ -2,18 +2,20 @@ module LSystem.Core exposing
     ( State
     , Step(..)
     , Transformation
-    , appendToLastTransform
+    , appendToStateAt
     , applyRule
     , buildState
-    , dropFromLastTransform
-    , dropLastTransform
-    , getLastTransform
+    , dropLastStepFromStateAt
+    , dropStateAt
+    , fromList
     , getSvgBorders
+    , getTransformAt
     , makeRule
     , stateLength
+    , toList
     )
 
-import Auxiliary exposing (dropLast)
+import Auxiliary exposing (dropLast, getAt)
 
 
 type Step
@@ -25,6 +27,10 @@ type Step
 
 type alias Transformation =
     List Step
+
+
+
+-- todo: Make State an opaque type!
 
 
 type alias State =
@@ -87,54 +93,80 @@ stateLength state =
         state.transforms
 
 
-getLastTransform : State -> Transformation
-getLastTransform state =
-    case
-        state.transforms
-            |> List.reverse
-            |> List.head
-    of
-        Just a ->
-            a
+appendToStateAt : Transformation -> Int -> State -> State
+appendToStateAt transform =
+    changeStateAt (\t -> t ++ transform)
+
+
+dropLastStepFromStateAt : Int -> State -> State
+dropLastStepFromStateAt =
+    changeStateAt (\t -> dropLast t)
+
+
+dropStateAt : Int -> State -> State
+dropStateAt =
+    -- todo: bug: this is not dropping the transformation, it's replacing it for an empty one
+    -- refactor `changeStateAt` to receive (Transformation -> Maybe Transformation) ?
+    maybeChangeStateAt (\t -> Nothing)
+
+
+changeStateAt : (Transformation -> Transformation) -> Int -> State -> State
+changeStateAt fn =
+    let
+        justFn =
+            \t -> Just <| fn t
+    in
+    maybeChangeStateAt justFn
+
+
+maybeChangeStateAt : (Transformation -> Maybe Transformation) -> Int -> State -> State
+maybeChangeStateAt fn index state =
+    let
+        stateList =
+            toList state
+
+        before =
+            List.take index stateList
+
+        transformed =
+            fn <| getTransformAt index state
+
+        after =
+            List.drop (index + 1) stateList
+    in
+    case transformed of
+        Just t ->
+            fromList (before ++ [ t ] ++ after)
 
         Nothing ->
-            []
+            fromList (before ++ after)
 
 
-appendToLastTransform : Transformation -> State -> State
-appendToLastTransform transform state =
-    changeLastTransform (\t -> t ++ transform) state
+getTransformAt : Int -> State -> Transformation
+getTransformAt index state =
+    case getAt index (toList state) of
+        Just t ->
+            t
+
+        Nothing ->
+            Debug.log ("Error: Trying to access index " ++ String.fromInt index ++ " on current state. Returning empty: ") []
 
 
-dropFromLastTransform : State -> State
-dropFromLastTransform state =
-    changeLastTransform (\t -> dropLast t) state
+toList : State -> List Transformation
+toList state =
+    state.base :: state.transforms
 
 
-dropLastTransform : State -> State
-dropLastTransform state =
-    changeLastTransform (\t -> [ D ]) state
+fromList : List Transformation -> State
+fromList list =
+    case list of
+        x :: xs ->
+            { base = x, transforms = xs }
 
-
-changeLastTransform : (Transformation -> Transformation) -> State -> State
-changeLastTransform fn state =
-    let
-        lastTransform =
-            case
-                state.transforms
-                    |> List.reverse
-                    |> List.head
-            of
-                Just a ->
-                    a
-
-                Nothing ->
-                    []
-
-        newLastTransform =
-            fn lastTransform
-    in
-    { state | transforms = List.take (List.length state.transforms - 1) state.transforms ++ [ newLastTransform ] }
+        [] ->
+            Debug.log
+                "Error trying to create state from empty list. Returning a default state: "
+                { base = [ D, L, D, L, D, L, D ], transforms = [ [ D ] ] }
 
 
 {-|

@@ -11,14 +11,13 @@ import Html.Attributes
 import Html.Events exposing (preventDefaultOn)
 import Icons exposing (icons)
 import Json.Decode as Decoder exposing (Decoder, bool, field, float)
-import LSystem.Core
+import LSystem.Core as LCore
     exposing
         ( State
         , Step(..)
         , Transformation
         , applyRule
         , buildState
-        , getLastTransform
         , stateLength
         )
 import LSystem.Draw exposing (drawSvg, drawSvgFixed)
@@ -45,7 +44,7 @@ view model =
             ]
             [ topRow model
             , El.row (addBorder ++ filling 1 5 ++ [ El.spacing 5 ])
-                [ stateCompositionView model.state
+                [ stateCompositionView model.state model.editingIndex
                 , mainSvgView model
                 ]
             ]
@@ -90,17 +89,19 @@ styledEl attr =
 topRow : Model -> Element Msg
 topRow model =
     let
+        editingTransform =
+            LCore.getTransformAt model.editingIndex model.state
+
         recState =
             { base = [ D ]
-            , transforms = [ getLastTransform model.state ]
+            , transforms = [ editingTransform ]
             }
     in
     El.column (bf11 ++ [ El.scrollbars, El.spacing 5 ])
         [ El.row (bf11 ++ [ El.scrollbars, El.spacing 5 ])
             [ styledButton { onPress = Just SaveState, label = El.text "Save State" }
-            , styledButton { onPress = Just ResetStep, label = El.text "ResetStep" }
             , styledButton { onPress = Just ClearSvg, label = El.text "ClearSvg" }
-            , styledButton { onPress = Just (Iterate <| getLastTransform model.state), label = El.text "Iterate" }
+            , styledButton { onPress = Just (Iterate editingTransform), label = El.text "Iterate" }
             , styledButton { onPress = Just Deiterate, label = El.text "Deiterate" }
             , styledButton { onPress = Just ToggleShowNextIteration, label = El.text "ToggleShowNextIteration" }
             , styledEl bf11 (El.text <| "Status: " ++ onOff model.isShowingNextIteration)
@@ -114,14 +115,15 @@ topRow model =
                             ++ ", "
                             ++ (String.fromInt <| Tuple.second <| stateLength model.state)
                     )
-                , styledEl (filling 1 1) (El.text <| "->" ++ model.dir ++ "<-")
-                , styledEl (filling 1 1) (El.text <| LSystem.String.fromTransform <| getLastTransform model.state)
+                , styledEl (filling 1 1) (El.text <| "{" ++ model.dir ++ "}")
+                , styledEl (filling 1 1) (El.text <| LSystem.String.fromTransform editingTransform)
                 ]
             , styledEl (addBorder ++ filling 1 1 ++ [ El.scrollbars ]) (El.html <| drawSvg recState 60 60 0 0)
             ]
         ]
 
 
+onOff : Bool -> String
 onOff bool =
     if bool then
         "On"
@@ -130,13 +132,11 @@ onOff bool =
         "Off"
 
 
-stateCompositionView : State -> Element Msg
-stateCompositionView state =
+stateCompositionView : State -> Int -> Element Msg
+stateCompositionView state editingIndex =
     let
         transforms =
-            List.reverse <|
-                state.base
-                    :: state.transforms
+            LCore.toList state
     in
     El.column
         ([ El.width (El.minimum 200 El.fill)
@@ -145,11 +145,11 @@ stateCompositionView state =
          ]
             ++ addBorder
         )
-        (List.indexedMap elFromTransform transforms)
+        (List.reverse <| List.indexedMap elFromTransform <| List.map (\t -> ( t, editingIndex )) transforms)
 
 
-elFromTransform : Int -> Transformation -> Element Msg
-elFromTransform index transform =
+elFromTransform : Int -> ( Transformation, Int ) -> Element Msg
+elFromTransform index ( transform, editingIndex ) =
     El.row
         -- todo: change (El.fill |> El.minimum 80 |> El.maximum 80) to (El.px 80) and make it work
         ([ El.height (El.fill |> El.minimum 80 |> El.maximum 80)
@@ -160,11 +160,29 @@ elFromTransform index transform =
         )
         [ El.el (filling 1 1) <| El.html <| drawSvgFixed transform
         , El.column []
-            [ El.html <| Icons.draw24px icons.eye
-            , El.html <| Icons.draw24px icons.pen
-            , El.html <| Icons.draw24px icons.trash
+            -- [ El.html <| Icons.draw24px icons.eye
+            [ penIcon index editingIndex
+            , trashIcon index
             ]
         ]
+
+
+penIcon index editingIndex =
+    El.el
+        [ Events.onClick (SetEditingIndex index) ]
+        (El.html <|
+            if index /= editingIndex then
+                Icons.draw24px icons.pen
+
+            else
+                Icons.drawWithColor 24 Colors.green_ icons.pen
+        )
+
+
+trashIcon index =
+    El.el
+        [ Events.onClick (DropFromState index) ]
+        (El.html <| Icons.drawWithColor 24 Colors.red_ icons.trash)
 
 
 mainSvgView : Model -> Element Msg

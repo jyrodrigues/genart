@@ -1,10 +1,12 @@
 module Models exposing (Model, squareState)
 
+import Auxiliary exposing (dropLast, getLast)
 import LSystem.Core exposing (State, Step(..), Transformation)
 
 
 type alias Model =
     { state : State
+    , editingIndex : Int
     , savedStates : List State
     , baseState : State
 
