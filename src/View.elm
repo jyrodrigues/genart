@@ -99,12 +99,14 @@ topRow model =
     in
     El.column (bf11 ++ [ El.scrollbars, El.spacing 5 ])
         [ El.row (bf11 ++ [ El.scrollbars, El.spacing 5 ])
-            [ styledButton { onPress = Just SaveState, label = El.text "Save State" }
-            , styledButton { onPress = Just ClearSvg, label = El.text "ClearSvg" }
+            -- todo: cleanup here
+            -- [ styledButton { onPress = Just SaveState, label = El.text "Save State" }
+            [ styledButton { onPress = Just ClearSvg, label = El.text "ClearSvg" }
             , styledButton { onPress = Just (Iterate editingTransform), label = El.text "Iterate" }
             , styledButton { onPress = Just Deiterate, label = El.text "Deiterate" }
-            , styledButton { onPress = Just ToggleShowNextIteration, label = El.text "ToggleShowNextIteration" }
-            , styledEl bf11 (El.text <| "Status: " ++ onOff model.isShowingNextIteration)
+
+            -- , styledButton { onPress = Just ToggleShowNextIteration, label = El.text "ToggleShowNextIteration" }
+            -- , styledEl bf11 (El.text <| "Status: " ++ onOff model.isShowingNextIteration)
             , styledEl bf11 (El.text <| " Fixed: " ++ onOff model.fixed)
             ]
         , El.row (filling 1 4 ++ [ El.scrollbars, El.spacing 5 ])

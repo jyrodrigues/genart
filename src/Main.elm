@@ -19,8 +19,17 @@ main =
         }
 
 
-type alias Flags =
-    List (List String)
+
+-- type alias Flags =
+--     List (List String)
+-- init : Flags -> ( Model, Cmd Msg )
+-- init localStorage =
+--     ( createInitialModelWith localStorage, Cmd.none )
+
+
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( defaultInitialModel, Cmd.none )
 
 
 
@@ -36,11 +45,6 @@ subscriptions model =
 keyDecoder : Decoder String
 keyDecoder =
     Json.Decode.field "key" Json.Decode.string
-
-
-init : Flags -> ( Model, Cmd Msg )
-init localStorage =
-    ( createInitialModelWith localStorage, Cmd.none )
 
 
 createInitialModelWith : List (List String) -> Model
