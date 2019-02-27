@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Browser.Events
+import Colors
 import Html exposing (div, text)
 import Json.Decode exposing (Decoder)
 import LSystem.Core exposing (State, Step(..), Transformation)
@@ -68,6 +69,7 @@ createInitialModelWith localStorage =
         0
         0
         True
+        Colors.darkGray
 
 
 defaultInitialModel =
@@ -82,6 +84,7 @@ defaultInitialModel =
         0
         0
         True
+        Colors.darkGray
 
 
 

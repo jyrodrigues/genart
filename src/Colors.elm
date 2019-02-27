@@ -1,5 +1,6 @@
 module Colors exposing
-    ( darkBlue
+    ( allColors
+    , darkBlue
     , darkGray
     , gray
     , green_
@@ -51,3 +52,14 @@ red_ =
 
 green_ =
     El.rgb 0 240 0
+
+
+allColors =
+    [ gray
+    , lightBlue
+    , darkBlue
+    , darkGray
+    , offWhite
+    , red_
+    , green_
+    ]

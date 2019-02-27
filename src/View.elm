@@ -26,27 +26,63 @@ import Models exposing (Model)
 import Update exposing (Msg(..))
 
 
-view : Model -> Html.Html Msg
-view model =
+columnStyle =
+    [ El.width El.fill
+    , El.height El.fill
+    , Background.color Colors.darkBlue
+    , El.padding 20
+    , El.scrollbars
+    ]
+
+
+baseColumn =
+    El.column columnStyle
+
+
+baseLayout backgroundColor body =
     El.layout
         [ El.width El.fill
         , El.height El.fill
-        , Background.color Colors.lightBlue
+        , Background.color backgroundColor
         , El.padding 20
         ]
-    <|
-        El.column
-            [ El.width El.fill
-            , El.height El.fill
-            , Background.color Colors.darkBlue
-            , El.padding 20
-            , El.scrollbars
-            ]
+        body
+
+
+withBorder el style children =
+    el
+        (style
+            ++ [ Border.color Colors.green_
+               , Border.solid
+               , Border.width 1
+               ]
+        )
+        children
+
+
+colorBox color =
+    El.el
+        [ Background.color color
+        , El.width <| El.fillPortion 1
+        , El.height <| El.fillPortion 1
+        , Events.onClick (SetBackgroundColor color)
+        ]
+        (El.text "")
+
+
+view : Model -> Html.Html Msg
+view model =
+    baseLayout model.color <|
+        baseColumn
             [ topRow model
-            , El.row (addBorder ++ filling 1 5 ++ [ El.spacing 5 ])
+            , withBorder El.row
+                (filling 1 5 ++ [ El.spacing 5 ])
                 [ stateCompositionView model.state model.editingIndex
                 , mainSvgView model
                 ]
+            , withBorder El.row
+                (filling 1 1 ++ [ El.spacing 5 ])
+                (List.map (\color -> colorBox color) Colors.allColors)
             ]
 
 

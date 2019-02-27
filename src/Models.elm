@@ -1,6 +1,7 @@
 module Models exposing (Model, squareState)
 
 import Auxiliary exposing (dropLast, getLast)
+import Element exposing (Color)
 import LSystem.Core exposing (State, Step(..), Transformation)
 
 
@@ -19,6 +20,9 @@ type alias Model =
 
     -- Todo: remove fixed. "space" should just center the image
     , fixed : Bool
+
+    -- Testing color change
+    , color : Color
     }
 
 

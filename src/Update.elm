@@ -1,6 +1,7 @@
 port module Update exposing (Msg(..), update)
 
 import Auxiliary exposing (dropLast)
+import Element exposing (Color)
 import Json.Encode as Encode
 import LSystem.Core as LCore
     exposing
@@ -31,6 +32,7 @@ type Msg
       --
     | SetEditingIndex Int
     | DropFromState Int
+    | SetBackgroundColor Color
 
 
 
@@ -101,6 +103,9 @@ update msg model =
                         model.editingIndex
             in
             ( { model | state = LCore.dropStateAt index model.state, editingIndex = newEditingIndex }, Cmd.none )
+
+        SetBackgroundColor color ->
+            ( { model | color = color }, Cmd.none )
 
 
 processKey : Model -> String -> Model
