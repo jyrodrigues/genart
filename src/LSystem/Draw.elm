@@ -1,8 +1,10 @@
-module LSystem.Draw exposing (drawSvg, drawSvgFixed)
+module LSystem.Draw exposing (drawSvg, drawSvgFixed, drawSvgFixedWithColor)
 
 -- Todo: remove Msgs from here. Msgs should live on Update and LSystem.Draw should have its own msgs
 
 import Auxiliary exposing (floatsToSpacedString)
+import Colors exposing (..)
+import Element exposing (Color)
 import LSystem.Core exposing (State, Step(..), Transformation, buildState, getSvgBorders)
 import Svg exposing (Svg, line, polyline, svg)
 import Svg.Attributes exposing (fill, height, stroke, style, viewBox, width)
@@ -40,6 +42,11 @@ drawSvg state w h wDelta hDelta =
 
 drawSvgFixed : Transformation -> Svg msg
 drawSvgFixed transform =
+    drawSvgFixedWithColor defaultGreen transform
+
+
+drawSvgFixedWithColor : Color -> Transformation -> Svg msg
+drawSvgFixedWithColor color transform =
     let
         { minX, maxX, minY, maxY } =
             getSvgBorders transform
@@ -76,7 +83,7 @@ drawSvgFixed transform =
         , nextLine drawing
         , polyline
             [ Svg.Attributes.points <| .path <| drawing
-            , stroke "rgba(0,180,110,0.7)"
+            , stroke (Colors.toString color)
             , fill "none"
             ]
             []

@@ -1,7 +1,7 @@
 module View exposing (view)
 
-import Colors exposing (..)
-import Element as El exposing (Attribute, Element)
+import Colors
+import Element as El exposing (Attribute, Color, Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
@@ -20,19 +20,27 @@ import LSystem.Core as LCore
         , buildState
         , stateLength
         )
-import LSystem.Draw exposing (drawSvg, drawSvgFixed)
+import LSystem.Draw exposing (drawSvg, drawSvgFixed, drawSvgFixedWithColor)
 import LSystem.String
 import Models exposing (Model)
 import Update exposing (Msg(..))
 
 
 columnStyle =
+    columnStyleWithColor Colors.darkBlue
+
+
+columnStyleWithColor color =
     [ El.width El.fill
     , El.height El.fill
-    , Background.color Colors.darkBlue
+    , Background.color color
     , El.padding 20
     , El.scrollbars
     ]
+
+
+baseColumnWithColor color =
+    El.column (columnStyleWithColor color)
 
 
 baseColumn =
@@ -60,20 +68,20 @@ withBorder el style children =
         children
 
 
-colorBox color =
+colorBox color msg =
     El.el
         [ Background.color color
         , El.width <| El.fillPortion 1
         , El.height <| El.fillPortion 1
-        , Events.onClick (SetBackgroundColor color)
+        , Events.onClick (msg color)
         ]
         (El.text "")
 
 
 view : Model -> Html.Html Msg
 view model =
-    baseLayout model.color <|
-        baseColumn
+    baseLayout model.backgroundColor <|
+        baseColumnWithColor model.backgroundColor <|
             [ topRow model
             , withBorder El.row
                 (filling 1 5 ++ [ El.spacing 5 ])
@@ -82,7 +90,10 @@ view model =
                 ]
             , withBorder El.row
                 (filling 1 1 ++ [ El.spacing 5 ])
-                (List.map (\color -> colorBox color) Colors.allColors)
+                (List.map (\color -> colorBox color SetBackgroundColor) Colors.allColors)
+            , withBorder El.row
+                (filling 1 1 ++ [ El.spacing 5 ])
+                (List.map (\color -> colorBox color SetDrawColor) Colors.allColors)
             ]
 
 
@@ -278,4 +289,4 @@ mapZoomLevelToSize zl =
 
 svgDivFixed : Model -> Html.Html Msg
 svgDivFixed model =
-    drawSvgFixed <| buildState model.state
+    drawSvgFixedWithColor model.drawColor <| buildState model.state

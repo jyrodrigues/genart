@@ -70,6 +70,7 @@ createInitialModelWith localStorage =
         0
         True
         Colors.darkGray
+        Colors.defaultGreen
 
 
 defaultInitialModel =
@@ -85,6 +86,7 @@ defaultInitialModel =
         0
         True
         Colors.darkGray
+        Colors.defaultGreen
 
 
 

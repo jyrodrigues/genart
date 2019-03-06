@@ -22,7 +22,8 @@ type alias Model =
     , fixed : Bool
 
     -- Testing color change
-    , color : Color
+    , backgroundColor : Color
+    , drawColor : Color
     }
 
 

@@ -33,6 +33,7 @@ type Msg
     | SetEditingIndex Int
     | DropFromState Int
     | SetBackgroundColor Color
+    | SetDrawColor Color
 
 
 
@@ -105,7 +106,10 @@ update msg model =
             ( { model | state = LCore.dropStateAt index model.state, editingIndex = newEditingIndex }, Cmd.none )
 
         SetBackgroundColor color ->
-            ( { model | color = color }, Cmd.none )
+            ( { model | backgroundColor = color }, Cmd.none )
+
+        SetDrawColor color ->
+            ( { model | drawColor = color }, Cmd.none )
 
 
 processKey : Model -> String -> Model
