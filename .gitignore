@@ -2,3 +2,4 @@ node_modules
 elm-stuff
 yarn-error.log
 dist
+.idea
