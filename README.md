@@ -1,5 +1,8 @@
-# Exploring generative art in Elm
+# Exploring generative art
+
+L-Systems
 
 ---
 
-[Elm-lang](http://elm-lang.org)
+Made with [Elm-lang](http://elm-lang.org)
+
