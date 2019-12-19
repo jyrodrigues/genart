@@ -3,3 +3,4 @@ elm-stuff
 yarn-error.log
 dist
 .idea
+*.swp
