@@ -1,4 +1,4 @@
-port module Update exposing (Msg(..), update)
+module Update exposing (Msg(..), update)
 
 import Auxiliary exposing (dropLast)
 import Element exposing (Color)
@@ -44,7 +44,8 @@ type alias ShiftKey =
     Bool
 
 
-port cache : Encode.Value -> Cmd msg
+
+-- port cache : Encode.Value -> Cmd msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -151,11 +152,14 @@ processKey model dir =
             { model | dir = dir }
 
 
+
+{--
 cacheSavedStates savedStates =
     savedStates
         |> List.map (\state -> List.map LSystem.String.fromStep state)
         |> Encode.list (\state -> Encode.list Encode.string state)
         |> cache
+--}
 
 
 iterate : Model -> Transformation -> Model
