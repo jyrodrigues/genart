@@ -26,12 +26,17 @@ view model =
     layout model.backgroundColor
         (column
             [ topRow model
+                |> withHeight 1
+                --|> withBgColor Colors.red_
+                --|> withPadding 5
+                --|> withSpacing 100
+                |> toElement
             , row
                 [ transformsColumn model.state model.editingIndex
                 , mainResultSvg model
                 ]
                 |> withBorder
-                |> withWidthAndHeight 1 5
+                |> withWidthAndHeight 5 10
                 |> withSpacing 5
                 |> toElement
             , colorsRow SetBackgroundColor
@@ -44,7 +49,7 @@ view model =
         )
 
 
-topRow : Model -> Element Msg
+topRow : Model -> Elem Msg
 topRow model =
     let
         editingTransform =
@@ -70,19 +75,22 @@ topRow model =
                 , toElement <| styledBox (LSystem.String.fromTransform editingTransform)
                 ]
                 |> withBorder
-                |> withWidthAndHeight 1 1
                 |> withScrollbars
+                |> withWidth 5
                 |> toElement
-            , box (El.html <| drawSvg recState 60 60 0 0)
+
+            {--}
+            , box (El.html <| svgDivFixed recState model.drawColor)
                 |> withBorder
                 |> withWidthAndHeight 1 1
                 |> withScrollbars
                 |> toElement
+
+            --}
             ]
-            |> withWidthAndHeight 1 4
+            |> withHeight 4
             |> toElement
         ]
-        |> toElement
 
 
 mainResultSvg : Model -> Element Msg

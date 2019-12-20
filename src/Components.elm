@@ -52,7 +52,7 @@ layout backgroundColor body =
         [ El.width El.fill
         , El.height El.fill
         , Background.color backgroundColor
-        , El.padding 20
+        , El.padding 15
         ]
         body
 
@@ -93,8 +93,8 @@ type alias BorderOptions =
 
 defaultOptions : Options msg
 defaultOptions =
-    { width = El.fill
-    , height = El.fill
+    { width = El.fillPortion 1
+    , height = El.fillPortion 1
     , backgroundColor = Colors.darkGray
     , border = Nothing
     , spacing = 0
