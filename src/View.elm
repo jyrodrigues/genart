@@ -33,9 +33,19 @@ view model =
                 |> toElement
             , row
                 [ transformsColumn model.state model.editingIndex
+                    |> withBgColor model.backgroundColor
+                    |> toElement
                 , mainResultSvg model
+                    |> withBgColor model.backgroundColor
+                    |> withAttributes
+                        -- Trying to limit the SVG size. NOT WORKING :(
+                        [ El.height (El.maximum 700 El.fill)
+                        , El.clip
+                        ]
+                    |> toElement
                 ]
                 |> withBorder
+                |> withBgColor model.backgroundColor
                 |> withWidthAndHeight 5 10
                 |> withSpacing 5
                 |> toElement
@@ -93,7 +103,7 @@ topRow model =
         ]
 
 
-mainResultSvg : Model -> Element Msg
+mainResultSvg : Model -> Elem Msg
 mainResultSvg model =
     let
         { state, drawColor, zoomLevel, wDelta, hDelta } =
@@ -111,14 +121,13 @@ mainResultSvg model =
         |> withBorder
         |> withWidthAndHeight 7 1
         |> withAttributes [ modifyWheelEvent ]
-        |> toElement
 
 
 
 -- TRANSFORMS COLUMN (left sidebar)
 
 
-transformsColumn : State -> Int -> Element Msg
+transformsColumn : State -> Int -> Elem Msg
 transformsColumn state editingIndex =
     let
         transforms =
@@ -132,7 +141,6 @@ transformsColumn state editingIndex =
         |> withHeightFill
         |> withScrollbars
         |> withBorder
-        |> toElement
 
 
 styledTransformBox : Int -> Int -> Transformation -> Element Msg

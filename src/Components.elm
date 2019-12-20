@@ -170,11 +170,34 @@ toElement elem =
 
 optionsToAttrs : Options msg -> List (Attribute msg)
 optionsToAttrs options =
+    let
+        borderAttributes =
+            borderToAttrs options.border
+
+        clickAttributes =
+            case options.onClick of
+                Just msg ->
+                    [ Events.onClick msg ]
+
+                Nothing ->
+                    []
+
+        scrollbarsAttributes =
+            if options.scrollbars then
+                [ El.scrollbars ]
+
+            else
+                []
+    in
     [ El.width options.width
     , El.height options.height
     , Background.color options.backgroundColor
+    , El.spacing options.spacing
+    , El.padding options.padding
     ]
-        ++ borderToAttrs options.border
+        ++ borderAttributes
+        ++ clickAttributes
+        ++ scrollbarsAttributes
 
 
 borderToAttrs : Maybe BorderOptions -> List (Attribute msg)

@@ -50,6 +50,10 @@ type alias ShiftKey =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        _ =
+            Debug.log "msg:" msg
+    in
     case msg of
         ClearSvg ->
             ( { model | state = Models.squareState }, Cmd.none )
