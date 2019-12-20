@@ -1,13 +1,9 @@
 module View exposing (view)
 
 import Colors
-import Element as El exposing (Attribute, Color, Element)
-import Element.Background as Background
-import Element.Border as Border
-import Element.Events as Events
-import Element.Input exposing (button)
+import Components exposing (..)
+import Element as El exposing (Color, Element)
 import Html
-import Html.Attributes
 import Html.Events exposing (preventDefaultOn)
 import Icons exposing (icons)
 import Json.Decode as Decoder exposing (Decoder, bool, field, float)
@@ -16,7 +12,6 @@ import LSystem.Core as LCore
         ( State
         , Step(..)
         , Transformation
-        , applyRule
         , buildState
         , stateLength
         )
@@ -26,111 +21,27 @@ import Models exposing (Model)
 import Update exposing (Msg(..))
 
 
-columnStyle =
-    columnStyleWithColor Colors.darkBlue
-
-
-columnStyleWithColor color =
-    [ El.width El.fill
-    , El.height El.fill
-    , Background.color color
-    , El.padding 20
-    , El.scrollbars
-    ]
-
-
-baseColumnWithColor color =
-    El.column (columnStyleWithColor color)
-
-
-baseColumn =
-    El.column columnStyle
-
-
-baseLayout backgroundColor body =
-    El.layout
-        [ El.width El.fill
-        , El.height El.fill
-        , Background.color backgroundColor
-        , El.padding 20
-        ]
-        body
-
-
-withBorder el style children =
-    el
-        (style
-            ++ [ Border.color Colors.green_
-               , Border.solid
-               , Border.width 1
-               ]
-        )
-        children
-
-
-colorBox color msg =
-    El.el
-        [ Background.color color
-        , El.width <| El.fillPortion 1
-        , El.height <| El.fillPortion 1
-        , Events.onClick (msg color)
-        ]
-        (El.text "")
-
-
 view : Model -> Html.Html Msg
 view model =
-    baseLayout model.backgroundColor <|
-        baseColumnWithColor model.backgroundColor <|
+    layout model.backgroundColor
+        (column
             [ topRow model
-            , withBorder El.row
-                (filling 1 5 ++ [ El.spacing 5 ])
-                [ stateCompositionView model.state model.editingIndex
-                , mainSvgView model
+            , row
+                [ transformsColumn model.state model.editingIndex
+                , mainResultSvg model
                 ]
-            , withBorder El.row
-                (filling 1 1 ++ [ El.spacing 5 ])
-                (List.map (\color -> colorBox color SetBackgroundColor) Colors.allColors)
-            , withBorder El.row
-                (filling 1 1 ++ [ El.spacing 5 ])
-                (List.map (\color -> colorBox color SetDrawColor) Colors.allColors)
+                |> withBorder
+                |> withWidthAndHeight 1 5
+                |> withSpacing 5
+                |> toElement
+            , colorsRow SetBackgroundColor
+            , colorsRow SetDrawColor
             ]
-
-
-size : Float
-size =
-    1500.0
-
-
-addBorder =
-    [ Border.color Colors.darkGray
-    , Border.solid
-    , Border.width 1
-    ]
-
-
-filling w h =
-    [ El.width <| El.fillPortion w
-    , El.height <| El.fillPortion h
-    ]
-
-
-bf11 =
-    addBorder ++ filling 1 1
-
-
-styledButton :
-    { onPress : Maybe Msg
-    , label : Element Msg
-    }
-    -> Element Msg
-styledButton =
-    button <| bf11 ++ [ Background.color Colors.offWhite ]
-
-
-styledEl : List (Attribute Msg) -> Element Msg -> Element Msg
-styledEl attr =
-    El.el <| attr ++ [ Background.color Colors.offWhite ]
+            |> withBgColor model.backgroundColor
+            |> withPadding 20
+            |> withScrollbars
+            |> toElement
+        )
 
 
 topRow : Model -> Element Msg
@@ -144,36 +55,123 @@ topRow model =
             , transforms = [ editingTransform ]
             }
     in
-    El.column (bf11 ++ [ El.scrollbars, El.spacing 5 ])
-        [ El.row (bf11 ++ [ El.scrollbars, El.spacing 5 ])
-            -- todo: cleanup here
-            -- [ styledButton { onPress = Just SaveState, label = El.text "Save State" }
-            [ styledButton { onPress = Just ClearSvg, label = El.text "ClearSvg" }
-            , styledButton { onPress = Just (Iterate editingTransform), label = El.text "Iterate" }
-            , styledButton { onPress = Just Deiterate, label = El.text "Deiterate" }
-
-            -- , styledButton { onPress = Just ToggleShowNextIteration, label = El.text "ToggleShowNextIteration" }
-            -- , styledEl bf11 (El.text <| "Status: " ++ onOff model.isShowingNextIteration)
-            , styledEl bf11 (El.text <| " Fixed: " ++ onOff model.fixed)
+    styledColumn
+        [ styledRow
+            [ toElement <| styledButton ClearSvg "ClearSvg"
+            , toElement <| styledButton (Iterate editingTransform) "Iterate"
+            , toElement <| styledButton Deiterate "Deiterate"
+            , toElement <| styledBox (" Fixed: " ++ boolToOnOffString model.fixed)
             ]
-        , El.row (filling 1 4 ++ [ El.scrollbars, El.spacing 5 ])
-            [ El.column (bf11 ++ [ El.scrollbars ])
-                [ styledEl (filling 1 1)
-                    (El.text <|
-                        (String.fromInt <| Tuple.first <| stateLength model.state)
-                            ++ ", "
-                            ++ (String.fromInt <| Tuple.second <| stateLength model.state)
-                    )
-                , styledEl (filling 1 1) (El.text <| "{" ++ model.dir ++ "}")
-                , styledEl (filling 1 1) (El.text <| LSystem.String.fromTransform editingTransform)
+            |> toElement
+        , styledRow
+            [ column
+                [ toElement <| styledBox (stateLengthToString model.state)
+                , toElement <| styledBox ("{" ++ model.dir ++ "}")
+                , toElement <| styledBox (LSystem.String.fromTransform editingTransform)
                 ]
-            , styledEl (addBorder ++ filling 1 1 ++ [ El.scrollbars ]) (El.html <| drawSvg recState 60 60 0 0)
+                |> withBorder
+                |> withWidthAndHeight 1 1
+                |> withScrollbars
+                |> toElement
+            , box (El.html <| drawSvg recState 60 60 0 0)
+                |> withBorder
+                |> withWidthAndHeight 1 1
+                |> withScrollbars
+                |> toElement
             ]
+            |> withWidthAndHeight 1 4
+            |> toElement
         ]
+        |> toElement
 
 
-onOff : Bool -> String
-onOff bool =
+mainResultSvg : Model -> Element Msg
+mainResultSvg model =
+    let
+        { state, drawColor, zoomLevel, wDelta, hDelta } =
+            model
+
+        drawnSvg =
+            if model.fixed then
+                svgDivFixed state drawColor
+
+            else
+                svgDiv state zoomLevel wDelta hDelta
+    in
+    box (El.html drawnSvg)
+        |> withScrollbars
+        |> withBorder
+        |> withWidthAndHeight 7 1
+        |> withAttributes [ modifyWheelEvent ]
+        |> toElement
+
+
+
+-- TRANSFORMS COLUMN (left sidebar)
+
+
+transformsColumn : State -> Int -> Element Msg
+transformsColumn state editingIndex =
+    let
+        transforms =
+            state
+                |> LCore.toList
+                |> List.indexedMap (styledTransformBox editingIndex)
+                |> List.reverse
+    in
+    column transforms
+        |> withWidthAsLength (El.minimum 200 El.fill)
+        |> withHeightFill
+        |> withScrollbars
+        |> withBorder
+        |> toElement
+
+
+styledTransformBox : Int -> Int -> Transformation -> Element Msg
+styledTransformBox editingIndex index transform =
+    row
+        [ box (El.html (drawSvgFixed transform))
+            |> withWidthAndHeight 1 1
+            |> toElement
+        , toElement <|
+            column
+                -- [ El.html <| Icons.draw24px icons.eye
+                [ penIcon index editingIndex
+                , trashIcon index
+                ]
+        ]
+        --|> withWidthAsLength (El.fill |> El.minimum 80 |> El.maximum 80)
+        |> withHeightAsLength (El.px 80)
+        |> withWidthFill
+        |> withBgColor Colors.gray
+        |> withBorder
+        |> toElement
+
+
+penIcon : Int -> Int -> Element Msg
+penIcon index editingIndex =
+    icon
+        (SetEditingIndex index)
+        (index == editingIndex)
+        Colors.green_
+        icons.pen
+
+
+trashIcon : Int -> Element Msg
+trashIcon index =
+    icon
+        (DropFromState index)
+        True
+        Colors.red_
+        icons.trash
+
+
+
+-- TO STRING
+
+
+boolToOnOffString : Bool -> String
+boolToOnOffString bool =
     if bool then
         "On"
 
@@ -181,76 +179,50 @@ onOff bool =
         "Off"
 
 
-stateCompositionView : State -> Int -> Element Msg
-stateCompositionView state editingIndex =
+stateLengthToString : State -> String
+stateLengthToString state =
     let
-        transforms =
-            LCore.toList state
+        length =
+            stateLength state
     in
-    El.column
-        ([ El.width (El.minimum 200 El.fill)
-         , El.height El.fill
-         , El.scrollbars
-         ]
-            ++ addBorder
-        )
-        (List.reverse <| List.indexedMap elFromTransform <| List.map (\t -> ( t, editingIndex )) transforms)
+    String.fromInt (Tuple.first length)
+        ++ ", "
+        ++ String.fromInt (Tuple.second length)
 
 
-elFromTransform : Int -> ( Transformation, Int ) -> Element Msg
-elFromTransform index ( transform, editingIndex ) =
-    El.row
-        -- todo: change (El.fill |> El.minimum 80 |> El.maximum 80) to (El.px 80) and make it work
-        ([ El.height (El.fill |> El.minimum 80 |> El.maximum 80)
-         , El.width El.fill
-         , Background.color Colors.gray
-         ]
-            ++ addBorder
-        )
-        [ El.el (filling 1 1) <| El.html <| drawSvgFixed transform
-        , El.column []
-            -- [ El.html <| Icons.draw24px icons.eye
-            [ penIcon index editingIndex
-            , trashIcon index
-            ]
+
+-- SVG DRAWING
+
+
+svgDivFixed : State -> Color -> Html.Html Msg
+svgDivFixed state drawColor =
+    drawSvgFixedWithColor drawColor <| buildState state
+
+
+svgDiv : State -> Float -> Float -> Float -> Html.Html Msg
+svgDiv state zoomLevel widthDelta heightDelta =
+    Html.div []
+        [ drawSvg
+            state
+            (mapZoomLevelToSize zoomLevel)
+            (mapZoomLevelToSize zoomLevel)
+            widthDelta
+            heightDelta
         ]
 
 
-penIcon index editingIndex =
-    El.el
-        [ Events.onClick (SetEditingIndex index) ]
-        (El.html <|
-            if index /= editingIndex then
-                Icons.draw24px icons.pen
-
-            else
-                Icons.drawWithColor 24 Colors.green_ icons.pen
-        )
-
-
-trashIcon index =
-    El.el
-        [ Events.onClick (DropFromState index) ]
-        (El.html <| Icons.drawWithColor 24 Colors.red_ icons.trash)
-
-
-mainSvgView : Model -> Element Msg
-mainSvgView model =
-    El.el ([ El.scrollbars, modifyWheelEvent ] ++ addBorder ++ filling 7 1)
-        (El.html <|
-            if model.fixed then
-                svgDivFixed model
-
-            else
-                svgDiv model
-        )
+mapZoomLevelToSize : Float -> Float
+mapZoomLevelToSize zl =
+    max 10.0 (zl * 4.0)
 
 
 
--- Todo: refactor modifyWheelEvent/alwaysPreventDefault/wheelDecoder out of here
+-- ZOOM
 
 
+modifyWheelEvent : El.Attribute Msg
 modifyWheelEvent =
+    -- Refactor modifyWheelEvent/alwaysPreventDefault/wheelDecoder out of here
     El.htmlAttribute <| preventDefaultOn "wheel" (Decoder.map alwaysPreventDefault wheelDecoder)
 
 
@@ -265,28 +237,3 @@ wheelDecoder =
         (field "deltaX" float)
         (field "deltaY" float)
         (field "shiftKey" bool)
-
-
-svgDiv : Model -> Html.Html Msg
-svgDiv model =
-    Html.div []
-        [ drawSvg
-            -- (if model.isShowingNextIteration then
-            --     applyRule model.recording model.state
-            --  else
-            model.state
-            -- )
-            (mapZoomLevelToSize model.zoomLevel)
-            (mapZoomLevelToSize model.zoomLevel)
-            model.wDelta
-            model.hDelta
-        ]
-
-
-mapZoomLevelToSize zl =
-    max 10.0 (zl * 4.0)
-
-
-svgDivFixed : Model -> Html.Html Msg
-svgDivFixed model =
-    drawSvgFixedWithColor model.drawColor <| buildState model.state
