@@ -1,4 +1,4 @@
-module View exposing (view)
+module View exposing (..)
 
 import Colors
 import Components exposing (..)

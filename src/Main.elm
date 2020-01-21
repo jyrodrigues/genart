@@ -7,8 +7,8 @@ import Html exposing (div, text)
 import Json.Decode exposing (Decoder)
 import LSystem.Core exposing (State, Step(..), Transformation)
 import Models exposing (Model, squareState)
+import Playground exposing (view)
 import Update exposing (Msg(..), update)
-import View exposing (view)
 
 
 main =
@@ -90,4 +90,4 @@ defaultInitialModel =
 
 
 
--- [D L D D L D D D D L D D L D D D D D D R D L D L D D D D D D D L]
+{--[D L D D L D D D D L D D L D D D D D D R D L D L D D D D D D D L] --}

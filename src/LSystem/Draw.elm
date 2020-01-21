@@ -80,7 +80,7 @@ drawSvgFixedWithColor color transform =
     in
     svg
         [ viewBox <| floatsToSpacedString [ 0, 0, fw, fh ]
-        , style "border: 1px dashed black; display: block"
+        , style "border: 1px dashed black; display: block; height: 100%; width: 100%"
         ]
         [ originPoint xBegin yBegin
         , nextLine drawing

@@ -8,10 +8,12 @@ module Colors exposing
     , lightBlue
     , offWhite
     , red_
+    , toElmCssColor
     , toString
     )
 
-import Element as El exposing (Color)
+import Css exposing (rgba)
+import Element as El exposing (Color, toRgb)
 
 
 toString : Color -> String
@@ -104,3 +106,11 @@ allColors =
     , El.rgba255 123 158 135 1
     , El.rgba255 94 116 127 1
     ]
+
+
+toElmCssColor color =
+    let
+        rgb =
+            toRgb color
+    in
+    rgba (round rgb.red) (round rgb.green) (round rgb.blue) rgb.alpha
