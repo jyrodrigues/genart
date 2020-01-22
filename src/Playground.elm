@@ -8,7 +8,7 @@ import Html
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (css, href, src)
 import Html.Styled.Events exposing (onClick)
-import LSystem.Core
+import LSystem.Core as LCore
     exposing
         ( State
         , Step(..)
@@ -17,6 +17,7 @@ import LSystem.Core
         , stateLength
         )
 import LSystem.Draw exposing (drawSvg, drawSvgFixed, drawSvgFixedWithColor)
+import LSystem.String
 import Models exposing (Model)
 import Update exposing (Msg(..))
 import View exposing (..)
@@ -31,68 +32,84 @@ styledView : Model -> Html Msg
 styledView model =
     div
         [ css [ width (pct 100), height (pct 100) ] ]
-        [ topRow
+        [ topRow model
         , leftPane model
         , rightPane model
         , bottomRow
         ]
 
 
-layout :
-    { topRow : Float
-    , middleRow : Float
-    , leftPane : Float
-    , rightPane : Float
-    }
-layout =
-    { topRow = 20
-    , middleRow = 70
-    , leftPane = 20
-    , rightPane = 80
-    }
+topRow : Model -> Html Msg
+topRow model =
+    let
+        editingTransform =
+            LCore.getTransformAt model.editingIndex model.state
 
+        fixedOrZoomStatus =
+            " Fixed: " ++ boolToOnOffString model.fixed
 
-fixedDiv : List (Html.Styled.Attribute msg) -> List (Html msg) -> Html msg
-fixedDiv attrs children =
-    div
-        (css
-            [ position fixed ]
-            :: attrs
-        )
-        children
+        stateLength =
+            stateLengthToString model.state
 
+        dir =
+            -- To do: refactor "dir" variable inside model and here
+            "{" ++ model.dir ++ "}"
 
-topRow : Html msg
-topRow =
+        editingTransformBlueprint =
+            LSystem.String.fromTransform editingTransform
+    in
     fixedDiv
         [ css
-            [ backgroundColor theme.r
-            , height (pct layout.topRow)
+            [ height (pct layout.topRow)
             , width (pct 100)
+            , overflow scroll
             ]
         ]
-        [ text "top row" ]
+        [ div []
+            [ Html.Styled.button [ onClick ClearSvg ] [ text "ClearSvg" ]
+            , Html.Styled.button [ onClick (Iterate editingTransform) ] [ text "Iterate" ]
+            , Html.Styled.button [ onClick Deiterate ] [ text "Deiterate" ]
+            , span [] [ text fixedOrZoomStatus ]
+            ]
+        , div []
+            [ p [] [ text stateLength ]
+            , p [] [ text dir ]
+            , p [] [ text editingTransformBlueprint ]
+            ]
+        ]
 
 
 leftPane : Model -> Html Msg
 leftPane model =
+    let
+        intoDiv el =
+            div [] [ el ]
+
+        transforms =
+            model.state
+                |> LCore.toList
+                |> List.indexedMap (transformBox model.editingIndex)
+                |> List.reverse
+    in
     fixedDiv
         [ css
             [ backgroundColor theme.g
             , height (pct layout.middleRow)
             , width (pct layout.leftPane)
             , top (pct layout.topRow)
+            , overflow scroll
             ]
         ]
-        [ transformsColumn model.state model.editingIndex
-            |> withBgColor model.backgroundColor
-            |> toElement
-            |> elToStyled
+        transforms
+
+
+transformBox : Int -> Int -> Transformation -> Html Msg
+transformBox editingIndex index transform =
+    div []
+        [ div [] [ fromUnstyled (drawSvgFixed transform) ]
+        , elToStyled (trashIcon index)
+        , elToStyled (penIcon index (index == editingIndex))
         ]
-
-
-elToStyled =
-    fromUnstyled << El.layout []
 
 
 rightPane : Model -> Html Msg
@@ -170,3 +187,31 @@ theme =
     , c = rgb 150 251 251
     , m = rgb 251 150 251
     }
+
+
+layout :
+    { topRow : Float
+    , middleRow : Float
+    , leftPane : Float
+    , rightPane : Float
+    }
+layout =
+    { topRow = 20
+    , middleRow = 70
+    , leftPane = 20
+    , rightPane = 80
+    }
+
+
+elToStyled =
+    fromUnstyled << El.layout []
+
+
+fixedDiv : List (Html.Styled.Attribute msg) -> List (Html msg) -> Html msg
+fixedDiv attrs children =
+    div
+        (css
+            [ position fixed ]
+            :: attrs
+        )
+        children
