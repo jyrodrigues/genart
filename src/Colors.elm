@@ -112,5 +112,12 @@ toElmCssColor color =
     let
         rgb =
             toRgb color
+
+        fix value =
+            if rgb.red < 1.0 || rgb.green < 1.0 || rgb.blue < 1.0 then
+                round (value * 255)
+
+            else
+                round value
     in
-    rgba (round rgb.red) (round rgb.green) (round rgb.blue) rgb.alpha
+    rgba (fix rgb.red) (fix rgb.green) (fix rgb.blue) rgb.alpha

@@ -63,6 +63,7 @@ topRow model =
             [ height (pct layout.topRow)
             , width (pct 100)
             , overflow scroll
+            , backgroundColor (toElmCssColor model.backgroundColor)
             ]
         ]
         [ div []
@@ -93,7 +94,7 @@ leftPane model =
     in
     fixedDiv
         [ css
-            [ backgroundColor theme.g
+            [ backgroundColor (toElmCssColor model.backgroundColor)
             , height (pct layout.middleRow)
             , width (pct layout.leftPane)
             , top (pct layout.topRow)
