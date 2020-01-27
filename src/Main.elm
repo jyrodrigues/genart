@@ -503,12 +503,20 @@ iterate model transform =
 deiterate : Model -> Model
 deiterate model =
     let
+        newTransforms =
+            dropLast model.state.transforms
+
+        newEditingIndex =
+            if model.editingIndex > List.length newTransforms then
+                List.length newTransforms
+
+            else
+                model.editingIndex
+
         state =
             model.state
-
-        newState =
-            { state
-                | transforms = dropLast state.transforms
-            }
     in
-    { model | state = newState }
+    { model
+        | state = { state | transforms = newTransforms }
+        , editingIndex = newEditingIndex
+    }
