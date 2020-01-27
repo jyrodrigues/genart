@@ -18,6 +18,13 @@ module Colors exposing
 import Css exposing (Color, hex, rgba)
 
 
+{-|
+
+    This type only exists because Elm-css doesn't expose something like
+    colorToString and svg.stroke only takes a string as argument. Therefore
+    we keep this type to allow for `toString` methods.
+
+-}
 type Color
     = Color Int Int Int Float
     | Hex String

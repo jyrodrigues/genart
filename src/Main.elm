@@ -12,8 +12,11 @@ import Css
         , color
         , fixed
         , height
+        , hidden
         , left
         , overflow
+        , overflowX
+        , overflowY
         , pct
         , position
         , px
@@ -40,13 +43,7 @@ import LSystem.Core as LCore
         , getTransformAt
         , stateLength
         )
-import LSystem.Draw
-    exposing
-        ( Image(..)
-        , drawImage
-        , drawSvgFixed
-        , drawSvgFixedWithColor
-        )
+import LSystem.Draw exposing (Image(..), drawImage)
 import LSystem.String
 
 
@@ -75,21 +72,6 @@ main =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( defaultInitialModel, Cmd.none )
-
-
-
--- SUBSCRIPTIONS
-
-
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    Sub.batch
-        [ Browser.Events.onKeyUp (Decode.map KeyPress keyDecoder) ]
-
-
-keyDecoder : Decoder String
-keyDecoder =
-    Decode.field "key" Decode.string
 
 
 
@@ -173,6 +155,25 @@ view model =
 
 controlPanel : Model -> Html Msg
 controlPanel model =
+    fixedDiv
+        [ css
+            [ height (pct 100)
+            , width (pct layout.controlPanel)
+            , right zero
+            , overflowY scroll
+            , overflowX hidden
+            , backgroundColor (toCssColor model.backgroundColor)
+            , color (toCssColor offWhite)
+            ]
+        ]
+        [ infoAndBasicControls model
+        , colorControl model
+        , turnDegreesControl
+        ]
+
+
+infoAndBasicControls : Model -> Html Msg
+infoAndBasicControls model =
     let
         editingTransform =
             LCore.getTransformAt model.editingIndex model.state
@@ -195,7 +196,43 @@ controlPanel model =
 
         editingTransformBlueprint =
             LSystem.String.fromTransform editingTransform
+    in
+    div []
+        [ button [ onClick ClearSvg ] [ text "ClearSvg" ]
+        , button [ onClick (Iterate editingTransform) ] [ text "Iterate" ]
+        , button [ onClick Deiterate ] [ text "Deiterate" ]
+        , span [] [ text fixedOrZoomStatus ]
+        , p [] [ text stateLengthString ]
+        , p [] [ text dir ]
+        , p [] [ text editingTransformBlueprint ]
+        ]
 
+
+colorControl : Model -> Html Msg
+colorControl model =
+    div []
+        [ input
+            [ type_ "color"
+            , id "BgColor"
+            , onInput (Colors.fromHexString >> SetBackgroundColor)
+            , value (Colors.toHexString model.backgroundColor)
+            ]
+            []
+        , label [ for "BgColor" ] [ text "Change background color" ]
+        , input
+            [ type_ "color"
+            , id "DrawColor"
+            , onInput (Colors.fromHexString >> SetDrawColor)
+            , value (Colors.toHexString model.drawColor)
+            ]
+            []
+        , label [ for "DrawColor" ] [ text "Change draw color" ]
+        ]
+
+
+turnDegreesControl : Html Msg
+turnDegreesControl =
+    let
         setTurnDegrees maybeDegrees =
             case maybeDegrees of
                 Just degrees ->
@@ -204,52 +241,12 @@ controlPanel model =
                 Nothing ->
                     SetTurnDegrees 90
     in
-    fixedDiv
-        [ css
-            [ height (pct 100)
-            , width (pct layout.controlPanel)
-            , right zero
-            , overflow scroll
-            , backgroundColor (toCssColor model.backgroundColor)
-            , color (toCssColor offWhite)
-            ]
+    input
+        [ type_ "number"
+        , onInput
+            (String.toFloat >> setTurnDegrees)
         ]
-        [ div []
-            [ button [ onClick ClearSvg ] [ text "ClearSvg" ]
-            , button [ onClick (Iterate editingTransform) ] [ text "Iterate" ]
-            , button [ onClick Deiterate ] [ text "Deiterate" ]
-            , span [] [ text fixedOrZoomStatus ]
-            ]
-        , div []
-            [ p [] [ text stateLengthString ]
-            , p [] [ text dir ]
-            , p [] [ text editingTransformBlueprint ]
-            ]
-        , div []
-            [ input
-                [ type_ "color"
-                , id "BgColor"
-                , onInput (Colors.fromHexString >> SetBackgroundColor)
-                , value (Colors.toHexString model.backgroundColor)
-                ]
-                []
-            , label [ for "BgColor" ] [ text "Change background color" ]
-            , input
-                [ type_ "color"
-                , id "DrawColor"
-                , onInput (Colors.fromHexString >> SetDrawColor)
-                , value (Colors.toHexString model.drawColor)
-                ]
-                []
-            , label [ for "DrawColor" ] [ text "Change draw color" ]
-            , input
-                [ type_ "number"
-                , onInput
-                    (String.toFloat >> setTurnDegrees)
-                ]
-                []
-            ]
-        ]
+        []
 
 
 transformsList : Model -> Html Msg
@@ -520,3 +517,18 @@ deiterate model =
         | state = { state | transforms = newTransforms }
         , editingIndex = newEditingIndex
     }
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.batch
+        [ Browser.Events.onKeyUp (Decode.map KeyPress keyDecoder) ]
+
+
+keyDecoder : Decoder String
+keyDecoder =
+    Decode.field "key" Decode.string
