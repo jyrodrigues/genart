@@ -12,6 +12,7 @@ import Css
         , color
         , fixed
         , height
+        , hex
         , left
         , overflow
         , pct
@@ -19,16 +20,15 @@ import Css
         , px
         , right
         , scroll
-        , top
         , width
         , zero
         )
 import Html
-import Html.Styled exposing (Html, button, div, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (css)
-import Html.Styled.Events exposing (onClick)
+import Html.Styled exposing (Html, button, div, input, label, p, span, text, toUnstyled)
+import Html.Styled.Attributes exposing (css, for, id, type_, value)
+import Html.Styled.Events exposing (on, onClick, onInput)
 import Icons exposing (withColor, withConditionalColor, withOnClick)
-import Json.Decode exposing (Decoder)
+import Json.Decode as Decode exposing (Decoder)
 import LSystem.Core as LCore
     exposing
         ( State
@@ -79,12 +79,12 @@ init _ =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Browser.Events.onKeyUp (Json.Decode.map KeyPress keyDecoder) ]
+        [ Browser.Events.onKeyUp (Decode.map KeyPress keyDecoder) ]
 
 
 keyDecoder : Decoder String
 keyDecoder =
-    Json.Decode.field "key" Json.Decode.string
+    Decode.field "key" Decode.string
 
 
 
@@ -211,6 +211,24 @@ controlPanel model =
             [ p [] [ text stateLengthString ]
             , p [] [ text dir ]
             , p [] [ text editingTransformBlueprint ]
+            ]
+        , div []
+            [ input
+                [ type_ "color"
+                , id "BgColor"
+                , onInput (Colors.fromHexString >> SetBackgroundColor)
+                , value (Colors.toHexString model.backgroundColor)
+                ]
+                []
+            , label [ for "BgColor" ] [ text "Change background color" ]
+            , input
+                [ type_ "color"
+                , id "DrawColor"
+                , onInput (Colors.fromHexString >> SetDrawColor)
+                , value (Colors.toHexString model.drawColor)
+                ]
+                []
+            , label [ for "DrawColor" ] [ text "Change draw color" ]
             ]
         ]
 

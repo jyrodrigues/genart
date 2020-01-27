@@ -4,39 +4,67 @@ module Colors exposing
     , darkBlue
     , darkGray
     , defaultGreen
+    , fromHexString
     , gray
     , green_
     , lightBlue
     , offWhite
     , red_
     , toCssColor
+    , toHexString
     , toString
     )
 
-import Css exposing (Color, rgba)
+import Css exposing (Color, hex, rgba)
 
 
 type Color
     = Color Int Int Int Float
+    | Hex String
 
 
 toCssColor : Color -> Css.Color
-toCssColor (Color r g b a) =
-    rgba r g b a
+toCssColor color =
+    case color of
+        Color r g b a ->
+            rgba r g b a
+
+        Hex str ->
+            hex str
 
 
 toString : Color -> String
-toString (Color r g b a) =
-    let
-        rgb =
-            [ r, g, b ]
-                |> List.map String.fromInt
-                |> String.join ","
+toString color =
+    case color of
+        Color r g b a ->
+            let
+                rgb =
+                    [ r, g, b ]
+                        |> List.map String.fromInt
+                        |> String.join ","
 
-        innerString =
-            rgb ++ "," ++ String.fromFloat a
-    in
-    "rgba(" ++ innerString ++ ")"
+                innerString =
+                    rgb ++ "," ++ String.fromFloat a
+            in
+            "rgba(" ++ innerString ++ ")"
+
+        Hex str ->
+            str
+
+
+toHexString : Color -> String
+toHexString color =
+    case color of
+        Color r g b a ->
+            "#aabbcc"
+
+        Hex str ->
+            str
+
+
+fromHexString : String -> Color
+fromHexString color =
+    Hex color
 
 
 gray : Color
@@ -56,7 +84,8 @@ darkBlue =
 
 darkGray : Color
 darkGray =
-    Color 0 0 0 0.8
+    -- Color 0 0 0 0.8
+    Hex "#333333"
 
 
 offWhite : Color
@@ -76,7 +105,8 @@ green_ =
 
 defaultGreen : Color
 defaultGreen =
-    Color 0 180 110 0.7
+    --Color 0 180 110 0.7
+    Hex "#00b46e"
 
 
 allColors : List Color
