@@ -1,4 +1,10 @@
-module LSystem.Draw exposing (drawSvg, drawSvgFixed, drawSvgFixedWithColor)
+module LSystem.Draw exposing
+    ( Image(..)
+    , drawImage
+    , drawSvg
+    , drawSvgFixed
+    , drawSvgFixedWithColor
+    )
 
 -- Todo: remove Msgs from here. Msgs should live on Update and LSystem.Draw should have its own msgs
 
@@ -39,6 +45,10 @@ type alias Drawing =
     }
 
 
+type Image
+    = Image Transformation Float Color
+
+
 drawSvg : State -> Float -> Float -> Float -> Float -> Svg msg
 drawSvg state w h wDelta hDelta =
     svg
@@ -48,7 +58,12 @@ drawSvg state w h wDelta hDelta =
         , style "border: 1px dashed black; display: block"
         ]
         [ polyline
-            [ points <| .path <| transformToSvgPath (buildState state) (w / 2) (h / 2)
+            [ points <|
+                .path <|
+                    transformToSvgPath (buildState state)
+                        (w / 2)
+                        (h / 2)
+                        90
             , stroke "rgba(0,180,110,0.7)"
             , fill "none"
             ]
@@ -59,6 +74,54 @@ drawSvg state w h wDelta hDelta =
 drawSvgFixed : Transformation -> Svg msg
 drawSvgFixed transform =
     drawSvgFixedWithColor defaultGreen transform
+
+
+drawImage : Image -> Svg msg
+drawImage (Image transform turn color) =
+    let
+        { minX, maxX, minY, maxY } =
+            getSvgBorders transform
+
+        w =
+            maxX - minX
+
+        h =
+            maxY - minY
+
+        margin =
+            0.5
+
+        xBegin =
+            (*) scale <| -minX + (margin / 2 * w)
+
+        yBegin =
+            (*) scale <| -minY + (margin / 2 * h)
+
+        fw =
+            (1 + margin) * scale * w
+
+        fh =
+            (1 + margin) * scale * h
+
+        drawing =
+            transformToSvgPath transform xBegin yBegin turn
+
+        --        _ =
+        --            Debug.log "minX, maxX, minY, maxY" [ minX, maxX, minY, maxY ]
+    in
+    svg
+        [ viewBox <| floatsToSpacedString [ 0, 0, fw, fh ]
+        , style "border: 1px dashed black; display: block; height: 100%; width: 100%"
+        ]
+        [ originPoint xBegin yBegin
+        , nextLine drawing
+        , polyline
+            [ points <| .path <| drawing
+            , stroke (toString color)
+            , fill "none"
+            ]
+            []
+        ]
 
 
 drawSvgFixedWithColor : Color -> Transformation -> Svg msg
@@ -89,7 +152,7 @@ drawSvgFixedWithColor color transform =
             (1 + margin) * scale * h
 
         drawing =
-            transformToSvgPath transform xBegin yBegin
+            transformToSvgPath transform xBegin yBegin 90
 
         --        _ =
         --            Debug.log "minX, maxX, minY, maxY" [ minX, maxX, minY, maxY ]
@@ -145,14 +208,14 @@ positionToString pos =
     String.fromFloat pos.x ++ " " ++ String.fromFloat pos.y
 
 
-transformToSvgPath : Transformation -> Float -> Float -> Drawing
-transformToSvgPath transform x0 y0 =
+transformToSvgPath : Transformation -> Float -> Float -> Float -> Drawing
+transformToSvgPath transform x0 y0 turn =
     let
         initialPos =
             Position x0 y0
     in
     List.foldl
-        foldStepToDrawing
+        (addStepToDrawing turn)
         (Drawing (positionToString initialPos) initialPos 0)
         transform
 
@@ -161,16 +224,12 @@ scale =
     10
 
 
-turn =
-    90
-
-
 movePoint pos rad =
     Position (pos.x + cos rad * scale) (pos.y + sin rad * scale)
 
 
-foldStepToDrawing : Step -> Drawing -> Drawing
-foldStepToDrawing step drawing =
+addStepToDrawing : Float -> Step -> Drawing -> Drawing
+addStepToDrawing turn step drawing =
     let
         newPos =
             movePoint drawing.pos (degrees drawing.deg)

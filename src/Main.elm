@@ -12,7 +12,6 @@ import Css
         , color
         , fixed
         , height
-        , hex
         , left
         , overflow
         , pct
@@ -26,7 +25,7 @@ import Css
 import Html
 import Html.Styled exposing (Html, button, div, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
-import Html.Styled.Events exposing (on, onClick, onInput)
+import Html.Styled.Events exposing (onClick, onInput)
 import Icons exposing (withColor, withConditionalColor, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import LSystem.Core as LCore
@@ -41,7 +40,13 @@ import LSystem.Core as LCore
         , getTransformAt
         , stateLength
         )
-import LSystem.Draw exposing (drawSvgFixed, drawSvgFixedWithColor)
+import LSystem.Draw
+    exposing
+        ( Image(..)
+        , drawImage
+        , drawSvgFixed
+        , drawSvgFixedWithColor
+        )
 import LSystem.String
 
 
@@ -106,10 +111,9 @@ type alias Model =
 
     -- Todo: remove fixed. "space" should just center the image
     , fixed : Bool
-
-    -- Testing color change
     , backgroundColor : Color
     , drawColor : Color
+    , turnDegrees : Float
     }
 
 
@@ -143,6 +147,7 @@ createInitialModelWith localStorage =
         True
         Colors.darkGray
         Colors.defaultGreen
+        90
 
 
 defaultInitialModel : Model
@@ -190,6 +195,14 @@ controlPanel model =
 
         editingTransformBlueprint =
             LSystem.String.fromTransform editingTransform
+
+        setTurnDegrees maybeDegrees =
+            case maybeDegrees of
+                Just degrees ->
+                    SetTurnDegrees degrees
+
+                Nothing ->
+                    SetTurnDegrees 90
     in
     fixedDiv
         [ css
@@ -229,6 +242,12 @@ controlPanel model =
                 ]
                 []
             , label [ for "DrawColor" ] [ text "Change draw color" ]
+            , input
+                [ type_ "number"
+                , onInput
+                    (String.toFloat >> setTurnDegrees)
+                ]
+                []
             ]
         ]
 
@@ -239,7 +258,7 @@ transformsList model =
         transforms =
             model.state
                 |> LCore.toList
-                |> List.indexedMap (transformBox model.editingIndex model.drawColor)
+                |> List.indexedMap (transformBox model.editingIndex model.turnDegrees model.drawColor)
                 |> List.reverse
     in
     fixedDiv
@@ -253,15 +272,15 @@ transformsList model =
         transforms
 
 
-transformBox : Int -> Color -> Int -> Transformation -> Html Msg
-transformBox editingIndex drawColor index transform =
+transformBox : Int -> Float -> Color -> Int -> Transformation -> Html Msg
+transformBox editingIndex turnDegrees drawColor index transform =
     div
         [ css
             [ height (px 200)
             , width (pct 100)
             ]
         ]
-        [ drawSvgFixedWithColor drawColor transform
+        [ drawImage (Image transform turnDegrees drawColor)
         , Icons.trash
             |> withColor Colors.red_
             |> withOnClick (DropFromState index)
@@ -284,7 +303,7 @@ mainImg model =
             , left (pct layout.transformsList)
             ]
         ]
-        [ drawSvgFixedWithColor model.drawColor (buildState model.state)
+        [ drawImage (Image (buildState model.state) model.turnDegrees model.drawColor)
         ]
 
 
@@ -329,6 +348,8 @@ type Msg
     | DropFromState Int
     | SetBackgroundColor Color
     | SetDrawColor Color
+      --
+    | SetTurnDegrees Float
 
 
 
@@ -411,6 +432,9 @@ update msg model =
 
         SetDrawColor color ->
             ( { model | drawColor = color }, Cmd.none )
+
+        SetTurnDegrees turn ->
+            ( { model | turnDegrees = turn }, Cmd.none )
 
 
 processKey : Model -> String -> Model
