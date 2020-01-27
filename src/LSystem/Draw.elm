@@ -1,9 +1,13 @@
 module LSystem.Draw exposing
-    ( Image(..)
-    , drawImage
+    ( drawImage
     , drawSvg
     , drawSvgFixed
     , drawSvgFixedWithColor
+    , image
+    , withScale
+    , withStrokeColor
+    , withTranslation
+    , withTurnAngle
     )
 
 -- Todo: remove Msgs from here. Msgs should live on Update and LSystem.Draw should have its own msgs
@@ -23,6 +27,7 @@ import Svg.Styled.Attributes
         , stroke
         , strokeDasharray
         , style
+        , transform
         , viewBox
         , width
         , x1
@@ -45,8 +50,105 @@ type alias Drawing =
     }
 
 
+type alias Angle =
+    Float
+
+
+type alias Scale =
+    Float
+
+
+type Translation
+    = Translation Int Int
+
+
 type Image
-    = Image Transformation Float Color
+    = Image Transformation Angle Color Scale Translation
+
+
+image : Transformation -> Image
+image transformation =
+    Image transformation 90 offWhite 1 (Translation 0 0)
+
+
+withTurnAngle : Angle -> Image -> Image
+withTurnAngle angle (Image t _ c s xy) =
+    Image t angle c s xy
+
+
+withStrokeColor : Color -> Image -> Image
+withStrokeColor color (Image t a _ s xy) =
+    Image t a color s xy
+
+
+withScale : Scale -> Image -> Image
+withScale scale (Image t a c _ xy) =
+    Image t a c scale xy
+
+
+withTranslation : Int -> Int -> Image -> Image
+withTranslation x y (Image t a c s _) =
+    Image t a c s (Translation x y)
+
+
+drawImage : Image -> Svg msg
+drawImage (Image transformation angle color scale (Translation x y)) =
+    let
+        { minX, maxX, minY, maxY } =
+            getSvgBorders transformation
+
+        w =
+            maxX - minX
+
+        h =
+            maxY - minY
+
+        margin =
+            0.5
+
+        xBegin =
+            (*) 10 <| -minX + (margin / 2 * w)
+
+        yBegin =
+            (*) 10 <| -minY + (margin / 2 * h)
+
+        fw =
+            (1 + margin) * 10 * w
+
+        fh =
+            (1 + margin) * 10 * h
+
+        drawing =
+            transformToSvgPath transformation xBegin yBegin angle
+
+        --        _ =
+        --            Debug.log "minX, maxX, minY, maxY" [ minX, maxX, minY, maxY ]
+    in
+    svg
+        [ viewBox <| floatsToSpacedString [ 0, 0, fw, fh ]
+        , style <|
+            "border: 1px dashed black; "
+                ++ "display: block; "
+                ++ "height: 100%; "
+                ++ "width: 100%; "
+                ++ "transform: "
+                ++ "scale("
+                ++ String.fromFloat scale
+                ++ ") translate("
+                ++ String.fromInt x
+                ++ "px, "
+                ++ String.fromInt y
+                ++ "px); "
+        ]
+        [ originPoint xBegin yBegin
+        , nextLine drawing
+        , polyline
+            [ points <| .path <| drawing
+            , stroke (toString color)
+            , fill "none"
+            ]
+            []
+        ]
 
 
 drawSvg : State -> Float -> Float -> Float -> Float -> Svg msg
@@ -76,54 +178,6 @@ drawSvgFixed transform =
     drawSvgFixedWithColor defaultGreen transform
 
 
-drawImage : Image -> Svg msg
-drawImage (Image transform turn color) =
-    let
-        { minX, maxX, minY, maxY } =
-            getSvgBorders transform
-
-        w =
-            maxX - minX
-
-        h =
-            maxY - minY
-
-        margin =
-            0.5
-
-        xBegin =
-            (*) scale <| -minX + (margin / 2 * w)
-
-        yBegin =
-            (*) scale <| -minY + (margin / 2 * h)
-
-        fw =
-            (1 + margin) * scale * w
-
-        fh =
-            (1 + margin) * scale * h
-
-        drawing =
-            transformToSvgPath transform xBegin yBegin turn
-
-        --        _ =
-        --            Debug.log "minX, maxX, minY, maxY" [ minX, maxX, minY, maxY ]
-    in
-    svg
-        [ viewBox <| floatsToSpacedString [ 0, 0, fw, fh ]
-        , style "border: 1px dashed black; display: block; height: 100%; width: 100%"
-        ]
-        [ originPoint xBegin yBegin
-        , nextLine drawing
-        , polyline
-            [ points <| .path <| drawing
-            , stroke (toString color)
-            , fill "none"
-            ]
-            []
-        ]
-
-
 drawSvgFixedWithColor : Color -> Transformation -> Svg msg
 drawSvgFixedWithColor color transform =
     let
@@ -140,16 +194,16 @@ drawSvgFixedWithColor color transform =
             0.5
 
         xBegin =
-            (*) scale <| -minX + (margin / 2 * w)
+            (*) 10 <| -minX + (margin / 2 * w)
 
         yBegin =
-            (*) scale <| -minY + (margin / 2 * h)
+            (*) 10 <| -minY + (margin / 2 * h)
 
         fw =
-            (1 + margin) * scale * w
+            (1 + margin) * 10 * w
 
         fh =
-            (1 + margin) * scale * h
+            (1 + margin) * 10 * h
 
         drawing =
             transformToSvgPath transform xBegin yBegin 90
@@ -220,12 +274,8 @@ transformToSvgPath transform x0 y0 turn =
         transform
 
 
-scale =
-    10
-
-
 movePoint pos rad =
-    Position (pos.x + cos rad * scale) (pos.y + sin rad * scale)
+    Position (pos.x + cos rad * 10) (pos.y + sin rad * 10)
 
 
 addStepToDrawing : Float -> Step -> Drawing -> Drawing

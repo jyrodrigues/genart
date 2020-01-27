@@ -21,14 +21,24 @@ import Css
         , position
         , px
         , right
+        , scale
         , scroll
+        , transform
         , width
         , zero
         )
 import Html
 import Html.Styled exposing (Html, button, div, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
-import Html.Styled.Events exposing (onClick, onInput)
+import Html.Styled.Events
+    exposing
+        ( on
+        , onClick
+        , onInput
+        , onMouseDown
+        , onMouseUp
+        , preventDefaultOn
+        )
 import Icons exposing (withColor, withConditionalColor, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import LSystem.Core as LCore
@@ -43,7 +53,15 @@ import LSystem.Core as LCore
         , getTransformAt
         , stateLength
         )
-import LSystem.Draw exposing (Image(..), drawImage)
+import LSystem.Draw
+    exposing
+        ( drawImage
+        , image
+        , withScale
+        , withStrokeColor
+        , withTranslation
+        , withTurnAngle
+        )
 import LSystem.String
 
 
@@ -85,17 +103,24 @@ type alias Model =
     , baseState : State
 
     -- , savedTransforms : List Transform
-    , isShowingNextIteration : Bool
     , dir : String
+
+    -- Pan and Zoom
     , zoomLevel : Float
     , wDelta : Float
     , hDelta : Float
+    , panStarted : Bool
+    , lastX : Int
+    , lastY : Int
+    , translateX : Int
+    , translateY : Int
 
-    -- Todo: remove fixed. "space" should just center the image
-    , fixed : Bool
+    -- Color
     , backgroundColor : Color
-    , drawColor : Color
-    , turnDegrees : Float
+    , strokeColor : Color
+
+    -- Angle
+    , turnAngle : Float
     }
 
 
@@ -121,14 +146,21 @@ createInitialModelWith localStorage =
         1
         savedStates
         squareState
-        True
+        --
         ""
+        -- Pan and Zoom
+        1
+        0
+        0
+        False
         0
         0
         0
-        True
+        0
+        -- Colors
         Colors.darkGray
         Colors.defaultGreen
+        -- Angle
         90
 
 
@@ -168,7 +200,7 @@ controlPanel model =
         ]
         [ infoAndBasicControls model
         , colorControl model
-        , turnDegreesControl
+        , turnAngleControl
         ]
 
 
@@ -177,15 +209,6 @@ infoAndBasicControls model =
     let
         editingTransform =
             LCore.getTransformAt model.editingIndex model.state
-
-        fixedOrZoomStatus =
-            " Fixed: "
-                ++ (if model.fixed then
-                        "On"
-
-                    else
-                        "Off"
-                   )
 
         stateLengthString =
             Debug.toString (stateLength model.state)
@@ -201,7 +224,6 @@ infoAndBasicControls model =
         [ button [ onClick ClearSvg ] [ text "ClearSvg" ]
         , button [ onClick (Iterate editingTransform) ] [ text "Iterate" ]
         , button [ onClick Deiterate ] [ text "Deiterate" ]
-        , span [] [ text fixedOrZoomStatus ]
         , p [] [ text stateLengthString ]
         , p [] [ text dir ]
         , p [] [ text editingTransformBlueprint ]
@@ -221,30 +243,30 @@ colorControl model =
         , label [ for "BgColor" ] [ text "Change background color" ]
         , input
             [ type_ "color"
-            , id "DrawColor"
-            , onInput (Colors.fromHexString >> SetDrawColor)
-            , value (Colors.toHexString model.drawColor)
+            , id "StrokeColor"
+            , onInput (Colors.fromHexString >> SetStrokeColor)
+            , value (Colors.toHexString model.strokeColor)
             ]
             []
-        , label [ for "DrawColor" ] [ text "Change draw color" ]
+        , label [ for "StrokeColor" ] [ text "Change draw color" ]
         ]
 
 
-turnDegreesControl : Html Msg
-turnDegreesControl =
+turnAngleControl : Html Msg
+turnAngleControl =
     let
-        setTurnDegrees maybeDegrees =
+        setTurnAngle maybeDegrees =
             case maybeDegrees of
                 Just degrees ->
-                    SetTurnDegrees degrees
+                    SetTurnAngle degrees
 
                 Nothing ->
-                    SetTurnDegrees 90
+                    SetTurnAngle 90
     in
     input
         [ type_ "number"
         , onInput
-            (String.toFloat >> setTurnDegrees)
+            (String.toFloat >> setTurnAngle)
         ]
         []
 
@@ -255,7 +277,7 @@ transformsList model =
         transforms =
             model.state
                 |> LCore.toList
-                |> List.indexedMap (transformBox model.editingIndex model.turnDegrees model.drawColor)
+                |> List.indexedMap (transformBox model.editingIndex model.turnAngle model.strokeColor)
                 |> List.reverse
     in
     fixedDiv
@@ -270,14 +292,17 @@ transformsList model =
 
 
 transformBox : Int -> Float -> Color -> Int -> Transformation -> Html Msg
-transformBox editingIndex turnDegrees drawColor index transform =
+transformBox editingIndex turnAngle strokeColor index transform =
     div
         [ css
             [ height (px 200)
             , width (pct 100)
             ]
         ]
-        [ drawImage (Image transform turnDegrees drawColor)
+        [ image transform
+            |> withTurnAngle turnAngle
+            |> withStrokeColor strokeColor
+            |> drawImage
         , Icons.trash
             |> withColor Colors.red_
             |> withOnClick (DropFromState index)
@@ -298,9 +323,17 @@ mainImg model =
             , height (pct 100)
             , width (pct layout.mainImg)
             , left (pct layout.transformsList)
+            , overflow hidden
             ]
+        , zoomOnWheel
+        , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ drawImage (Image (buildState model.state) model.turnDegrees model.drawColor)
+        [ image (buildState model.state)
+            |> withTurnAngle model.turnAngle
+            |> withStrokeColor model.strokeColor
+            |> withScale model.zoomLevel
+            |> withTranslation model.translateX model.translateY
+            |> drawImage
         ]
 
 
@@ -330,23 +363,29 @@ fixedDiv attrs children =
 -- MSG
 
 
-type Msg
+type
+    Msg
+    -- Keyboard Listening
     = KeyPress String
+      -- Main commands
     | ClearSvg
-    | SetAsBase State
     | Iterate Transformation
     | Deiterate
-    | ToggleShowNextIteration
-    | SaveState
-    | Exclude Int
-    | Zoom Float Float ShiftKey
-      --
     | SetEditingIndex Int
     | DropFromState Int
+      -- Storage
+    | SaveState
+    | Exclude Int
+      -- Pan and Zoom
+    | PanStarted Int Int
+    | PanEnded
+    | MouseMoved Int Int
+    | Zoom Float Float ShiftKey
+      -- Colors
     | SetBackgroundColor Color
-    | SetDrawColor Color
-      --
-    | SetTurnDegrees Float
+    | SetStrokeColor Color
+      -- Angle
+    | SetTurnAngle Float
 
 
 
@@ -364,25 +403,15 @@ type alias ShiftKey =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        _ =
-            Debug.log "msg:" msg
-    in
-    case msg of
+    case Debug.log "msg" msg of
         ClearSvg ->
             ( { model | state = squareState }, Cmd.none )
-
-        SetAsBase state ->
-            ( { model | state = state }, Cmd.none )
 
         Iterate transform ->
             ( iterate model transform, Cmd.none )
 
         Deiterate ->
             ( deiterate model, Cmd.none )
-
-        ToggleShowNextIteration ->
-            ( { model | isShowingNextIteration = not model.isShowingNextIteration }, Cmd.none )
 
         KeyPress keyString ->
             ( processKey model keyString, Cmd.none )
@@ -397,15 +426,21 @@ update msg model =
             in
             ( { model | savedStates = newSavedStates }, Cmd.none )
 
-        -- use svg property `transform="scale(2 3.5)"` see: https://developer.mozilla.org/pt-BR/docs/Web/SVG/Attribute/transform
         -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
         -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
         Zoom deltaX deltaY shiftKey ->
-            if shiftKey then
-                ( { model | wDelta = model.wDelta + deltaX, hDelta = model.hDelta + deltaY }, Cmd.none )
-
-            else
-                ( { model | zoomLevel = model.zoomLevel + deltaY }, Cmd.none )
+            --if shiftKey then
+            --( { model | wDelta = model.wDelta + deltaX, hDelta = model.hDelta + deltaY }, Cmd.none )
+            --else
+            ( { model
+                | zoomLevel =
+                    Debug.log "\noldZoomLevel: " model.zoomLevel
+                        + Debug.log " + " 0.01
+                        * Debug.log " * deltaY "
+                            deltaY
+              }
+            , Cmd.none
+            )
 
         SetEditingIndex index ->
             ( { model | editingIndex = index }, Cmd.none )
@@ -427,11 +462,27 @@ update msg model =
         SetBackgroundColor color ->
             ( { model | backgroundColor = color }, Cmd.none )
 
-        SetDrawColor color ->
-            ( { model | drawColor = color }, Cmd.none )
+        SetStrokeColor color ->
+            ( { model | strokeColor = color }, Cmd.none )
 
-        SetTurnDegrees turn ->
-            ( { model | turnDegrees = turn }, Cmd.none )
+        SetTurnAngle turn ->
+            ( { model | turnAngle = turn }, Cmd.none )
+
+        PanStarted x y ->
+            ( { model | panStarted = True, lastX = x, lastY = y }, Cmd.none )
+
+        PanEnded ->
+            ( { model | panStarted = False }, Cmd.none )
+
+        MouseMoved x y ->
+            ( { model
+                | translateX = x - model.lastX + model.translateX
+                , translateY = y - model.lastY + model.translateY
+                , lastX = x
+                , lastY = y
+              }
+            , Cmd.none
+            )
 
 
 processKey : Model -> String -> Model
@@ -450,7 +501,7 @@ processKey model dir =
             { model | state = LCore.appendToStateAt [ S ] model.editingIndex model.state }
 
         " " ->
-            { model | fixed = not model.fixed }
+            { model | zoomLevel = 1, translateX = 0, translateY = 0 }
 
         "Backspace" ->
             { model | state = LCore.dropLastStepFromStateAt model.editingIndex model.state }
@@ -458,7 +509,7 @@ processKey model dir =
         "i" ->
             let
                 newModel =
-                    Debug.log "newModel after `i`:" <| iterate model <| LCore.getTransformAt model.editingIndex model.state
+                    iterate model (LCore.getTransformAt model.editingIndex model.state)
             in
             { newModel | dir = dir }
 
@@ -524,11 +575,54 @@ deiterate model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.batch
-        [ Browser.Events.onKeyUp (Decode.map KeyPress keyDecoder) ]
+subscriptions model =
+    Sub.batch <|
+        [ Browser.Events.onKeyUp keyPressDecoder ]
+            ++ (if model.panStarted then
+                    [ Browser.Events.onMouseMove mouseMoveDecoder
+                    , Browser.Events.onMouseUp (Decode.succeed PanEnded)
+                    ]
+
+                else
+                    []
+               )
 
 
-keyDecoder : Decoder String
-keyDecoder =
-    Decode.field "key" Decode.string
+keyPressDecoder : Decoder Msg
+keyPressDecoder =
+    Decode.map KeyPress
+        (Decode.field "key" Decode.string)
+
+
+mouseMoveDecoder : Decoder Msg
+mouseMoveDecoder =
+    mousePositionDecoder MouseMoved
+
+
+mousePositionDecoder : (Int -> Int -> msg) -> Decoder msg
+mousePositionDecoder msg =
+    Decode.map2 msg
+        (Decode.field "clientX" Decode.int)
+        (Decode.field "clientY" Decode.int)
+
+
+
+-- ZOOM
+
+
+zoomOnWheel : Html.Styled.Attribute Msg
+zoomOnWheel =
+    preventDefaultOn "wheel" (Decode.map alwaysPreventDefault wheelDecoder)
+
+
+alwaysPreventDefault : Msg -> ( Msg, Bool )
+alwaysPreventDefault msg =
+    ( msg, True )
+
+
+wheelDecoder : Decoder Msg
+wheelDecoder =
+    Decode.map3 Zoom
+        (Decode.field "deltaX" Decode.float)
+        (Decode.field "deltaY" Decode.float)
+        (Decode.field "shiftKey" Decode.bool)
