@@ -1,7 +1,7 @@
 module Models exposing (Model, squareState)
 
 import Auxiliary exposing (dropLast, getLast)
-import Element exposing (Color)
+import Colors exposing (Color)
 import LSystem.Core exposing (State, Step(..), Transformation)
 
 

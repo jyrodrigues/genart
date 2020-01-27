@@ -1,42 +1,49 @@
 module Playground exposing (view)
 
-import Colors exposing (toElmCssColor)
-import Components exposing (..)
-import Css exposing (..)
-import Element as El
+import Colors exposing (Color, toCssColor)
+import Css
+    exposing
+        --( Color
+        ( backgroundColor
+        , fixed
+        , height
+          --, hex
+        , left
+        , overflow
+        , pct
+        , position
+          --, rgb
+        , scroll
+        , top
+        , width
+        )
 import Html
-import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (css, href, src)
+import Html.Styled exposing (Html, div, fromUnstyled, p, span, text, toUnstyled)
+import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onClick)
+import Icons exposing (withColor, withConditionalColor, withOnClick)
 import LSystem.Core as LCore
     exposing
-        ( State
-        , Step(..)
+        ( Step(..)
         , Transformation
         , buildState
         , stateLength
         )
-import LSystem.Draw exposing (drawSvg, drawSvgFixed, drawSvgFixedWithColor)
+import LSystem.Draw exposing (drawSvgFixed, drawSvgFixedWithColor)
 import LSystem.String
 import Models exposing (Model)
 import Update exposing (Msg(..))
-import View exposing (..)
 
 
 view : Model -> Html.Html Msg
-view =
-    styledView >> toUnstyled
-
-
-styledView : Model -> Html Msg
-styledView model =
+view model =
     div
         [ css [ width (pct 100), height (pct 100) ] ]
         [ topRow model
         , leftPane model
         , rightPane model
-        , bottomRow
         ]
+        |> toUnstyled
 
 
 topRow : Model -> Html Msg
@@ -46,10 +53,16 @@ topRow model =
             LCore.getTransformAt model.editingIndex model.state
 
         fixedOrZoomStatus =
-            " Fixed: " ++ boolToOnOffString model.fixed
+            " Fixed: "
+                ++ (if model.fixed then
+                        "On"
 
-        stateLength =
-            stateLengthToString model.state
+                    else
+                        "Off"
+                   )
+
+        stateLengthString =
+            Debug.toString (stateLength model.state)
 
         dir =
             -- To do: refactor "dir" variable inside model and here
@@ -63,7 +76,7 @@ topRow model =
             [ height (pct layout.topRow)
             , width (pct 100)
             , overflow scroll
-            , backgroundColor (toElmCssColor model.backgroundColor)
+            , backgroundColor (toCssColor model.backgroundColor)
             ]
         ]
         [ div []
@@ -73,7 +86,7 @@ topRow model =
             , span [] [ text fixedOrZoomStatus ]
             ]
         , div []
-            [ p [] [ text stateLength ]
+            [ p [] [ text stateLengthString ]
             , p [] [ text dir ]
             , p [] [ text editingTransformBlueprint ]
             ]
@@ -83,9 +96,6 @@ topRow model =
 leftPane : Model -> Html Msg
 leftPane model =
     let
-        intoDiv el =
-            div [] [ el ]
-
         transforms =
             model.state
                 |> LCore.toList
@@ -94,7 +104,7 @@ leftPane model =
     in
     fixedDiv
         [ css
-            [ backgroundColor (toElmCssColor model.backgroundColor)
+            [ backgroundColor (toCssColor model.backgroundColor)
             , height (pct layout.middleRow)
             , width (pct layout.leftPane)
             , top (pct layout.topRow)
@@ -107,9 +117,15 @@ leftPane model =
 transformBox : Int -> Int -> Transformation -> Html Msg
 transformBox editingIndex index transform =
     div []
-        [ div [] [ fromUnstyled (drawSvgFixed transform) ]
-        , elToStyled (trashIcon index)
-        , elToStyled (penIcon index (index == editingIndex))
+        [ div [] [ drawSvgFixed transform ]
+        , Icons.trash
+            |> withColor Colors.red_
+            |> withOnClick (DropFromState index)
+            |> Icons.toSvg
+        , Icons.pen
+            |> withConditionalColor (index == editingIndex) Colors.green_
+            |> withOnClick (SetEditingIndex index)
+            |> Icons.toSvg
         ]
 
 
@@ -117,7 +133,7 @@ rightPane : Model -> Html Msg
 rightPane model =
     fixedDiv
         [ css
-            [ backgroundColor (toElmCssColor model.backgroundColor)
+            [ backgroundColor (toCssColor model.backgroundColor)
             , position fixed
             , height (pct layout.middleRow)
             , width (pct layout.rightPane)
@@ -126,68 +142,32 @@ rightPane model =
             ]
         ]
         [ drawSvgFixedWithColor model.drawColor (buildState model.state)
-            |> fromUnstyled
         ]
 
 
-bottomRow : Html Msg
-bottomRow =
-    fixedDiv
-        [ css
-            [ backgroundColor theme.y
-            , height (pct (100 - layout.topRow - layout.middleRow))
-            , width (pct 100)
-            , bottom zero
-            ]
-        ]
-        [ fixedDiv
-            [ css
-                [ height (pct 5)
-                , width (pct 100)
-                ]
-            ]
-            [ elToStyled
-                (colorsRow
-                    SetBackgroundColor
-                )
-            ]
-        , fixedDiv
-            [ css
-                [ height (pct 5)
-                , width (pct 100)
-                , bottom zero
-                ]
-            ]
-            [ elToStyled
-                (colorsRow
-                    SetDrawColor
-                )
-            ]
-        ]
 
-
-{-| A plain old record holding a couple of theme colors.
+{- A plain old record holding a couple of theme colors.
+   theme :
+       { secondary : Color
+       , primary : Color
+       , r : Color
+       , g : Color
+       , b : Color
+       , y : Color
+       , c : Color
+       , m : Color
+       }
+   theme =
+       { primary = hex "55af6a"
+       , secondary = rgb 250 240 230
+       , r = rgb 251 150 150
+       , g = rgb 150 251 150
+       , b = rgb 150 150 251
+       , y = rgb 251 251 150
+       , c = rgb 150 251 251
+       , m = rgb 251 150 251
+       }
 -}
-theme :
-    { secondary : Color
-    , primary : Color
-    , r : Color
-    , g : Color
-    , b : Color
-    , y : Color
-    , c : Color
-    , m : Color
-    }
-theme =
-    { primary = hex "55af6a"
-    , secondary = rgb 250 240 230
-    , r = rgb 251 150 150
-    , g = rgb 150 251 150
-    , b = rgb 150 150 251
-    , y = rgb 251 251 150
-    , c = rgb 150 251 251
-    , m = rgb 251 150 251
-    }
 
 
 layout :
@@ -202,10 +182,6 @@ layout =
     , leftPane = 20
     , rightPane = 80
     }
-
-
-elToStyled =
-    fromUnstyled << El.layout []
 
 
 fixedDiv : List (Html.Styled.Attribute msg) -> List (Html msg) -> Html msg

@@ -4,10 +4,26 @@ module LSystem.Draw exposing (drawSvg, drawSvgFixed, drawSvgFixedWithColor)
 
 import Auxiliary exposing (floatsToSpacedString)
 import Colors exposing (..)
-import Element exposing (Color)
 import LSystem.Core exposing (State, Step(..), Transformation, buildState, getSvgBorders)
-import Svg exposing (Svg, line, polyline, svg)
-import Svg.Attributes exposing (fill, height, stroke, style, viewBox, width)
+import Svg.Styled exposing (Svg, circle, line, polyline, svg)
+import Svg.Styled.Attributes
+    exposing
+        ( cx
+        , cy
+        , fill
+        , height
+        , points
+        , r
+        , stroke
+        , strokeDasharray
+        , style
+        , viewBox
+        , width
+        , x1
+        , x2
+        , y1
+        , y2
+        )
 
 
 type alias Position =
@@ -32,7 +48,7 @@ drawSvg state w h wDelta hDelta =
         , style "border: 1px dashed black; display: block"
         ]
         [ polyline
-            [ Svg.Attributes.points <| .path <| transformToSvgPath (buildState state) (w / 2) (h / 2)
+            [ points <| .path <| transformToSvgPath (buildState state) (w / 2) (h / 2)
             , stroke "rgba(0,180,110,0.7)"
             , fill "none"
             ]
@@ -85,8 +101,8 @@ drawSvgFixedWithColor color transform =
         [ originPoint xBegin yBegin
         , nextLine drawing
         , polyline
-            [ Svg.Attributes.points <| .path <| drawing
-            , stroke (Colors.toString color)
+            [ points <| .path <| drawing
+            , stroke (toString color)
             , fill "none"
             ]
             []
@@ -95,11 +111,11 @@ drawSvgFixedWithColor color transform =
 
 originPoint : Float -> Float -> Svg msg
 originPoint x y =
-    Svg.circle
-        [ Svg.Attributes.cx <| String.fromFloat x
-        , Svg.Attributes.cy <| String.fromFloat y
-        , Svg.Attributes.r "1"
-        , Svg.Attributes.fill "white"
+    circle
+        [ cx <| String.fromFloat x
+        , cy <| String.fromFloat y
+        , r "1"
+        , fill "white"
         ]
         []
 
@@ -113,13 +129,13 @@ nextLine drawing =
         newPos =
             movePoint pos (degrees deg)
     in
-    Svg.line
-        [ Svg.Attributes.x1 <| String.fromFloat pos.x
-        , Svg.Attributes.y1 <| String.fromFloat pos.y
-        , Svg.Attributes.x2 <| String.fromFloat newPos.x
-        , Svg.Attributes.y2 <| String.fromFloat newPos.y
-        , Svg.Attributes.stroke "rgba(255, 0, 0, 0.5)"
-        , Svg.Attributes.strokeDasharray "1"
+    line
+        [ x1 <| String.fromFloat pos.x
+        , y1 <| String.fromFloat pos.y
+        , x2 <| String.fromFloat newPos.x
+        , y2 <| String.fromFloat newPos.y
+        , stroke "rgba(255, 0, 0, 0.5)"
+        , strokeDasharray "1"
         ]
         []
 

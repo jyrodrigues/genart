@@ -1,7 +1,7 @@
 module Update exposing (Msg(..), update)
 
 import Auxiliary exposing (dropLast)
-import Element exposing (Color)
+import Colors exposing (Color)
 import Json.Encode as Encode
 import LSystem.Core as LCore
     exposing

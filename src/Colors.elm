@@ -1,5 +1,6 @@
 module Colors exposing
-    ( allColors
+    ( Color(..)
+    , allColors
     , darkBlue
     , darkGray
     , defaultGreen
@@ -8,59 +9,75 @@ module Colors exposing
     , lightBlue
     , offWhite
     , red_
-    , toElmCssColor
+    , toCssColor
     , toString
     )
 
-import Css exposing (rgba)
-import Element as El exposing (Color, toRgb)
+import Css exposing (Color, rgba)
+
+
+type Color
+    = Color Int Int Int Float
+
+
+toCssColor : Color -> Css.Color
+toCssColor (Color r g b a) =
+    rgba r g b a
 
 
 toString : Color -> String
-toString color =
+toString (Color r g b a) =
     let
-        { red, green, blue, alpha } =
-            El.toRgb color
+        innerString =
+            [ r, g, b ]
+                |> List.map String.fromInt
+                |> (::) (String.fromFloat a)
+                |> String.join ","
     in
-    "rgba("
-        ++ String.fromInt (round (red * 255))
-        ++ ("," ++ String.fromInt (round (green * 255)))
-        ++ ("," ++ String.fromInt (round (blue * 255)))
-        ++ ("," ++ String.fromFloat alpha ++ ")")
+    "rbga(" ++ innerString ++ ")"
 
 
+gray : Color
 gray =
-    El.rgb 170 170 170
+    Color 170 170 170 1
 
 
+lightBlue : Color
 lightBlue =
-    El.rgba255 10 80 180 0.5
+    Color 10 80 180 0.5
 
 
+darkBlue : Color
 darkBlue =
-    El.rgba255 15 15 60 0.95
+    Color 15 15 60 0.95
 
 
+darkGray : Color
 darkGray =
-    El.rgba 0 0 0 0.8
+    Color 0 0 0 0.8
 
 
+offWhite : Color
 offWhite =
-    El.rgb 200 200 200
+    Color 200 200 200 1
 
 
+red_ : Color
 red_ =
-    El.rgb 240 0 0
+    Color 240 0 0 1
 
 
+green_ : Color
 green_ =
-    El.rgb 0 240 0
+    Color 0 240 0 1
 
 
+defaultGreen : Color
 defaultGreen =
-    El.rgba255 0 180 110 0.7
+    Color 0 180 110 0.7
 
 
+allColors : List Color
 allColors =
     [ gray
     , lightBlue
@@ -72,52 +89,37 @@ allColors =
 
     -- Get more on https://coolors.co
     -- 1
-    , El.rgba255 11 19 43 1
-    , El.rgba255 28 37 65 1
-    , El.rgba255 58 80 107 1
-    , El.rgba255 91 192 190 1
-    , El.rgba255 111 255 233 1
+    , Color 11 19 43 1
+    , Color 28 37 65 1
+    , Color 58 80 107 1
+    , Color 91 192 190 1
+    , Color 111 255 233 1
 
     -- 2
-    , El.rgba255 244 247 190 1
-    , El.rgba255 229 247 125 1
-    , El.rgba255 222 186 111 1
-    , El.rgba255 130 48 56 1
-    , El.rgba255 30 0 14 1
+    , Color 244 247 190 1
+    , Color 229 247 125 1
+    , Color 222 186 111 1
+    , Color 130 48 56 1
+    , Color 30 0 14 1
 
     -- 3
-    , El.rgba255 72 74 71 1
-    , El.rgba255 92 109 112 1
-    , El.rgba255 163 119 116 1
-    , El.rgba255 232 136 115 1
+    , Color 72 74 71 1
+    , Color 92 109 112 1
+    , Color 163 119 116 1
+    , Color 232 136 115 1
 
     -- 4
-    , El.rgba255 8 61 119 1
-    , El.rgba255 235 235 211 1
-    , El.rgba255 218 65 103 1
-    , El.rgba255 244 211 94 1
-    , El.rgba255 247 135 100 1
-    , El.rgba255 224 172 157 1
+    , Color 8 61 119 1
+    , Color 235 235 211 1
+    , Color 218 65 103 1
+    , Color 244 211 94 1
+    , Color 247 135 100 1
+    , Color 224 172 157 1
 
     -- 5
-    , El.rgba255 229 193 189 1
-    , El.rgba255 210 208 186 1
-    , El.rgba255 182 190 156 1
-    , El.rgba255 123 158 135 1
-    , El.rgba255 94 116 127 1
+    , Color 229 193 189 1
+    , Color 210 208 186 1
+    , Color 182 190 156 1
+    , Color 123 158 135 1
+    , Color 94 116 127 1
     ]
-
-
-toElmCssColor color =
-    let
-        rgb =
-            toRgb color
-
-        fix value =
-            if rgb.red < 1.0 || rgb.green < 1.0 || rgb.blue < 1.0 then
-                round (value * 255)
-
-            else
-                round value
-    in
-    rgba (fix rgb.red) (fix rgb.green) (fix rgb.blue) rgb.alpha

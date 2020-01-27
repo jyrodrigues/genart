@@ -13,7 +13,6 @@
             "elm/random": "1.0.0",
             "elm/svg": "1.0.0",
             "elm/virtual-dom": "1.0.0",
-            "mdgriffith/elm-ui": "1.1.5",
             "rtfeldman/elm-css": "16.0.1"
         },
         "indirect": {
