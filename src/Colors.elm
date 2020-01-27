@@ -28,13 +28,15 @@ toCssColor (Color r g b a) =
 toString : Color -> String
 toString (Color r g b a) =
     let
-        innerString =
+        rgb =
             [ r, g, b ]
                 |> List.map String.fromInt
-                |> (::) (String.fromFloat a)
                 |> String.join ","
+
+        innerString =
+            rgb ++ "," ++ String.fromFloat a
     in
-    "rbga(" ++ innerString ++ ")"
+    "rgba(" ++ innerString ++ ")"
 
 
 gray : Color
