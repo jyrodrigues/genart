@@ -5,22 +5,26 @@ module Main exposing (main)
 import Auxiliary exposing (dropLast)
 import Browser
 import Browser.Events
-import Colors exposing (Color, toCssColor)
+import Colors exposing (Color, offWhite, toCssColor)
 import Css
     exposing
         ( backgroundColor
+        , color
         , fixed
         , height
         , left
         , overflow
         , pct
         , position
+        , px
+        , right
         , scroll
         , top
         , width
+        , zero
         )
 import Html
-import Html.Styled exposing (Html, div, p, span, text, toUnstyled)
+import Html.Styled exposing (Html, button, div, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onClick)
 import Icons exposing (withColor, withConditionalColor, withOnClick)
@@ -155,15 +159,15 @@ view : Model -> Html.Html Msg
 view model =
     div
         [ css [ width (pct 100), height (pct 100) ] ]
-        [ topRow model
-        , leftPane model
-        , rightPane model
+        [ controlPanel model
+        , transformsList model
+        , mainImg model
         ]
         |> toUnstyled
 
 
-topRow : Model -> Html Msg
-topRow model =
+controlPanel : Model -> Html Msg
+controlPanel model =
     let
         editingTransform =
             LCore.getTransformAt model.editingIndex model.state
@@ -189,16 +193,18 @@ topRow model =
     in
     fixedDiv
         [ css
-            [ height (pct layout.topRow)
-            , width (pct 100)
+            [ height (pct 100)
+            , width (pct layout.controlPanel)
+            , right zero
             , overflow scroll
             , backgroundColor (toCssColor model.backgroundColor)
+            , color (toCssColor offWhite)
             ]
         ]
         [ div []
-            [ Html.Styled.button [ onClick ClearSvg ] [ text "ClearSvg" ]
-            , Html.Styled.button [ onClick (Iterate editingTransform) ] [ text "Iterate" ]
-            , Html.Styled.button [ onClick Deiterate ] [ text "Deiterate" ]
+            [ button [ onClick ClearSvg ] [ text "ClearSvg" ]
+            , button [ onClick (Iterate editingTransform) ] [ text "Iterate" ]
+            , button [ onClick Deiterate ] [ text "Deiterate" ]
             , span [] [ text fixedOrZoomStatus ]
             ]
         , div []
@@ -209,31 +215,35 @@ topRow model =
         ]
 
 
-leftPane : Model -> Html Msg
-leftPane model =
+transformsList : Model -> Html Msg
+transformsList model =
     let
         transforms =
             model.state
                 |> LCore.toList
-                |> List.indexedMap (transformBox model.editingIndex)
+                |> List.indexedMap (transformBox model.editingIndex model.drawColor)
                 |> List.reverse
     in
     fixedDiv
         [ css
             [ backgroundColor (toCssColor model.backgroundColor)
-            , height (pct layout.middleRow)
-            , width (pct layout.leftPane)
-            , top (pct layout.topRow)
+            , height (pct 100)
+            , width (pct layout.transformsList)
             , overflow scroll
             ]
         ]
         transforms
 
 
-transformBox : Int -> Int -> Transformation -> Html Msg
-transformBox editingIndex index transform =
-    div []
-        [ div [] [ drawSvgFixed transform ]
+transformBox : Int -> Color -> Int -> Transformation -> Html Msg
+transformBox editingIndex drawColor index transform =
+    div
+        [ css
+            [ height (px 200)
+            , width (pct 100)
+            ]
+        ]
+        [ drawSvgFixedWithColor drawColor transform
         , Icons.trash
             |> withColor Colors.red_
             |> withOnClick (DropFromState index)
@@ -245,16 +255,15 @@ transformBox editingIndex index transform =
         ]
 
 
-rightPane : Model -> Html Msg
-rightPane model =
+mainImg : Model -> Html Msg
+mainImg model =
     fixedDiv
         [ css
             [ backgroundColor (toCssColor model.backgroundColor)
             , position fixed
-            , height (pct layout.middleRow)
-            , width (pct layout.rightPane)
-            , top (pct layout.topRow)
-            , left (pct layout.leftPane)
+            , height (pct 100)
+            , width (pct layout.mainImg)
+            , left (pct layout.transformsList)
             ]
         ]
         [ drawSvgFixedWithColor model.drawColor (buildState model.state)
@@ -262,16 +271,14 @@ rightPane model =
 
 
 layout :
-    { topRow : Float
-    , middleRow : Float
-    , leftPane : Float
-    , rightPane : Float
+    { controlPanel : Float
+    , transformsList : Float
+    , mainImg : Float
     }
 layout =
-    { topRow = 20
-    , middleRow = 70
-    , leftPane = 20
-    , rightPane = 80
+    { controlPanel = 15
+    , transformsList = 15
+    , mainImg = 70
     }
 
 

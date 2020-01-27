@@ -10,6 +10,9 @@ module Icons exposing
     )
 
 import Colors exposing (Color, toString)
+import Css exposing (bottom, display, inlineBlock, position, px, relative)
+import Html.Styled exposing (div)
+import Html.Styled.Attributes exposing (css)
 import Svg.Styled exposing (Svg, path, svg)
 import Svg.Styled.Attributes exposing (d, fill, height, viewBox, width)
 import Svg.Styled.Events exposing (onClick)
@@ -38,24 +41,33 @@ toSvg (Icon drawing size color maybeMsg) =
                 Nothing ->
                     []
     in
-    svg
-        ([ viewBox "0 0 100 100"
-         , width (String.fromFloat size)
-         , height (String.fromFloat size)
-         ]
-            ++ maybeOnClick
-        )
-        [ path
-            [ d drawing
-            , fill (toString color)
+    -- TODO remove this. It's a hack because I'm tired. Could even remove the
+    -- `div`, used because `bottom: 30px` doesn't exist on Svg.Styled.Attributes
+    div [ css [ position relative, bottom (px 30), display inlineBlock ] ]
+        [ svg
+            ([ viewBox "0 0 100 100"
+             , width (String.fromFloat size)
+             , height (String.fromFloat size)
+             ]
+                ++ maybeOnClick
+            )
+            [ path
+                [ d drawing
+                , fill (toString color)
+                ]
+                []
             ]
-            []
         ]
 
 
 standard : String -> Icon msg
 standard drawing =
     Icon drawing 24 Colors.offWhite Nothing
+
+
+
+--withAttrs : List Attribute -> Icon msg -> Icon msg
+--withAttrs attrs (Icon drawing size color maybeMsg attrs) =
 
 
 withSize : Float -> Icon msg -> Icon msg

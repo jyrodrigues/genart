@@ -91,8 +91,8 @@ drawSvgFixedWithColor color transform =
         drawing =
             transformToSvgPath transform xBegin yBegin
 
-        _ =
-            Debug.log "minX, maxX, minY, maxY" [ minX, maxX, minY, maxY ]
+        --        _ =
+        --            Debug.log "minX, maxX, minY, maxY" [ minX, maxX, minY, maxY ]
     in
     svg
         [ viewBox <| floatsToSpacedString [ 0, 0, fw, fh ]
