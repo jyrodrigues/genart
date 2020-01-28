@@ -1,6 +1,7 @@
 module Colors exposing
     ( Color(..)
     , allColors
+    , black
     , darkBlue
     , darkGray
     , defaultGreen
@@ -93,6 +94,11 @@ darkGray : Color
 darkGray =
     -- Color 0 0 0 0.8
     Hex "#333333"
+
+
+black : Color
+black =
+    Color 0 0 0 1
 
 
 offWhite : Color

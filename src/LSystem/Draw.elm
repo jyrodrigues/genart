@@ -127,8 +127,7 @@ drawImage (Image transformation angle color scale (Translation x y)) =
     svg
         [ viewBox <| floatsToSpacedString [ 0, 0, fw, fh ]
         , style <|
-            "border: 1px dashed black; "
-                ++ "display: block; "
+            "display: block; "
                 ++ "height: 100%; "
                 ++ "width: 100%; "
                 ++ "transform: "

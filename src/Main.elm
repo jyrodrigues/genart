@@ -8,7 +8,14 @@ import Colors exposing (Color, offWhite, toCssColor)
 import Css
     exposing
         ( backgroundColor
+        , block
+        , borderBottom3
+        , borderBox
+        , borderLeft3
+        , borderRight3
+        , boxSizing
         , color
+        , display
         , fixed
         , height
         , hidden
@@ -16,18 +23,18 @@ import Css
         , overflow
         , overflowX
         , overflowY
+        , padding
         , pct
         , position
         , px
         , right
-        , scale
         , scroll
-        , transform
+        , solid
         , width
         , zero
         )
 import Html
-import Html.Styled exposing (Html, button, div, input, label, p, span, text, toUnstyled)
+import Html.Styled exposing (Html, br, button, div, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
 import Html.Styled.Events
     exposing
@@ -36,7 +43,6 @@ import Html.Styled.Events
         , onClick
         , onFocus
         , onInput
-        , onMouseDown
         , onMouseUp
         , preventDefaultOn
         )
@@ -201,6 +207,8 @@ controlPanel model =
             [ height (pct 100)
             , width (pct layout.controlPanel)
             , right zero
+            , boxSizing borderBox
+            , borderLeft3 (px 1) solid (toCssColor Colors.black)
             , overflowY scroll
             , overflowX hidden
             , backgroundColor (toCssColor model.backgroundColor)
@@ -210,6 +218,7 @@ controlPanel model =
         [ infoAndBasicControls model
         , colorControls model.backgroundColor model.strokeColor
         , turnAngleControl model.turnAngle
+        , curatedSettings
         ]
 
 
@@ -229,7 +238,7 @@ infoAndBasicControls model =
         editingTransformBlueprint =
             LSystem.String.fromTransform editingTransform
     in
-    div []
+    controlBlock
         [ button [ onClick ClearSvg ] [ text "ClearSvg" ]
         , button [ onClick (Iterate editingTransform) ] [ text "Iterate" ]
         , button [ onClick Deiterate ] [ text "Deiterate" ]
@@ -244,18 +253,20 @@ colorControls backgroundColor strokeColor =
     let
         colorControl inputId msg inputLabel color =
             div []
-                [ input
+                [ label [ for inputId ] [ text inputLabel ]
+                , input
                     [ type_ "color"
                     , id inputId
+                    , css [ display block ]
                     , onInput (Colors.fromHexString >> msg)
                     , value (Colors.toHexString color)
                     ]
                     []
-                , label [ for inputId ] [ text inputLabel ]
                 ]
     in
-    div []
+    controlBlock
         [ colorControl "BgColor" SetBackgroundColor "Change background color" backgroundColor
+        , br [] []
         , colorControl "StrokeColor" SetStrokeColor "Change stroke color" strokeColor
         ]
 
@@ -275,18 +286,35 @@ turnAngleControl turnAngle =
                     Nothing ->
                         SetTurnAngle turnAngle
     in
-    div []
-        [ input
+    controlBlock
+        [ label [ for "TurnAngle" ] [ text "Change angle" ]
+        , input
             [ id "TurnAngle" -- See index.js, `id` only exists for use in there.
             , type_ "number"
             , value (String.fromFloat turnAngle)
+            , css [ display block, width (px 50) ]
             , onInput onInputCallback
             , onFocus (SetFocus TurnAngleInput)
             , onBlur (SetFocus KeyboardEditing)
             ]
             []
-        , label [ for "TurnAngle" ] [ text "Change angle" ]
         ]
+
+
+curatedSettings : Html Msg
+curatedSettings =
+    controlBlock
+        [ span [] [ text "Change Angle and Base" ]
+        , button [ onClick (StateBaseChanged Triangle) ] [ text "Triangle" ]
+        , button [ onClick (StateBaseChanged Square) ] [ text "Square" ]
+        , button [ onClick (StateBaseChanged Pentagon) ] [ text "Pentagon" ]
+        , button [ onClick (StateBaseChanged Hexagon) ] [ text "Hexagon" ]
+        ]
+
+
+controlBlock : List (Html Msg) -> Html Msg
+controlBlock =
+    div [ css [ padding (px 10), borderBottom3 (px 1) solid (toCssColor Colors.black) ] ]
 
 
 transformsList : Model -> Html Msg
@@ -304,6 +332,8 @@ transformsList model =
             , height (pct 100)
             , width (pct layout.transformsList)
             , overflow scroll
+            , boxSizing borderBox
+            , borderRight3 (px 1) solid (toCssColor Colors.black)
             ]
         ]
         transforms
@@ -315,6 +345,7 @@ transformBox editingIndex turnAngle strokeColor index transform =
         [ css
             [ height (px 200)
             , width (pct 100)
+            , borderBottom3 (px 1) solid (toCssColor Colors.black)
             ]
         ]
         [ image transform
@@ -387,6 +418,7 @@ type
     = KeyPress String
       -- Main commands
     | ClearSvg
+    | StateBaseChanged Polygon
     | Iterate Transformation
     | Deiterate
     | SetEditingIndex Int
@@ -414,6 +446,13 @@ type
 
 type alias ShiftKey =
     Bool
+
+
+type Polygon
+    = Triangle
+    | Square
+    | Pentagon
+    | Hexagon
 
 
 
@@ -506,6 +545,32 @@ update msg model =
 
         SetFocus focus ->
             ( { model | focus = focus }, Cmd.none )
+
+        StateBaseChanged polygon ->
+            let
+                state =
+                    model.state
+
+                updateModel stateBase turnAngle =
+                    ( { model
+                        | state = { state | base = stateBase }
+                        , turnAngle = turnAngle
+                      }
+                    , Cmd.none
+                    )
+            in
+            case polygon of
+                Triangle ->
+                    updateModel [ D, L, D, L, D ] 120
+
+                Square ->
+                    updateModel [ D, L, D, L, D, L, D ] 90
+
+                Pentagon ->
+                    updateModel [ D, L, D, L, D, L, D, L, D ] 72
+
+                Hexagon ->
+                    updateModel [ D, L, D, L, D, L, D, L, D, L, D ] 60
 
 
 processKey : Model -> String -> Model
