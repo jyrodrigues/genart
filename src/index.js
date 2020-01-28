@@ -15,8 +15,18 @@ app.ports.cache.subscribe(data => {
 });
 */
 
+/**
+ * Hackery to prevent going back in history with `backspace` press.
+ */
+
+var turnAngleInput;
+
 document.onkeydown = (e) => {
-    if (e.key === "Backspace") {
+    if (!turnAngleInput) {
+        turnAngleInput = document.getElementById("TurnAngle");
+    }
+
+    if (e.key === "Backspace" && document.activeElement !== turnAngleInput) {
         e.preventDefault();
     }
 }

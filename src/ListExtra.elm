@@ -1,4 +1,10 @@
-module Auxiliary exposing (dropLast, floatsToSpacedString, getAt, getLast)
+module ListExtra exposing
+    ( appendIf
+    , dropLast
+    , floatsToSpacedString
+    , getAt
+    , getLast
+    )
 
 
 dropLast : List a -> List a
@@ -26,3 +32,12 @@ getAt index list =
     list
         |> List.drop index
         |> List.head
+
+
+appendIf : Bool -> List a -> List a -> List a
+appendIf shouldAppend listToBeAppended listBase =
+    if shouldAppend then
+        listBase ++ listToBeAppended
+
+    else
+        listBase

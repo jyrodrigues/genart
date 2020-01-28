@@ -2,7 +2,6 @@ module Main exposing (main)
 
 --import Json.Encode as Encode
 
-import Auxiliary exposing (dropLast)
 import Browser
 import Browser.Events
 import Colors exposing (Color, offWhite, toCssColor)
@@ -33,7 +32,9 @@ import Html.Styled.Attributes exposing (css, for, id, type_, value)
 import Html.Styled.Events
     exposing
         ( on
+        , onBlur
         , onClick
+        , onFocus
         , onInput
         , onMouseDown
         , onMouseUp
@@ -63,6 +64,7 @@ import LSystem.Draw
         , withTurnAngle
         )
 import LSystem.String
+import ListExtra exposing (appendIf, dropLast)
 
 
 
@@ -96,6 +98,11 @@ init _ =
 -- MODEL
 
 
+type Focus
+    = KeyboardEditing
+    | TurnAngleInput
+
+
 type alias Model =
     { state : State
     , editingIndex : Int
@@ -121,6 +128,7 @@ type alias Model =
 
     -- Angle
     , turnAngle : Float
+    , focus : Focus
     }
 
 
@@ -162,6 +170,7 @@ createInitialModelWith localStorage =
         Colors.defaultGreen
         -- Angle
         90
+        KeyboardEditing
 
 
 defaultInitialModel : Model
@@ -199,8 +208,8 @@ controlPanel model =
             ]
         ]
         [ infoAndBasicControls model
-        , colorControl model
-        , turnAngleControl
+        , colorControls model.backgroundColor model.strokeColor
+        , turnAngleControl model.turnAngle
         ]
 
 
@@ -230,45 +239,54 @@ infoAndBasicControls model =
         ]
 
 
-colorControl : Model -> Html Msg
-colorControl model =
+colorControls : Color -> Color -> Html Msg
+colorControls backgroundColor strokeColor =
+    let
+        colorControl inputId msg inputLabel color =
+            div []
+                [ input
+                    [ type_ "color"
+                    , id inputId
+                    , onInput (Colors.fromHexString >> msg)
+                    , value (Colors.toHexString color)
+                    ]
+                    []
+                , label [ for inputId ] [ text inputLabel ]
+                ]
+    in
+    div []
+        [ colorControl "BgColor" SetBackgroundColor "Change background color" backgroundColor
+        , colorControl "StrokeColor" SetStrokeColor "Change stroke color" strokeColor
+        ]
+
+
+turnAngleControl : Float -> Html Msg
+turnAngleControl turnAngle =
+    let
+        onInputCallback stringValue =
+            if stringValue == "" then
+                SetTurnAngle 0
+
+            else
+                case String.toFloat stringValue of
+                    Just degrees ->
+                        SetTurnAngle degrees
+
+                    Nothing ->
+                        SetTurnAngle turnAngle
+    in
     div []
         [ input
-            [ type_ "color"
-            , id "BgColor"
-            , onInput (Colors.fromHexString >> SetBackgroundColor)
-            , value (Colors.toHexString model.backgroundColor)
+            [ id "TurnAngle" -- See index.js, `id` only exists for use in there.
+            , type_ "number"
+            , value (String.fromFloat turnAngle)
+            , onInput onInputCallback
+            , onFocus (SetFocus TurnAngleInput)
+            , onBlur (SetFocus KeyboardEditing)
             ]
             []
-        , label [ for "BgColor" ] [ text "Change background color" ]
-        , input
-            [ type_ "color"
-            , id "StrokeColor"
-            , onInput (Colors.fromHexString >> SetStrokeColor)
-            , value (Colors.toHexString model.strokeColor)
-            ]
-            []
-        , label [ for "StrokeColor" ] [ text "Change draw color" ]
+        , label [ for "TurnAngle" ] [ text "Change angle" ]
         ]
-
-
-turnAngleControl : Html Msg
-turnAngleControl =
-    let
-        setTurnAngle maybeDegrees =
-            case maybeDegrees of
-                Just degrees ->
-                    SetTurnAngle degrees
-
-                Nothing ->
-                    SetTurnAngle 90
-    in
-    input
-        [ type_ "number"
-        , onInput
-            (String.toFloat >> setTurnAngle)
-        ]
-        []
 
 
 transformsList : Model -> Html Msg
@@ -386,6 +404,8 @@ type
     | SetStrokeColor Color
       -- Angle
     | SetTurnAngle Float
+      -- Focus
+    | SetFocus Focus
 
 
 
@@ -484,6 +504,9 @@ update msg model =
             , Cmd.none
             )
 
+        SetFocus focus ->
+            ( { model | focus = focus }, Cmd.none )
+
 
 processKey : Model -> String -> Model
 processKey model dir =
@@ -576,16 +599,14 @@ deiterate model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch <|
-        [ Browser.Events.onKeyUp keyPressDecoder ]
-            ++ (if model.panStarted then
-                    [ Browser.Events.onMouseMove mouseMoveDecoder
-                    , Browser.Events.onMouseUp (Decode.succeed PanEnded)
-                    ]
-
-                else
-                    []
-               )
+    Sub.batch
+        ([]
+            |> appendIf (model.focus == KeyboardEditing) [ Browser.Events.onKeyUp keyPressDecoder ]
+            |> appendIf model.panStarted
+                [ Browser.Events.onMouseMove mouseMoveDecoder
+                , Browser.Events.onMouseUp (Decode.succeed PanEnded)
+                ]
+        )
 
 
 keyPressDecoder : Decoder Msg

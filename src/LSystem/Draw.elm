@@ -12,9 +12,9 @@ module LSystem.Draw exposing
 
 -- Todo: remove Msgs from here. Msgs should live on Update and LSystem.Draw should have its own msgs
 
-import Auxiliary exposing (floatsToSpacedString)
 import Colors exposing (..)
 import LSystem.Core exposing (State, Step(..), Transformation, buildState, getSvgBorders)
+import ListExtra exposing (floatsToSpacedString)
 import Svg.Styled exposing (Svg, circle, line, polyline, svg)
 import Svg.Styled.Attributes
     exposing

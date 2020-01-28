@@ -15,7 +15,7 @@ module LSystem.Core exposing
     , toList
     )
 
-import Auxiliary exposing (dropLast, getAt)
+import ListExtra exposing (dropLast, getAt)
 
 
 type Step
