@@ -93,17 +93,20 @@ type alias Flags =
 
 
 init : Flags -> ( Model, Cmd Msg )
-init savedStateStrings =
-    case Decode.decodeValue LCore.stateDecoder savedStateStrings of
-        Ok state ->
-            ( initialModel state, Cmd.none )
+init savedModel =
+    case Decode.decodeValue modelDecoder savedModel of
+        Ok model ->
+            ( model, Cmd.none )
 
         Err err ->
             let
                 _ =
                     Debug.log "Err:" err
+
+                model =
+                    expandMinimalModel squareState Colors.darkGray Colors.defaultGreen 90 1 0 0
             in
-            ( initialModel squareState, Cmd.none )
+            ( model, saveStateToLocalStorage (encodeModel model) )
 
 
 
@@ -147,32 +150,56 @@ squareState =
     }
 
 
-initialModel : State -> Model
-initialModel state =
+expandMinimalModel : State -> Color -> Color -> Float -> Float -> Int -> Int -> Model
+expandMinimalModel state bgColor strokeColor turnAngle zoomLevel translateX translateY =
     Model
         state
         1
         --
         ""
         -- Pan and Zoom
-        1
+        zoomLevel
         0
         0
         False
         0
         0
-        0
-        0
+        translateX
+        translateY
         -- Colors
-        Colors.darkGray
-        Colors.defaultGreen
+        bgColor
+        strokeColor
         -- Angle
-        90
+        turnAngle
         KeyboardEditing
 
 
+modelDecoder : Decoder Model
+modelDecoder =
+    Decode.map7 expandMinimalModel
+        (Decode.field "state" LCore.stateDecoder)
+        (Decode.field "bgColor" Colors.decoder)
+        (Decode.field "strokeColor" Colors.decoder)
+        (Decode.field "turnAngle" Decode.float)
+        (Decode.field "zoomLevel" Decode.float)
+        (Decode.field "translateX" Decode.int)
+        (Decode.field "translateY" Decode.int)
 
-{--[D L D D L D D D D L D D L D D D D D D R D L D L D D D D D D D L] --}
+
+encodeModel : Model -> Encode.Value
+encodeModel model =
+    Encode.object
+        [ ( "state", LCore.encodeState model.state )
+        , ( "bgColor", Colors.encode model.backgroundColor )
+        , ( "strokeColor", Colors.encode model.strokeColor )
+        , ( "turnAngle", Encode.float model.turnAngle )
+        , ( "zoomLevel", Encode.float model.zoomLevel )
+        , ( "translateX", Encode.int model.translateX )
+        , ( "translateY", Encode.int model.translateY )
+        ]
+
+
+
 -- VIEW
 
 
@@ -441,7 +468,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     (\newModel ->
         ( newModel
-        , saveStateToLocalStorage (LCore.encodeState newModel.state)
+        , saveStateToLocalStorage (encodeModel newModel)
         )
     )
     <|
