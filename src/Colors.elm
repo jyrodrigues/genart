@@ -4,7 +4,9 @@ module Colors exposing
     , black
     , darkBlue
     , darkGray
+    , decoder
     , defaultGreen
+    , encode
     , fromHexString
     , gray
     , green_
@@ -17,6 +19,12 @@ module Colors exposing
     )
 
 import Css exposing (Color, hex, rgba)
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
+
+
+
+-- TYPE
 
 
 {-|
@@ -29,6 +37,10 @@ import Css exposing (Color, hex, rgba)
 type Color
     = Color Int Int Int Float
     | Hex String
+
+
+
+-- CONVERTERS
 
 
 toCssColor : Color -> Css.Color
@@ -71,8 +83,26 @@ toHexString color =
 
 
 fromHexString : String -> Color
-fromHexString color =
-    Hex color
+fromHexString =
+    Hex
+
+
+
+-- JSON
+
+
+encode : Color -> Encode.Value
+encode =
+    Encode.string << toHexString
+
+
+decoder : Decoder Color
+decoder =
+    Decode.map Hex Decode.string
+
+
+
+-- CONSTANTS
 
 
 gray : Color

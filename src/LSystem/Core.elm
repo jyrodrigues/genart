@@ -5,17 +5,30 @@ module LSystem.Core exposing
     , appendToStateAt
     , applyRule
     , buildState
+    , charToStep
     , dropLastStepFromStateAt
     , dropStateAt
+    , encodeState
     , fromList
     , getSvgBorders
     , getTransformAt
     , makeRule
+    , stateDecoder
     , stateLength
+    , stateToString
+    , stepToString
+    , stringToStep
     , toList
+    , transformToString
     )
 
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 import ListExtra exposing (dropLast, getAt)
+
+
+
+-- TYPES
 
 
 type Step
@@ -37,6 +50,40 @@ type alias State =
     { base : Transformation
     , transforms : List Transformation
     }
+
+
+
+-- JSON
+
+
+encodeState : State -> Encode.Value
+encodeState state =
+    Encode.list encodeTransform (state.base :: state.transforms)
+
+
+stateDecoder : Decoder State
+stateDecoder =
+    let
+        listDecoder =
+            Decode.list transformDecoder
+    in
+    Decode.map2 State
+        (Decode.map (List.head >> Maybe.withDefault [ D ]) listDecoder)
+        (Decode.map (List.tail >> Maybe.withDefault [ [ D, L, D, L, D, L, D ] ]) listDecoder)
+
+
+encodeTransform : Transformation -> Encode.Value
+encodeTransform transform =
+    Encode.string (String.join "" (List.map stepToString transform))
+
+
+transformDecoder : Decoder Transformation
+transformDecoder =
+    Decode.map (String.toList >> List.map charToStep) Decode.string
+
+
+
+-- TAIL, FOR NOW
 
 
 makeRule : Transformation -> Step -> Transformation
@@ -307,3 +354,75 @@ getSvgBorders transform =
     , maxY = finalMaxes.maxY + 1
     , minY = finalMaxes.minY - 1
     }
+
+
+
+-- STRING CONVERSION
+
+
+charToStep : Char -> Step
+charToStep char =
+    case char of
+        'D' ->
+            D
+
+        'R' ->
+            R
+
+        'L' ->
+            L
+
+        'S' ->
+            S
+
+        _ ->
+            S
+
+
+stringToStep : String -> Step
+stringToStep char =
+    case char of
+        "D" ->
+            D
+
+        "R" ->
+            R
+
+        "L" ->
+            L
+
+        "S" ->
+            S
+
+        _ ->
+            S
+
+
+stepToString : Step -> String
+stepToString step =
+    case step of
+        D ->
+            "D"
+
+        R ->
+            "R"
+
+        L ->
+            "L"
+
+        S ->
+            "S"
+
+
+stateToString : State -> String
+stateToString state =
+    buildState state
+        |> List.map stepToString
+        |> String.join " "
+
+
+transformToString : Transformation -> String
+transformToString transform =
+    transform
+        |> List.map stepToString
+        |> String.join " "

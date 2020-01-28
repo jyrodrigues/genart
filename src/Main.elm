@@ -68,8 +68,10 @@ import LSystem.Draw
         , withTranslation
         , withTurnAngle
         )
-import LSystem.String
 import ListExtra exposing (appendIf, dropLast)
+
+
+port saveStateToLocalStorage : Encode.Value -> Cmd msg
 
 
 
@@ -87,12 +89,21 @@ main =
 
 
 type alias Flags =
-    List String
+    Encode.Value
 
 
 init : Flags -> ( Model, Cmd Msg )
 init savedStateStrings =
-    ( initialModel savedStateStrings, Cmd.none )
+    case Decode.decodeValue LCore.stateDecoder savedStateStrings of
+        Ok state ->
+            ( initialModel state, Cmd.none )
+
+        Err err ->
+            let
+                _ =
+                    Debug.log "Err:" err
+            in
+            ( initialModel squareState, Cmd.none )
 
 
 
@@ -136,30 +147,10 @@ squareState =
     }
 
 
-initialModel : List String -> Model
-initialModel savedStateStrings =
-    let
-        -- Todo: next version of storage, i.e. 'genart/v1/savedStates' or something in those lines
-        savedStateAsList =
-            savedStateStrings
-                |> List.map (String.toList >> List.map LSystem.String.charToStep)
-
-        savedState =
-            case savedStateAsList of
-                head :: tail ->
-                    { base = head
-                    , transforms = tail
-                    }
-
-                [] ->
-                    squareState
-
-        -- savedStates =
-        --     localStorage
-        --         |> List.map (\state -> List.map stringToStep state)
-    in
+initialModel : State -> Model
+initialModel state =
     Model
-        savedState
+        state
         1
         --
         ""
@@ -232,7 +223,7 @@ infoAndBasicControls model =
             "{" ++ model.dir ++ "}"
 
         editingTransformBlueprint =
-            LSystem.String.fromTransform editingTransform
+            LCore.transformToString editingTransform
     in
     controlBlock
         [ button [ onClick ClearSvg ] [ text "ClearSvg" ]
@@ -446,25 +437,11 @@ type Polygon
 -- UPDATE
 
 
-port saveStateToLocalStorage : Encode.Value -> Cmd msg
-
-
-encodeState : State -> Encode.Value
-encodeState state =
-    let
-        stateAsList =
-            state.base :: state.transforms
-    in
-    stateAsList
-        |> List.map (List.map LSystem.String.fromStep >> String.join "")
-        |> Encode.list Encode.string
-
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     (\newModel ->
         ( newModel
-        , saveStateToLocalStorage (encodeState newModel.state)
+        , saveStateToLocalStorage (LCore.encodeState newModel.state)
         )
     )
     <|
