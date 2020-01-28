@@ -4,16 +4,16 @@
 import "./index.html";
 import { Elm } from "./Main.elm";
 
+var storageName = 'genart/v0.1/state';
+
 var app = Elm.Main.init({
     node: document.getElementById('elm'),
-    flags: JSON.parse(localStorage.getItem('genart/cache')) || []
+    flags: JSON.parse(localStorage.getItem(storageName)) || []
 });
 
-/*
-app.ports.cache.subscribe(data => {
-    localStorage.setItem('genart/cache', JSON.stringify(data));
+app.ports.saveStateToLocalStorage.subscribe(function(stateAsListOfStrings) {
+    localStorage.setItem(storageName, JSON.stringify(stateAsListOfStrings));
 });
-*/
 
 /**
  * Hackery to prevent going back in history with `backspace` press.

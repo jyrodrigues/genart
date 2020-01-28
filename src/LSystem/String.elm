@@ -1,10 +1,35 @@
-module LSystem.String exposing (fromState, fromStep, fromTransform, toStep)
+module LSystem.String exposing
+    ( charToStep
+    , fromState
+    , fromStep
+    , fromTransform
+    , toStep
+    )
 
 import LSystem.Core exposing (State, Step(..), Transformation)
 
 
 
 -- Todo: make a decoder directly to state from js array and then remove toStep
+
+
+charToStep : Char -> Step
+charToStep char =
+    case char of
+        'D' ->
+            D
+
+        'R' ->
+            R
+
+        'L' ->
+            L
+
+        'S' ->
+            S
+
+        _ ->
+            S
 
 
 toStep : String -> Step

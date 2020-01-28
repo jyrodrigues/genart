@@ -1,6 +1,4 @@
-module Main exposing (main)
-
---import Json.Encode as Encode
+port module Main exposing (main)
 
 import Browser
 import Browser.Events
@@ -48,6 +46,7 @@ import Html.Styled.Events
         )
 import Icons exposing (withColor, withConditionalColor, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 import LSystem.Core as LCore
     exposing
         ( State
@@ -77,7 +76,7 @@ import ListExtra exposing (appendIf, dropLast)
 -- MAIN
 
 
-main : Program () Model Msg
+main : Program Flags Model Msg
 main =
     Browser.element
         { init = init
@@ -87,35 +86,22 @@ main =
         }
 
 
-
--- type alias Flags =
---     List (List String)
--- init : Flags -> ( Model, Cmd Msg )
--- init localStorage =
---     ( createInitialModelWith localStorage, Cmd.none )
+type alias Flags =
+    List String
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( defaultInitialModel, Cmd.none )
+init : Flags -> ( Model, Cmd Msg )
+init savedStateStrings =
+    ( initialModel savedStateStrings, Cmd.none )
 
 
 
 -- MODEL
 
 
-type Focus
-    = KeyboardEditing
-    | TurnAngleInput
-
-
 type alias Model =
     { state : State
     , editingIndex : Int
-    , savedStates : List State
-    , baseState : State
-
-    -- , savedTransforms : List Transform
     , dir : String
 
     -- Pan and Zoom
@@ -138,6 +124,11 @@ type alias Model =
     }
 
 
+type Focus
+    = KeyboardEditing
+    | TurnAngleInput
+
+
 squareState : State
 squareState =
     { base = [ D, L, D, L, D, L, D ]
@@ -145,21 +136,31 @@ squareState =
     }
 
 
-createInitialModelWith : List (List String) -> Model
-createInitialModelWith localStorage =
+initialModel : List String -> Model
+initialModel savedStateStrings =
     let
         -- Todo: next version of storage, i.e. 'genart/v1/savedStates' or something in those lines
+        savedStateAsList =
+            savedStateStrings
+                |> List.map (String.toList >> List.map LSystem.String.charToStep)
+
+        savedState =
+            case savedStateAsList of
+                head :: tail ->
+                    { base = head
+                    , transforms = tail
+                    }
+
+                [] ->
+                    squareState
+
         -- savedStates =
         --     localStorage
         --         |> List.map (\state -> List.map stringToStep state)
-        savedStates =
-            []
     in
     Model
-        squareState
+        savedState
         1
-        savedStates
-        squareState
         --
         ""
         -- Pan and Zoom
@@ -177,11 +178,6 @@ createInitialModelWith localStorage =
         -- Angle
         90
         KeyboardEditing
-
-
-defaultInitialModel : Model
-defaultInitialModel =
-    createInitialModelWith []
 
 
 
@@ -412,9 +408,7 @@ fixedDiv attrs children =
 -- MSG
 
 
-type
-    Msg
-    -- Keyboard Listening
+type Msg
     = KeyPress String
       -- Main commands
     | ClearSvg
@@ -423,9 +417,6 @@ type
     | Deiterate
     | SetEditingIndex Int
     | DropFromState Int
-      -- Storage
-    | SaveState
-    | Exclude Int
       -- Pan and Zoom
     | PanStarted Int Int
     | PanEnded
@@ -440,10 +431,6 @@ type
     | SetFocus Focus
 
 
-
--- | UpdateSaved (List (List State))
-
-
 type alias ShiftKey =
     Bool
 
@@ -456,121 +443,115 @@ type Polygon
 
 
 
--- port cache : Encode.Value -> Cmd msg
 -- UPDATE
+
+
+port saveStateToLocalStorage : Encode.Value -> Cmd msg
+
+
+encodeState : State -> Encode.Value
+encodeState state =
+    let
+        stateAsList =
+            state.base :: state.transforms
+    in
+    stateAsList
+        |> List.map (List.map LSystem.String.fromStep >> String.join "")
+        |> Encode.list Encode.string
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case Debug.log "msg" msg of
-        ClearSvg ->
-            ( { model | state = squareState }, Cmd.none )
+    (\newModel ->
+        ( newModel
+        , saveStateToLocalStorage (encodeState newModel.state)
+        )
+    )
+    <|
+        case Debug.log "msg" msg of
+            ClearSvg ->
+                { model | state = squareState }
 
-        Iterate transform ->
-            ( iterate model transform, Cmd.none )
+            Iterate transform ->
+                iterate model transform
 
-        Deiterate ->
-            ( deiterate model, Cmd.none )
+            Deiterate ->
+                deiterate model
 
-        KeyPress keyString ->
-            ( processKey model keyString, Cmd.none )
+            KeyPress keyString ->
+                processKey model keyString
 
-        SaveState ->
-            ( { model | savedStates = model.state :: model.savedStates }, Cmd.none )
+            -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
+            -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
+            Zoom _ deltaY _ ->
+                { model | zoomLevel = max (model.zoomLevel - 0.01 * deltaY) 0 }
 
-        Exclude index ->
-            let
-                newSavedStates =
-                    List.take index model.savedStates ++ List.drop (index + 1) model.savedStates
-            in
-            ( { model | savedStates = newSavedStates }, Cmd.none )
+            SetEditingIndex index ->
+                { model | editingIndex = index }
 
-        -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
-        -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
-        Zoom deltaX deltaY shiftKey ->
-            --if shiftKey then
-            --( { model | wDelta = model.wDelta + deltaX, hDelta = model.hDelta + deltaY }, Cmd.none )
-            --else
-            ( { model
-                | zoomLevel =
-                    Debug.log "\noldZoomLevel: " model.zoomLevel
-                        + Debug.log " + " 0.01
-                        * Debug.log " * deltaY "
-                            deltaY
-              }
-            , Cmd.none
-            )
+            DropFromState index ->
+                let
+                    newEditingIndex =
+                        if model.editingIndex == index then
+                            List.length model.state.transforms - 1
 
-        SetEditingIndex index ->
-            ( { model | editingIndex = index }, Cmd.none )
+                        else if model.editingIndex > index then
+                            model.editingIndex - 1
 
-        DropFromState index ->
-            let
-                newEditingIndex =
-                    if model.editingIndex == index then
-                        List.length model.state.transforms - 1
+                        else
+                            model.editingIndex
+                in
+                { model | state = LCore.dropStateAt index model.state, editingIndex = newEditingIndex }
 
-                    else if model.editingIndex > index then
-                        model.editingIndex - 1
+            SetBackgroundColor color ->
+                { model | backgroundColor = color }
 
-                    else
-                        model.editingIndex
-            in
-            ( { model | state = LCore.dropStateAt index model.state, editingIndex = newEditingIndex }, Cmd.none )
+            SetStrokeColor color ->
+                { model | strokeColor = color }
 
-        SetBackgroundColor color ->
-            ( { model | backgroundColor = color }, Cmd.none )
+            SetTurnAngle turn ->
+                { model | turnAngle = turn }
 
-        SetStrokeColor color ->
-            ( { model | strokeColor = color }, Cmd.none )
+            PanStarted x y ->
+                { model | panStarted = True, lastX = x, lastY = y }
 
-        SetTurnAngle turn ->
-            ( { model | turnAngle = turn }, Cmd.none )
+            PanEnded ->
+                { model | panStarted = False }
 
-        PanStarted x y ->
-            ( { model | panStarted = True, lastX = x, lastY = y }, Cmd.none )
+            MouseMoved x y ->
+                { model
+                    | translateX = x - model.lastX + model.translateX
+                    , translateY = y - model.lastY + model.translateY
+                    , lastX = x
+                    , lastY = y
+                }
 
-        PanEnded ->
-            ( { model | panStarted = False }, Cmd.none )
+            SetFocus focus ->
+                { model | focus = focus }
 
-        MouseMoved x y ->
-            ( { model
-                | translateX = x - model.lastX + model.translateX
-                , translateY = y - model.lastY + model.translateY
-                , lastX = x
-                , lastY = y
-              }
-            , Cmd.none
-            )
+            StateBaseChanged polygon ->
+                let
+                    state =
+                        model.state
 
-        SetFocus focus ->
-            ( { model | focus = focus }, Cmd.none )
+                    updateModel stateBase turnAngle =
+                        { model
+                            | state = { state | base = stateBase }
+                            , turnAngle = turnAngle
+                        }
+                in
+                case polygon of
+                    Triangle ->
+                        updateModel [ D, L, D, L, D ] 120
 
-        StateBaseChanged polygon ->
-            let
-                state =
-                    model.state
+                    Square ->
+                        updateModel [ D, L, D, L, D, L, D ] 90
 
-                updateModel stateBase turnAngle =
-                    ( { model
-                        | state = { state | base = stateBase }
-                        , turnAngle = turnAngle
-                      }
-                    , Cmd.none
-                    )
-            in
-            case polygon of
-                Triangle ->
-                    updateModel [ D, L, D, L, D ] 120
+                    Pentagon ->
+                        updateModel [ D, L, D, L, D, L, D, L, D ] 72
 
-                Square ->
-                    updateModel [ D, L, D, L, D, L, D ] 90
-
-                Pentagon ->
-                    updateModel [ D, L, D, L, D, L, D, L, D ] 72
-
-                Hexagon ->
-                    updateModel [ D, L, D, L, D, L, D, L, D, L, D ] 60
+                    Hexagon ->
+                        updateModel [ D, L, D, L, D, L, D, L, D, L, D ] 60
 
 
 processKey : Model -> String -> Model
@@ -610,16 +591,6 @@ processKey model dir =
 
         _ ->
             { model | dir = dir }
-
-
-
-{--
-cacheSavedStates savedStates =
-    savedStates
-        |> List.map (\state -> List.map LSystem.String.fromStep state)
-        |> Encode.list (\state -> Encode.list Encode.string state)
-        |> cache
---}
 
 
 iterate : Model -> Transformation -> Model
@@ -674,6 +645,10 @@ subscriptions model =
         )
 
 
+
+-- KEYBOARD, MOUSE and WHEEL
+
+
 keyPressDecoder : Decoder Msg
 keyPressDecoder =
     Decode.map KeyPress
@@ -690,10 +665,6 @@ mousePositionDecoder msg =
     Decode.map2 msg
         (Decode.field "clientX" Decode.int)
         (Decode.field "clientY" Decode.int)
-
-
-
--- ZOOM
 
 
 zoomOnWheel : Html.Styled.Attribute Msg
