@@ -329,7 +329,7 @@ turnAngleControl turnAngle =
 curatedSettings : Html Msg
 curatedSettings =
     controlBlock
-        [ span [] [ text "Change Angle and Base" ]
+        [ span [ css [ display block ] ] [ text "Change Angle and Base" ]
         , button [ onClick (StateBaseChanged Triangle) ] [ text "Triangle" ]
         , button [ onClick (StateBaseChanged Square) ] [ text "Square" ]
         , button [ onClick (StateBaseChanged Pentagon) ] [ text "Pentagon" ]
