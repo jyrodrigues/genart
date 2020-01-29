@@ -59,7 +59,7 @@ type alias Scale =
 
 
 type Translation
-    = Translation Int Int
+    = Translation Float Float
 
 
 type Image
@@ -86,8 +86,8 @@ withScale scale (Image t a c _ xy) =
     Image t a c scale xy
 
 
-withTranslation : Int -> Int -> Image -> Image
-withTranslation x y (Image t a c s _) =
+withTranslation : ( Float, Float ) -> Image -> Image
+withTranslation ( x, y ) (Image t a c s _) =
     Image t a c s (Translation x y)
 
 
@@ -131,13 +131,18 @@ drawImage (Image transformation angle color scale (Translation x y)) =
                 ++ "height: 100%; "
                 ++ "width: 100%; "
                 ++ "transform: "
-                ++ "scale("
-                ++ String.fromFloat scale
-                ++ ") translate("
-                ++ String.fromInt x
-                ++ "px, "
-                ++ String.fromInt y
-                ++ "px); "
+                -- As stated here (https://stackoverflow.com/a/10765771),
+                -- multiple transform functions are applied from right
+                -- to left. So `scale` should come last (to be applied first)
+                -- to prevent scaled translation (moving 2px with mouse and
+                -- seeing a 200px move in the image).
+                ++ ("translate("
+                        ++ String.fromFloat x
+                        ++ "px, "
+                        ++ String.fromFloat y
+                        ++ "px)"
+                   )
+                ++ ("scale(" ++ String.fromFloat scale ++ ")")
         ]
         [ originPoint xBegin yBegin
         , nextLine drawing

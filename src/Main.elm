@@ -1,6 +1,7 @@
 port module Main exposing (main)
 
 import Browser
+import Browser.Dom exposing (Element)
 import Browser.Events
 import Colors exposing (Color, offWhite, toCssColor)
 import Css
@@ -69,6 +70,7 @@ import LSystem.Draw
         , withTurnAngle
         )
 import ListExtra exposing (appendIf, dropLast)
+import Task
 
 
 port saveStateToLocalStorage : Encode.Value -> Cmd msg
@@ -94,19 +96,28 @@ type alias Flags =
 
 init : Flags -> ( Model, Cmd Msg )
 init savedModel =
+    let
+        getImgDivPosition =
+            Task.attempt GotImgDivPosition (Browser.Dom.getElement "mainImg")
+    in
     case Decode.decodeValue modelDecoder savedModel of
         Ok model ->
-            ( model, Cmd.none )
+            ( model, getImgDivPosition )
 
         Err err ->
             let
                 _ =
-                    Debug.log "Err:" err
+                    Debug.log "Debug.log - Error while decoding localStorage" err
 
                 model =
                     expandMinimalModel squareState Colors.darkGray Colors.defaultGreen 90 1 0 0
             in
-            ( model, saveStateToLocalStorage (encodeModel model) )
+            ( model
+            , Cmd.batch
+                [ saveStateToLocalStorage (encodeModel model)
+                , getImgDivPosition
+                ]
+            )
 
 
 
@@ -119,14 +130,14 @@ type alias Model =
     , dir : String
 
     -- Pan and Zoom
-    , zoomLevel : Float
+    , scale : Float
     , wDelta : Float
     , hDelta : Float
     , panStarted : Bool
-    , lastX : Int
-    , lastY : Int
-    , translateX : Int
-    , translateY : Int
+    , lastPos : ( Float, Float )
+    , translate : ( Float, Float )
+    , imgDivCenter : ( Float, Float )
+    , imgDivStart : ( Float, Float )
 
     -- Color
     , backgroundColor : Color
@@ -150,22 +161,22 @@ squareState =
     }
 
 
-expandMinimalModel : State -> Color -> Color -> Float -> Float -> Int -> Int -> Model
-expandMinimalModel state bgColor strokeColor turnAngle zoomLevel translateX translateY =
+expandMinimalModel : State -> Color -> Color -> Float -> Float -> Float -> Float -> Model
+expandMinimalModel state bgColor strokeColor turnAngle scale translateX translateY =
     Model
         state
         1
         --
         ""
         -- Pan and Zoom
-        zoomLevel
+        scale
         0
         0
         False
-        0
-        0
-        translateX
-        translateY
+        ( 0, 0 )
+        ( translateX, translateY )
+        ( 0, 0 )
+        ( 0, 0 )
         -- Colors
         bgColor
         strokeColor
@@ -181,9 +192,9 @@ modelDecoder =
         (Decode.field "bgColor" Colors.decoder)
         (Decode.field "strokeColor" Colors.decoder)
         (Decode.field "turnAngle" Decode.float)
-        (Decode.field "zoomLevel" Decode.float)
-        (Decode.field "translateX" Decode.int)
-        (Decode.field "translateY" Decode.int)
+        (Decode.field "scale" Decode.float)
+        (Decode.field "translateX" Decode.float)
+        (Decode.field "translateY" Decode.float)
 
 
 encodeModel : Model -> Encode.Value
@@ -193,9 +204,9 @@ encodeModel model =
         , ( "bgColor", Colors.encode model.backgroundColor )
         , ( "strokeColor", Colors.encode model.strokeColor )
         , ( "turnAngle", Encode.float model.turnAngle )
-        , ( "zoomLevel", Encode.float model.zoomLevel )
-        , ( "translateX", Encode.int model.translateX )
-        , ( "translateY", Encode.int model.translateY )
+        , ( "scale", Encode.float model.scale )
+        , ( "translateX", Encode.float (Tuple.first model.translate) )
+        , ( "translateY", Encode.float (Tuple.second model.translate) )
         ]
 
 
@@ -388,14 +399,15 @@ mainImg model =
             , left (pct layout.transformsList)
             , overflow hidden
             ]
+        , id "mainImg"
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
         [ image (buildState model.state)
             |> withTurnAngle model.turnAngle
             |> withStrokeColor model.strokeColor
-            |> withScale model.zoomLevel
-            |> withTranslation model.translateX model.translateY
+            |> withScale model.scale
+            |> withTranslation model.translate
             |> drawImage
         ]
 
@@ -436,10 +448,11 @@ type Msg
     | SetEditingIndex Int
     | DropFromState Int
       -- Pan and Zoom
-    | PanStarted Int Int
+    | GotImgDivPosition (Result Browser.Dom.Error Element)
+    | PanStarted ( Float, Float )
     | PanEnded
-    | MouseMoved Int Int
-    | Zoom Float Float ShiftKey
+    | MouseMoved ( Float, Float )
+    | Zoom Float Float ShiftKey ( Float, Float )
       -- Colors
     | SetBackgroundColor Color
     | SetStrokeColor Color
@@ -466,6 +479,20 @@ type Polygon
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        pairExec op secondArg firstArg =
+            ( op (Tuple.first firstArg) (Tuple.first secondArg)
+            , op (Tuple.second firstArg) (Tuple.second secondArg)
+            )
+
+        pairMap op pair =
+            ( op (Tuple.first pair)
+            , op (Tuple.second pair)
+            )
+
+        _ =
+            Debug.log "Debug.log - From update, model" model
+    in
     (\newModel ->
         ( newModel
         , saveStateToLocalStorage (encodeModel newModel)
@@ -487,8 +514,23 @@ update msg model =
 
             -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
             -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
-            Zoom _ deltaY _ ->
-                { model | zoomLevel = max (model.zoomLevel - 0.01 * deltaY) 0 }
+            Zoom _ deltaY _ mousePos ->
+                let
+                    scale =
+                        max (model.scale - 0.01 * deltaY) 0.1
+
+                    vecMouseToImgDivCenter =
+                        model.imgDivCenter
+                            |> pairExec (-) mousePos
+                in
+                { model
+                    | scale = scale
+                    , translate =
+                        vecMouseToImgDivCenter
+                            |> pairExec (+) model.translate
+                            |> pairMap (\value -> value * scale / model.scale)
+                            |> pairExec (-) vecMouseToImgDivCenter
+                }
 
             SetEditingIndex index ->
                 { model | editingIndex = index }
@@ -516,18 +558,19 @@ update msg model =
             SetTurnAngle turn ->
                 { model | turnAngle = turn }
 
-            PanStarted x y ->
-                { model | panStarted = True, lastX = x, lastY = y }
+            PanStarted pos ->
+                { model | panStarted = True, lastPos = pos }
 
             PanEnded ->
                 { model | panStarted = False }
 
-            MouseMoved x y ->
+            MouseMoved pos ->
                 { model
-                    | translateX = x - model.lastX + model.translateX
-                    , translateY = y - model.lastY + model.translateY
-                    , lastX = x
-                    , lastY = y
+                    | translate =
+                        pos
+                            |> pairExec (-) model.lastPos
+                            |> pairExec (+) model.translate
+                    , lastPos = pos
                 }
 
             SetFocus focus ->
@@ -557,6 +600,24 @@ update msg model =
                     Hexagon ->
                         updateModel [ D, L, D, L, D, L, D, L, D, L, D ] 60
 
+            GotImgDivPosition result ->
+                case result of
+                    Ok data ->
+                        let
+                            { x, y, width, height } =
+                                data.element
+
+                            imgDivStart =
+                                ( x, y )
+
+                            imgDivCenter =
+                                ( x + width / 2, y + height / 2 )
+                        in
+                        { model | imgDivCenter = imgDivCenter, imgDivStart = imgDivStart }
+
+                    Err _ ->
+                        model
+
 
 processKey : Model -> String -> Model
 processKey model dir =
@@ -574,7 +635,7 @@ processKey model dir =
             { model | state = LCore.appendToStateAt [ S ] model.editingIndex model.state }
 
         " " ->
-            { model | zoomLevel = 1, translateX = 0, translateY = 0 }
+            { model | scale = 1, translate = ( 0, 0 ) }
 
         "Backspace" ->
             { model | state = LCore.dropLastStepFromStateAt model.editingIndex model.state }
@@ -664,11 +725,12 @@ mouseMoveDecoder =
     mousePositionDecoder MouseMoved
 
 
-mousePositionDecoder : (Int -> Int -> msg) -> Decoder msg
+mousePositionDecoder : (( Float, Float ) -> msg) -> Decoder msg
 mousePositionDecoder msg =
-    Decode.map2 msg
-        (Decode.field "clientX" Decode.int)
-        (Decode.field "clientY" Decode.int)
+    Decode.map msg <|
+        Decode.map2 Tuple.pair
+            (Decode.field "clientX" Decode.float)
+            (Decode.field "clientY" Decode.float)
 
 
 zoomOnWheel : Html.Styled.Attribute Msg
@@ -683,7 +745,11 @@ alwaysPreventDefault msg =
 
 wheelDecoder : Decoder Msg
 wheelDecoder =
-    Decode.map3 Zoom
+    Decode.map4 Zoom
         (Decode.field "deltaX" Decode.float)
         (Decode.field "deltaY" Decode.float)
         (Decode.field "shiftKey" Decode.bool)
+        (Decode.map2 Tuple.pair
+            (Decode.field "clientX" Decode.float)
+            (Decode.field "clientY" Decode.float)
+        )
