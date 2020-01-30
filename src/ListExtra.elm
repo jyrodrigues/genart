@@ -16,7 +16,7 @@ dropLast list =
 
 dropIndex : Int -> List a -> List a
 dropIndex index list =
-    if List.length list >= index then
+    if List.length list <= index then
         list
 
     else
