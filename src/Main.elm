@@ -73,6 +73,7 @@ type alias Model =
     -- Aplication heart
     { composition : Composition
     , editingIndex : Int
+    , basePolygon : Polygon
 
     -- Pan and Zoom
     , scale : Float
@@ -104,7 +105,7 @@ type
     = KeyPress String
       -- Main commands
     | ResetDrawing
-    | StateBaseChanged Polygon
+    | BasePolygonChanged Polygon
     | Iterate Int
     | Deiterate
     | SetEditingIndex Int
@@ -305,10 +306,10 @@ curatedSettings : Html Msg
 curatedSettings =
     controlBlock
         [ span [ css [ display block ] ] [ text "Change Angle and Base" ]
-        , button [ onClick (StateBaseChanged Triangle) ] [ text "Triangle" ]
-        , button [ onClick (StateBaseChanged Square) ] [ text "Square" ]
-        , button [ onClick (StateBaseChanged Pentagon) ] [ text "Pentagon" ]
-        , button [ onClick (StateBaseChanged Hexagon) ] [ text "Hexagon" ]
+        , button [ onClick (BasePolygonChanged Triangle) ] [ text "Triangle" ]
+        , button [ onClick (BasePolygonChanged Square) ] [ text "Square" ]
+        , button [ onClick (BasePolygonChanged Pentagon) ] [ text "Pentagon" ]
+        , button [ onClick (BasePolygonChanged Hexagon) ] [ text "Hexagon" ]
         ]
 
 
@@ -415,10 +416,6 @@ fixedDiv attrs children =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    --let
-    --_ =
-    --Debug.log "Debug.log - From update, model" model
-    --in
     (\newModel ->
         ( newModel
         , saveStateToLocalStorage (encodeModel newModel)
@@ -427,7 +424,11 @@ update msg model =
     <|
         case Debug.log "msg" msg of
             ResetDrawing ->
-                { model | composition = squareComposition }
+                -- TODO: Change this hacky implementation; add basePolygon to localStorage; and add a button to clear
+                -- localStorage.
+                updateCompositionBaseAndAngle
+                    { model | composition = squareComposition }
+                    model.basePolygon
 
             Iterate editingIndex ->
                 iterate model editingIndex
@@ -484,7 +485,7 @@ update msg model =
             SetFocus focus ->
                 { model | focus = focus }
 
-            StateBaseChanged polygon ->
+            BasePolygonChanged polygon ->
                 updateCompositionBaseAndAngle model polygon
 
             GotImgDivPosition result ->
@@ -586,6 +587,7 @@ updateCompositionBaseAndAngle model polygon =
             { model
                 | composition = LCore.changeBase stateBase model.composition
                 , turnAngle = turnAngle
+                , basePolygon = polygon
             }
     in
     case polygon of
@@ -628,6 +630,7 @@ expandMinimalModel state bgColor strokeColor turnAngle scale translateX translat
         -- Aplication heart
         state
         1
+        Square
         -- Pan and Zoom
         scale
         False

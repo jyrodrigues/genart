@@ -1,8 +1,5 @@
 module LSystem.Draw exposing
     ( drawImage
-    , drawSvg
-    , drawSvgFixed
-    , drawSvgFixedWithColor
     , image
     , withScale
     , withStrokeColor
@@ -10,7 +7,7 @@ module LSystem.Draw exposing
     , withTurnAngle
     )
 
-import Colors exposing (..)
+import Colors exposing (Color)
 import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
 import Svg.Styled exposing (Svg, circle, line, polyline, svg)
@@ -19,14 +16,12 @@ import Svg.Styled.Attributes
         ( cx
         , cy
         , fill
-        , height
         , points
         , r
         , stroke
         , strokeDasharray
         , style
         , viewBox
-        , width
         , x1
         , x2
         , y1
@@ -65,7 +60,7 @@ type Image
 
 image : Composition -> Image
 image composition =
-    Image composition 90 offWhite 1 (Translation 0 0)
+    Image composition 90 Colors.offWhite 1 (Translation 0 0)
 
 
 withTurnAngle : Angle -> Image -> Image
@@ -101,37 +96,34 @@ but is inverted for y-axis.
 drawImage : Image -> Svg msg
 drawImage (Image composition angle color scale (Translation x y)) =
     let
-        _ =
-            Debug.log "\n\n\ndrawImage" (Image composition angle color scale (Translation x y))
-
         { topRight, bottomLeft } =
             imageBoundaries angle composition
 
-        ( right, top ) =
-            Debug.log "(r,t)" topRight
-
-        ( left, bottom ) =
-            Debug.log "(l,b)" bottomLeft
-
         vecTranslateOriginToDrawingCenter =
-            ( (right + left) / 2 * 10
-            , -(top + bottom) / 2 * 10
-            )
+            topRight
+                -- Sum boundaries and get the mean for both axis
+                |> pairExec (+) bottomLeft
+                |> pairMap (\value -> value / 2)
+                -- Scale both by a factor of 10 (this value is arbitrary, probably should live in a variable)
+                |> pairMap ((*) 10)
+                -- Check the comment above to understand why we invert only the y-axis
+                |> pairExec (*) ( 1, -1 )
 
-        ( width, height ) =
-            Debug.log "(w,h)" (topRight |> pairExec (-) bottomLeft)
-
-        margin =
-            0.5
-
-        scaledWidth =
-            (1 + margin) * 10 * max 2 width
-
-        scaledHeight =
-            (1 + margin) * 10 * max 2 height
+        scaledSize =
+            topRight
+                -- Get width and height
+                |> pairExec (-) bottomLeft
+                -- Make sure both are at least `2`
+                |> pairMap (max 2)
+                -- Scale both by a factor of 10 (this value is arbitrary, probably should live in a variable)
+                |> pairMap ((*) 10)
+                -- Scale with 50% of margin (somehow this is a magic number, I think we should be able to change this
+                -- value without moving the image from the center
+                |> pairMap ((*) 1.6)
 
         vecTranslateOriginToViewportCenter =
-            ( -scaledWidth / 2, -scaledHeight / 2 )
+            -- Move origin by half the viewport size in the oposite direction, centralizing the drawing.
+            scaledSize |> pairMap ((*) (-1 / 2))
 
         vecTranslate =
             vecTranslateOriginToDrawingCenter |> pairExec (+) vecTranslateOriginToViewportCenter
@@ -141,13 +133,12 @@ drawImage (Image composition angle color scale (Translation x y)) =
     in
     svg
         [ viewBox <|
-            Debug.log "viewport" <|
-                floatsToSpacedString
-                    [ Tuple.first vecTranslate
-                    , Tuple.second vecTranslate
-                    , scaledWidth
-                    , scaledHeight
-                    ]
+            floatsToSpacedString
+                [ Tuple.first vecTranslate
+                , Tuple.second vecTranslate
+                , Tuple.first scaledSize
+                , Tuple.second scaledSize
+                ]
         , style <|
             "display: block; "
                 ++ "height: 100%; "
@@ -170,88 +161,15 @@ drawImage (Image composition angle color scale (Translation x y)) =
         , nextLine drawing
         , polyline
             [ points <| .path <| drawing
-            , stroke (toString color)
+            , stroke (Colors.toString color)
             , fill "none"
             ]
             []
         ]
 
 
-drawSvg : Composition -> Float -> Float -> Float -> Float -> Svg msg
-drawSvg state w h wDelta hDelta =
-    svg
-        [ width "1000"
-        , height "700"
-        , viewBox <| floatsToSpacedString [ wDelta, hDelta, w + wDelta, h + hDelta ]
-        , style "border: 1px dashed black; display: block"
-        ]
-        [ polyline
-            [ points <|
-                .path <|
-                    transformToSvgPath (digestComposition state)
-                        (w / 2)
-                        (h / 2)
-                        90
-            , stroke "rgba(0,180,110,0.7)"
-            , fill "none"
-            ]
-            []
-        ]
 
-
-drawSvgFixed : Composition -> Svg msg
-drawSvgFixed composition =
-    drawSvgFixedWithColor 90 defaultGreen composition
-
-
-drawSvgFixedWithColor : Float -> Color -> Composition -> Svg msg
-drawSvgFixedWithColor angle color composition =
-    svg [] []
-
-
-
-{--
-        w =
-            maxX - minX
-
-        h =
-            maxY - minY
-
-        margin =
-            0.5
-
-        xBegin =
-            (*) 10 <| -minX + (margin / 2 * w)
-
-        yBegin =
-            (*) 10 <| -minY + (margin / 2 * h)
-
-        fw =
-            (1 + margin) * 10 * w
-
-        fh =
-            (1 + margin) * 10 * h
-
-        drawing =
-            transformToSvgPath transform xBegin yBegin 90
-
-        --        _ =
-        --            Debug.log "minX, maxX, minY, maxY" [ minX, maxX, minY, maxY ]
-    in
-    svg
-        [ viewBox <| floatsToSpacedString [ 0, 0, fw, fh ]
-        , style "border: 1px dashed black; display: block; height: 100%; width: 100%"
-        ]
-        [ originPoint xBegin yBegin
-        , nextLine drawing
-        , polyline
-            [ points <| .path <| drawing
-            , stroke (toString color)
-            , fill "none"
-            ]
-            []
-        ]
---}
+-- TODO Refactor this tail of functions
 
 
 originPoint : Float -> Float -> Svg msg
@@ -302,6 +220,7 @@ transformToSvgPath transform x0 y0 turn =
         transform
 
 
+movePoint : Position -> Float -> Position
 movePoint pos rad =
     Position (pos.x + cos rad * 10) (pos.y + sin rad * 10)
 
