@@ -5,6 +5,8 @@ module ListExtra exposing
     , floatsToSpacedString
     , getAt
     , getLast
+    , pairExec
+    , pairMap
     , pushLast
     )
 
@@ -54,3 +56,21 @@ appendIf shouldAppend listToBeAppended listBase =
 
     else
         listBase
+
+
+
+-- PAIR / TUPLE EXTRA
+
+
+pairExec : (a -> b -> c) -> ( b, b ) -> ( a, a ) -> ( c, c )
+pairExec op secondArg firstArg =
+    ( op (Tuple.first firstArg) (Tuple.first secondArg)
+    , op (Tuple.second firstArg) (Tuple.second secondArg)
+    )
+
+
+pairMap : (a -> b) -> ( a, a ) -> ( b, b )
+pairMap op pair =
+    ( op (Tuple.first pair)
+    , op (Tuple.second pair)
+    )

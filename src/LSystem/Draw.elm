@@ -10,11 +10,9 @@ module LSystem.Draw exposing
     , withTurnAngle
     )
 
--- Todo: remove Msgs from here. Msgs should live on Update and LSystem.Draw should have its own msgs
-
 import Colors exposing (..)
-import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, getSvgBorders)
-import ListExtra exposing (floatsToSpacedString)
+import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
+import ListExtra exposing (floatsToSpacedString, pairExec)
 import Svg.Styled exposing (Svg, circle, line, polyline, svg)
 import Svg.Styled.Attributes
     exposing
@@ -27,7 +25,6 @@ import Svg.Styled.Attributes
         , stroke
         , strokeDasharray
         , style
-        , transform
         , viewBox
         , width
         , x1
@@ -63,12 +60,12 @@ type Translation
 
 
 type Image
-    = Image Block Angle Color Scale Translation
+    = Image Composition Angle Color Scale Translation
 
 
-image : Block -> Image
-image transformation =
-    Image transformation 90 offWhite 1 (Translation 0 0)
+image : Composition -> Image
+image composition =
+    Image composition 90 offWhite 1 (Translation 0 0)
 
 
 withTurnAngle : Angle -> Image -> Image
@@ -92,34 +89,34 @@ withTranslation ( x, y ) (Image t a c s _) =
 
 
 drawImage : Image -> Svg msg
-drawImage (Image transformation angle color scale (Translation x y)) =
+drawImage (Image composition angle color scale (Translation x y)) =
     let
-        { minX, maxX, minY, maxY } =
-            getSvgBorders transformation
+        _ =
+            Debug.log "drawImage" (Image composition angle color scale (Translation x y))
 
-        w =
-            maxX - minX
+        { topRight, bottomLeft } =
+            imageBoundaries angle composition
 
-        h =
-            maxY - minY
+        ( width, height ) =
+            Debug.log "(w,h)" (topRight |> pairExec (-) bottomLeft)
 
         margin =
             0.5
 
         xBegin =
-            (*) 10 <| -minX + (margin / 2 * w)
+            Debug.log "xBegin" (10 * (-(Tuple.first bottomLeft) + (margin / 2 * width)))
 
         yBegin =
-            (*) 10 <| -minY + (margin / 2 * h)
+            Debug.log "yBegin" ((*) 10 <| -(Tuple.second bottomLeft) + (margin / 2 * height))
 
         fw =
-            (1 + margin) * 10 * w
+            (1 + margin) * 10 * width
 
         fh =
-            (1 + margin) * 10 * h
+            (1 + margin) * 10 * height
 
         drawing =
-            transformToSvgPath transformation xBegin yBegin angle
+            transformToSvgPath (digestComposition composition) xBegin yBegin angle
 
         --        _ =
         --            Debug.log "minX, maxX, minY, maxY" [ minX, maxX, minY, maxY ]
@@ -177,17 +174,18 @@ drawSvg state w h wDelta hDelta =
         ]
 
 
-drawSvgFixed : Block -> Svg msg
-drawSvgFixed transform =
-    drawSvgFixedWithColor defaultGreen transform
+drawSvgFixed : Composition -> Svg msg
+drawSvgFixed composition =
+    drawSvgFixedWithColor 90 defaultGreen composition
 
 
-drawSvgFixedWithColor : Color -> Block -> Svg msg
-drawSvgFixedWithColor color transform =
-    let
-        { minX, maxX, minY, maxY } =
-            getSvgBorders transform
+drawSvgFixedWithColor : Float -> Color -> Composition -> Svg msg
+drawSvgFixedWithColor angle color composition =
+    svg [] []
 
+
+
+{--
         w =
             maxX - minX
 
@@ -228,6 +226,7 @@ drawSvgFixedWithColor color transform =
             ]
             []
         ]
+--}
 
 
 originPoint : Float -> Float -> Svg msg

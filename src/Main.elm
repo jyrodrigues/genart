@@ -48,17 +48,7 @@ import Html.Styled.Events
 import Icons exposing (withColor, withConditionalColor, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import LSystem.Core as LCore
-    exposing
-        ( Block
-        , Composition
-        , Step(..)
-        , appendStepAtIndex
-        , digestComposition
-        , dropEntireBlockAtIndex
-        , dropLastStepAtIndex
-        , stepsLength
-        )
+import LSystem.Core as LCore exposing (Block, Composition, Step(..))
 import LSystem.Draw
     exposing
         ( drawImage
@@ -68,11 +58,94 @@ import LSystem.Draw
         , withTranslation
         , withTurnAngle
         )
-import ListExtra exposing (appendIf, dropLast)
+import ListExtra exposing (pairExec, pairMap)
 import Task
 
 
 port saveStateToLocalStorage : Encode.Value -> Cmd msg
+
+
+
+-- FUNDAMENTAL TYPES
+
+
+type alias Model =
+    -- Aplication heart
+    { composition : Composition
+    , editingIndex : Int
+
+    -- Pan and Zoom
+    , scale : Float
+    , panStarted : Bool
+    , lastPos : ( Float, Float )
+    , translate : ( Float, Float )
+
+    -- Main Image Div Coordinates
+    , imgDivCenter : ( Float, Float )
+    , imgDivStart : ( Float, Float )
+
+    -- Color
+    , backgroundColor : Color
+    , strokeColor : Color
+
+    -- Angle
+    , turnAngle : Float
+
+    -- Browser Focus
+    , focus : Focus
+    }
+
+
+{-| TODO: Rename Msgs: put all verbs in past tense and choose better words.
+-}
+type
+    Msg
+    -- Global keyboard listener
+    = KeyPress String
+      -- Main commands
+    | ResetDrawing
+    | StateBaseChanged Polygon
+    | Iterate Int
+    | Deiterate
+    | SetEditingIndex Int
+    | DropFromState Int
+      -- Pan and Zoom
+    | GotImgDivPosition (Result Browser.Dom.Error Element)
+    | PanStarted ( Float, Float )
+    | PanEnded
+    | MouseMoved ( Float, Float )
+    | Zoom Float Float ShiftKey ( Float, Float )
+      -- Colors
+    | SetBackgroundColor Color
+    | SetStrokeColor Color
+      -- Angle
+    | SetTurnAngle Float
+      -- Focus
+    | SetFocus Focus
+
+
+
+-- OTHER TYPES
+
+
+type alias Flags =
+    Encode.Value
+
+
+type alias ShiftKey =
+    Bool
+
+
+type Focus
+    = KeyboardEditing
+    | TurnAngleInput
+
+
+type Polygon
+    = Triangle
+    | Square
+    | Pentagon
+    | Hexagon
 
 
 
@@ -87,10 +160,6 @@ main =
         , subscriptions = subscriptions
         , view = view
         }
-
-
-type alias Flags =
-    Encode.Value
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -117,94 +186,6 @@ init savedModel =
                 , getImgDivPosition
                 ]
             )
-
-
-
--- MODEL
-
-
-type alias Model =
-    { state : Composition
-    , editingIndex : Int
-    , dir : String
-
-    -- Pan and Zoom
-    , scale : Float
-    , wDelta : Float
-    , hDelta : Float
-    , panStarted : Bool
-    , lastPos : ( Float, Float )
-    , translate : ( Float, Float )
-    , imgDivCenter : ( Float, Float )
-    , imgDivStart : ( Float, Float )
-
-    -- Color
-    , backgroundColor : Color
-    , strokeColor : Color
-
-    -- Angle
-    , turnAngle : Float
-    , focus : Focus
-    }
-
-
-type Focus
-    = KeyboardEditing
-    | TurnAngleInput
-
-
-squareComposition : Composition
-squareComposition =
-    LCore.fromList [ [ D, L, D, L, D, L, D ], [ D ] ]
-
-
-expandMinimalModel : Composition -> Color -> Color -> Float -> Float -> Float -> Float -> Model
-expandMinimalModel state bgColor strokeColor turnAngle scale translateX translateY =
-    Model
-        state
-        1
-        --
-        ""
-        -- Pan and Zoom
-        scale
-        0
-        0
-        False
-        ( 0, 0 )
-        ( translateX, translateY )
-        ( 0, 0 )
-        ( 0, 0 )
-        -- Colors
-        bgColor
-        strokeColor
-        -- Angle
-        turnAngle
-        KeyboardEditing
-
-
-modelDecoder : Decoder Model
-modelDecoder =
-    Decode.map7 expandMinimalModel
-        (Decode.field "state" LCore.compositionDecoder)
-        (Decode.field "bgColor" Colors.decoder)
-        (Decode.field "strokeColor" Colors.decoder)
-        (Decode.field "turnAngle" Decode.float)
-        (Decode.field "scale" Decode.float)
-        (Decode.field "translateX" Decode.float)
-        (Decode.field "translateY" Decode.float)
-
-
-encodeModel : Model -> Encode.Value
-encodeModel model =
-    Encode.object
-        [ ( "state", LCore.encodeComposition model.state )
-        , ( "bgColor", Colors.encode model.backgroundColor )
-        , ( "strokeColor", Colors.encode model.strokeColor )
-        , ( "turnAngle", Encode.float model.turnAngle )
-        , ( "scale", Encode.float model.scale )
-        , ( "translateX", Encode.float (Tuple.first model.translate) )
-        , ( "translateY", Encode.float (Tuple.second model.translate) )
-        ]
 
 
 
@@ -247,18 +228,11 @@ controlPanel model =
 infoAndBasicControls : Model -> Html Msg
 infoAndBasicControls model =
     let
-        editingTransform =
-            LCore.getBlockAtIndex model.editingIndex model.state
-
         stateLengthString =
-            Debug.toString (stepsLength model.state)
-
-        dir =
-            -- To do: refactor "dir" variable inside model and here
-            "{" ++ model.dir ++ "}"
+            Debug.toString (LCore.stepsLength model.composition)
 
         editingTransformBlueprint =
-            case editingTransform of
+            case LCore.getBlockAtIndex model.editingIndex model.composition of
                 Nothing ->
                     ""
 
@@ -266,11 +240,10 @@ infoAndBasicControls model =
                     LCore.blockToString block
     in
     controlBlock
-        [ button [ onClick ClearSvg ] [ text "ClearSvg" ]
-        , button [ onClick (Iterate (Maybe.withDefault [ D ] editingTransform)) ] [ text "Iterate" ]
+        [ button [ onClick ResetDrawing ] [ text "ResetDrawing" ]
+        , button [ onClick (Iterate model.editingIndex) ] [ text "Iterate" ]
         , button [ onClick Deiterate ] [ text "Deiterate" ]
         , p [] [ text stateLengthString ]
-        , p [] [ text dir ]
         , p [] [ text editingTransformBlueprint ]
         ]
 
@@ -348,7 +321,7 @@ transformsList : Model -> Html Msg
 transformsList model =
     let
         transforms =
-            model.state
+            model.composition
                 |> LCore.toList
                 |> List.indexedMap (transformBox model.editingIndex model.turnAngle model.strokeColor)
                 |> List.reverse
@@ -375,7 +348,7 @@ transformBox editingIndex turnAngle strokeColor index transform =
             , borderBottom3 (px 1) solid (toCssColor Colors.black)
             ]
         ]
-        [ image transform
+        [ image (LCore.fromList [ transform ])
             |> withTurnAngle turnAngle
             |> withStrokeColor strokeColor
             |> drawImage
@@ -405,7 +378,7 @@ mainImg model =
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ image (digestComposition model.state)
+        [ image model.composition
             |> withTurnAngle model.turnAngle
             |> withStrokeColor model.strokeColor
             |> withScale model.scale
@@ -437,64 +410,15 @@ fixedDiv attrs children =
 
 
 
--- MSG
-
-
-type Msg
-    = KeyPress String
-      -- Main commands
-    | ClearSvg
-    | StateBaseChanged Polygon
-    | Iterate Block
-    | Deiterate
-    | SetEditingIndex Int
-    | DropFromState Int
-      -- Pan and Zoom
-    | GotImgDivPosition (Result Browser.Dom.Error Element)
-    | PanStarted ( Float, Float )
-    | PanEnded
-    | MouseMoved ( Float, Float )
-    | Zoom Float Float ShiftKey ( Float, Float )
-      -- Colors
-    | SetBackgroundColor Color
-    | SetStrokeColor Color
-      -- Angle
-    | SetTurnAngle Float
-      -- Focus
-    | SetFocus Focus
-
-
-type alias ShiftKey =
-    Bool
-
-
-type Polygon
-    = Triangle
-    | Square
-    | Pentagon
-    | Hexagon
-
-
-
 -- UPDATE
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        pairExec op secondArg firstArg =
-            ( op (Tuple.first firstArg) (Tuple.first secondArg)
-            , op (Tuple.second firstArg) (Tuple.second secondArg)
-            )
-
-        pairMap op pair =
-            ( op (Tuple.first pair)
-            , op (Tuple.second pair)
-            )
-
-        _ =
-            Debug.log "Debug.log - From update, model" model
-    in
+    --let
+    --_ =
+    --Debug.log "Debug.log - From update, model" model
+    --in
     (\newModel ->
         ( newModel
         , saveStateToLocalStorage (encodeModel newModel)
@@ -502,11 +426,11 @@ update msg model =
     )
     <|
         case Debug.log "msg" msg of
-            ClearSvg ->
-                { model | state = squareComposition }
+            ResetDrawing ->
+                { model | composition = squareComposition }
 
-            Iterate transform ->
-                iterate model (Just transform)
+            Iterate editingIndex ->
+                iterate model editingIndex
 
             Deiterate ->
                 deiterate model
@@ -517,42 +441,21 @@ update msg model =
             -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
             -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
             Zoom _ deltaY _ mousePos ->
-                let
-                    scale =
-                        max (model.scale - 0.01 * deltaY) 0.1
-
-                    vecMouseToImgDivCenter =
-                        model.imgDivCenter
-                            |> pairExec (-) mousePos
-                in
-                { model
-                    | scale = scale
-                    , translate =
-                        vecMouseToImgDivCenter
-                            |> pairExec (+) model.translate
-                            |> pairMap (\value -> value * scale / model.scale)
-                            |> pairExec (-) vecMouseToImgDivCenter
-                }
+                applyZoom deltaY mousePos model
 
             SetEditingIndex index ->
                 { model | editingIndex = index }
 
             DropFromState index ->
-                let
-                    updatedComposition =
-                        LCore.dropEntireBlockAtIndex index model.state
-
-                    newEditingIndex =
-                        if model.editingIndex == index then
-                            List.length (LCore.toList updatedComposition) - 1
-
-                        else if model.editingIndex > index then
+                { model
+                    | composition = LCore.dropBlockAtIndex index model.composition
+                    , editingIndex =
+                        if model.editingIndex >= index then
                             model.editingIndex - 1
 
                         else
                             model.editingIndex
-                in
-                { model | state = updatedComposition, editingIndex = newEditingIndex }
+                }
 
             SetBackgroundColor color ->
                 { model | backgroundColor = color }
@@ -582,28 +485,7 @@ update msg model =
                 { model | focus = focus }
 
             StateBaseChanged polygon ->
-                let
-                    state =
-                        model.state
-
-                    updateModel stateBase turnAngle =
-                        { model
-                            | state = LCore.changeBase stateBase state
-                            , turnAngle = turnAngle
-                        }
-                in
-                case polygon of
-                    Triangle ->
-                        updateModel [ D, L, D, L, D ] 120
-
-                    Square ->
-                        updateModel [ D, L, D, L, D, L, D ] 90
-
-                    Pentagon ->
-                        updateModel [ D, L, D, L, D, L, D, L, D ] 72
-
-                    Hexagon ->
-                        updateModel [ D, L, D, L, D, L, D, L, D, L, D ] 60
+                updateCompositionBaseAndAngle model polygon
 
             GotImgDivPosition result ->
                 case result of
@@ -611,98 +493,113 @@ update msg model =
                         let
                             { x, y, width, height } =
                                 data.element
-
-                            imgDivStart =
-                                ( x, y )
-
-                            imgDivCenter =
-                                ( x + width / 2, y + height / 2 )
                         in
-                        { model | imgDivCenter = imgDivCenter, imgDivStart = imgDivStart }
+                        { model | imgDivCenter = ( x + width / 2, y + height / 2 ), imgDivStart = ( x, y ) }
 
                     Err _ ->
                         model
 
 
 processKey : Model -> String -> Model
-processKey model dir =
-    case dir of
+processKey model keyPressed =
+    let
+        appendStep step =
+            { model | composition = LCore.appendStepAtIndex step model.editingIndex model.composition }
+    in
+    case keyPressed of
         "ArrowLeft" ->
-            { model | state = LCore.appendStepAtIndex L model.editingIndex model.state }
+            appendStep L
 
         "ArrowRight" ->
-            { model | state = LCore.appendStepAtIndex R model.editingIndex model.state }
+            appendStep R
 
         "ArrowUp" ->
-            { model | state = LCore.appendStepAtIndex D model.editingIndex model.state }
+            appendStep D
 
         "ArrowDown" ->
-            { model | state = LCore.appendStepAtIndex S model.editingIndex model.state }
+            appendStep S
 
         " " ->
             { model | scale = 1, translate = ( 0, 0 ) }
 
         "Backspace" ->
-            { model | state = LCore.dropLastStepAtIndex model.editingIndex model.state }
+            { model | composition = LCore.dropLastStepAtIndex model.editingIndex model.composition }
 
         "i" ->
-            let
-                newModel =
-                    iterate model (LCore.getBlockAtIndex model.editingIndex model.state)
-            in
-            { newModel | dir = dir }
+            iterate model model.editingIndex
 
         "d" ->
-            let
-                newModel =
-                    deiterate model
-            in
-            { newModel | dir = dir }
+            deiterate model
 
         _ ->
-            { model | dir = dir }
-
-
-iterate : Model -> Maybe Block -> Model
-iterate model maybeNewBlock =
-    case maybeNewBlock of
-        Nothing ->
             model
 
-        Just newBlock ->
-            let
-                composition =
-                    model.state
 
-                updatedComposition =
-                    LCore.changeBlocks (LCore.blocks composition ++ [ newBlock ]) composition
-            in
-            { model | state = updatedComposition, editingIndex = List.length (LCore.toList updatedComposition) - 1 }
+iterate : Model -> Int -> Model
+iterate model editingIndex =
+    let
+        updatedComposition =
+            LCore.duplicateBlockAndAppendAsLast editingIndex model.composition
+    in
+    { model
+        | composition = updatedComposition
+        , editingIndex = LCore.length updatedComposition - 1
+    }
 
 
 deiterate : Model -> Model
 deiterate model =
     let
         updatedComposition =
-            LCore.dropLastBlock model.state
-
-        updatedLength =
-            List.length (LCore.toList updatedComposition)
-
-        newEditingIndex =
-            if model.editingIndex < updatedLength then
-                model.editingIndex
-
-            else
-                updatedLength - 1
-
-        state =
-            model.state
+            LCore.dropLastBlock model.composition
     in
     { model
-        | state = updatedComposition
-        , editingIndex = newEditingIndex
+        | composition = updatedComposition
+        , editingIndex = min model.editingIndex (LCore.length updatedComposition - 1)
     }
+
+
+applyZoom : Float -> ( Float, Float ) -> Model -> Model
+applyZoom deltaY mousePos model =
+    let
+        scale =
+            max (model.scale - 0.01 * deltaY) 0.1
+
+        vecMouseToImgDivCenter =
+            model.imgDivCenter
+                |> pairExec (-) mousePos
+    in
+    { model
+        | scale = scale
+        , translate =
+            vecMouseToImgDivCenter
+                |> pairExec (+) model.translate
+                |> pairMap (\value -> value * scale / model.scale)
+                |> pairExec (-) vecMouseToImgDivCenter
+    }
+
+
+updateCompositionBaseAndAngle : Model -> Polygon -> Model
+updateCompositionBaseAndAngle model polygon =
+    let
+        updateModel stateBase turnAngle =
+            { model
+                | composition = LCore.changeBase stateBase model.composition
+                , turnAngle = turnAngle
+            }
+    in
+    case polygon of
+        Triangle ->
+            updateModel [ D, L, D, L, D ] 120
+
+        Square ->
+            updateModel [ D, L, D, L, D, L, D ] 90
+
+        Pentagon ->
+            updateModel [ D, L, D, L, D, L, D, L, D ] 72
+
+        Hexagon ->
+            updateModel [ D, L, D, L, D, L, D, L, D, L, D ] 60
 
 
 
@@ -713,12 +610,71 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         ([]
-            |> appendIf (model.focus == KeyboardEditing) [ Browser.Events.onKeyUp keyPressDecoder ]
-            |> appendIf model.panStarted
+            |> ListExtra.appendIf (model.focus == KeyboardEditing) [ Browser.Events.onKeyUp keyPressDecoder ]
+            |> ListExtra.appendIf model.panStarted
                 [ Browser.Events.onMouseMove mouseMoveDecoder
                 , Browser.Events.onMouseUp (Decode.succeed PanEnded)
                 ]
         )
+
+
+
+-- MODEL STUFF
+
+
+expandMinimalModel : Composition -> Color -> Color -> Float -> Float -> Float -> Float -> Model
+expandMinimalModel state bgColor strokeColor turnAngle scale translateX translateY =
+    Model
+        -- Aplication heart
+        state
+        1
+        -- Pan and Zoom
+        scale
+        False
+        ( 0, 0 )
+        ( translateX, translateY )
+        -- Main Image Div Coordinates
+        ( 0, 0 )
+        ( 0, 0 )
+        -- Colors
+        bgColor
+        strokeColor
+        -- Angle
+        turnAngle
+        -- Browser Focus
+        KeyboardEditing
+
+
+squareComposition : Composition
+squareComposition =
+    LCore.fromList [ [ D, L, D, L, D, L, D ], [ D ] ]
+
+
+{-| Model encoder and decoder
+-}
+modelDecoder : Decoder Model
+modelDecoder =
+    Decode.map7 expandMinimalModel
+        (Decode.field "state" LCore.compositionDecoder)
+        (Decode.field "bgColor" Colors.decoder)
+        (Decode.field "strokeColor" Colors.decoder)
+        (Decode.field "turnAngle" Decode.float)
+        (Decode.field "scale" Decode.float)
+        (Decode.field "translateX" Decode.float)
+        (Decode.field "translateY" Decode.float)
+
+
+encodeModel : Model -> Encode.Value
+encodeModel model =
+    Encode.object
+        [ ( "state", LCore.encodeComposition model.composition )
+        , ( "bgColor", Colors.encode model.backgroundColor )
+        , ( "strokeColor", Colors.encode model.strokeColor )
+        , ( "turnAngle", Encode.float model.turnAngle )
+        , ( "scale", Encode.float model.scale )
+        , ( "translateX", Encode.float (Tuple.first model.translate) )
+        , ( "translateY", Encode.float (Tuple.second model.translate) )
+        ]
 
 
 

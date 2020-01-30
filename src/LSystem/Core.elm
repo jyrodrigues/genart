@@ -9,20 +9,22 @@ module LSystem.Core exposing
     , changeBlocks
     , compositionDecoder
     , digestComposition
-    , dropEntireBlockAtIndex
+    , dropBlockAtIndex
     , dropLastBlock
     , dropLastStepAtIndex
+    , duplicateBlockAndAppendAsLast
     , encodeComposition
     , fromList
     , getBlockAtIndex
-    , getSvgBorders
+    , imageBoundaries
+    , length
     , stepsLength
     , toList
     )
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import ListExtra
+import ListExtra exposing (pairExec)
 
 
 
@@ -53,19 +55,14 @@ base (Composition base_ _) =
     base_
 
 
-changeBase : Block -> Composition -> Composition
-changeBase newBase (Composition _ blocks_) =
-    Composition newBase blocks_
-
-
 blocks : Composition -> List Block
 blocks (Composition _ blocks_) =
     blocks_
 
 
-changeBlocks : List Block -> Composition -> Composition
-changeBlocks newBlocks (Composition base_ _) =
-    Composition base_ newBlocks
+length : Composition -> Int
+length composition =
+    List.length (toList composition)
 
 
 stepsLength : Composition -> ( Int, Int )
@@ -116,6 +113,16 @@ digestComposition (Composition base_ blocks_) =
 -- EDIT COMPOSITION
 
 
+changeBase : Block -> Composition -> Composition
+changeBase newBase (Composition _ blocks_) =
+    Composition newBase blocks_
+
+
+changeBlocks : List Block -> Composition -> Composition
+changeBlocks newBlocks (Composition base_ _) =
+    Composition base_ newBlocks
+
+
 appendStepAtIndex : Step -> Int -> Composition -> Composition
 appendStepAtIndex step =
     editBlockAtIndex (ListExtra.pushLast step)
@@ -124,6 +131,11 @@ appendStepAtIndex step =
 dropLastStepAtIndex : Int -> Composition -> Composition
 dropLastStepAtIndex =
     editBlockAtIndex ListExtra.dropLast
+
+
+getBlockAtIndex : Int -> Composition -> Maybe Block
+getBlockAtIndex blockIndex composition =
+    List.head (List.drop blockIndex (toList composition))
 
 
 editBlockAtIndex : (Block -> Block) -> Int -> Composition -> Composition
@@ -146,55 +158,42 @@ editBlockAtIndex editFn blockIndex composition =
     fromList (List.indexedMap editAtIndex (toList composition))
 
 
+{-| Formerly known as `deiterate`
+-}
 dropLastBlock : Composition -> Composition
 dropLastBlock (Composition base_ blocks_) =
     Composition base_ (ListExtra.dropLast blocks_)
 
 
-dropEntireBlockAtIndex : Int -> Composition -> Composition
-dropEntireBlockAtIndex blockIndex composition =
-    let
-        list =
-            toList composition
-
-        length =
-            List.length list
-    in
-    if length == 1 then
+dropBlockAtIndex : Int -> Composition -> Composition
+dropBlockAtIndex blockIndex composition =
+    if length composition == 1 then
         Debug.log "dropEntireBlockAtIndex - NoOp, composition has only one block" composition
 
-    else if blockIndex >= length then
+    else if blockIndex >= length composition then
         Debug.log "dropEntireBlockAtIndex - NoOp, index out of bounds" composition
 
     else
-        fromList (ListExtra.dropIndex blockIndex list)
+        fromList (ListExtra.dropIndex blockIndex (toList composition))
 
 
-getBlockAtIndex : Int -> Composition -> Maybe Block
-getBlockAtIndex blockIndex composition =
-    List.head (List.drop blockIndex (toList composition))
+{-| Formerly known as `iterate`
+-}
+duplicateBlockAndAppendAsLast : Int -> Composition -> Composition
+duplicateBlockAndAppendAsLast blockIndex composition =
+    let
+        maybeDuplicatedBlock =
+            getBlockAtIndex blockIndex composition
+    in
+    case maybeDuplicatedBlock of
+        Nothing ->
+            composition
+
+        Just newBlock ->
+            changeBlocks (blocks composition ++ [ newBlock ]) composition
 
 
 
-{--
-duplicateBlockAndAppendLast : Int -> Composition -> Composition
-duplicateBlockAndAppendLast blockIndex composition =
-    applyIfInRange blockIndex composition
-
-applyIfInRange : Int -> (Composition -> Composition) -> Composition -> Composition
-applyIfInRange index fn composition =
-    if isInRange index composition then
-        fn composition
-
-    else
-        composition
-
-
-isInRange : Int -> Composition -> Bool
-isInRange index composition =
-    index <= List.length (toList composition)
-
---}
 -- COMPOSITION CONVERSIONS
 
 
@@ -297,135 +296,82 @@ blockDecoder =
 -- MEASURING
 
 
-type Direction
-    = Up
-    | Down
-    | Right
-    | Left
-
-
-type alias Maxes =
-    { maxX : Float
-    , minX : Float
-    , maxY : Float
-    , minY : Float
+type alias Boundaries =
+    { topRight : ( Float, Float )
+    , bottomLeft : ( Float, Float )
     }
 
 
-type alias Pos =
-    { x : Float
-    , y : Float
-    , direction : Direction
-    }
+type alias Position =
+    ( Float, Float, Int )
 
 
-initialMaxes : Maxes
-initialMaxes =
-    { maxX = 1
-    , minX = -1
-    , maxY = 1
-    , minY = -1
-    }
-
-
-initialPos : Direction -> Pos
-initialPos dir =
-    { x = 0
-    , y = 0
-    , direction = Right
-    }
-
-
-countMax : Step -> ( Pos, Maxes ) -> ( Pos, Maxes )
-countMax step ( pos, maxes ) =
-    case step of
-        D ->
-            let
-                nextPos =
-                    case pos.direction of
-                        Up ->
-                            { pos | y = pos.y - 1 }
-
-                        Down ->
-                            { pos | y = pos.y + 1 }
-
-                        Right ->
-                            { pos | x = pos.x + 1 }
-
-                        Left ->
-                            { pos | x = pos.x - 1 }
-
-                nextMaxes =
-                    { maxX = max maxes.maxX nextPos.x
-                    , minX = min maxes.minX nextPos.x
-                    , maxY = max maxes.maxY nextPos.y
-                    , minY = min maxes.minY nextPos.y
-                    }
-            in
-            ( nextPos, nextMaxes )
-
-        _ ->
-            ( { pos | direction = changeDirection step pos.direction }, maxes )
-
-
-
--- Todo: Try to make a simpler changeDirection function
--- type GNState a
---     = NotSeen a
---     | GetNext
---     | Found a
--- getNext : a -> List a -> a
--- getNext sym symList =
---     let
---         fn gnState =
---             Found
---     in
---     List.foldl fn (NotSeen sym) symList
-
-
-changeDirection : Step -> Direction -> Direction
-changeDirection step dir =
-    case step of
-        L ->
-            case dir of
-                Up ->
-                    Left
-
-                Left ->
-                    Down
-
-                Down ->
-                    Right
-
-                Right ->
-                    Up
-
-        R ->
-            case dir of
-                Up ->
-                    Right
-
-                Right ->
-                    Down
-
-                Down ->
-                    Left
-
-                Left ->
-                    Up
-
-        _ ->
-            dir
-
-
-getSvgBorders : Block -> Maxes
-getSvgBorders block =
+computeDStep : ( Boundaries, Position ) -> ( Boundaries, Position )
+computeDStep ( boundaries, ( x, y, angle ) ) =
     let
-        ( finalPos, finalMaxes ) =
-            List.foldl countMax ( initialPos Right, initialMaxes ) block
+        --_ =
+        --Debug.log "Before computeDStep" ( boundaries, ( x, y, angle ) )
+        stepVector =
+            fromPolar ( 1, degrees (toFloat angle) )
+
+        newXY =
+            ( x, y ) |> pairExec (+) stepVector
+
+        newPosition =
+            ( Tuple.first newXY
+            , Tuple.second newXY
+            , angle
+            )
+
+        newBoundaries =
+            { topRight = newXY |> pairExec max boundaries.topRight
+            , bottomLeft = newXY |> pairExec min boundaries.bottomLeft
+            }
     in
-    { maxX = finalMaxes.maxX + 1
-    , minX = finalMaxes.minX - 1
-    , maxY = finalMaxes.maxY + 1
-    , minY = finalMaxes.minY - 1
-    }
+    --Debug.log "After  computeDStep" ( newBoundaries, newPosition )
+    ( newBoundaries, newPosition )
+
+
+turnLeft : Int -> ( Boundaries, Position ) -> ( Boundaries, Position )
+turnLeft degrees ( boundaries, ( x, y, angle ) ) =
+    --Debug.log "turnLeft" ( boundaries, ( x, y, modBy 360 (angle + degrees) ) )
+    ( boundaries, ( x, y, modBy 360 (angle + degrees) ) )
+
+
+turnRight : Int -> ( Boundaries, Position ) -> ( Boundaries, Position )
+turnRight degrees ( boundaries, ( x, y, angle ) ) =
+    ( boundaries, ( x, y, modBy 360 (angle - degrees) ) )
+
+
+{-| OK
+-}
+imageBoundaries : Float -> Composition -> Boundaries
+imageBoundaries degrees composition =
+    let
+        updateBoundaries step boundariesAndPosition =
+            --let
+            --_ =
+            --Debug.log "updateBoundaries" ( step, boundariesAndPosition )
+            --in
+            case step of
+                D ->
+                    computeDStep boundariesAndPosition
+
+                L ->
+                    turnLeft (round degrees) boundariesAndPosition
+
+                R ->
+                    turnRight (round degrees) boundariesAndPosition
+
+                _ ->
+                    boundariesAndPosition
+    in
+    composition
+        |> digestComposition
+        --|> Debug.log "Flat list?"
+        |> List.foldl updateBoundaries
+            ( Boundaries ( 0, 0 ) ( 0, 0 )
+            , ( 0, 0, 0 )
+            )
+        --|> Debug.log "Final Boundaries"
+        |> Tuple.first
