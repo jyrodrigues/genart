@@ -12,7 +12,7 @@ module LSystem.Draw exposing
 
 import Colors exposing (..)
 import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
-import ListExtra exposing (floatsToSpacedString, pairExec)
+import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
 import Svg.Styled exposing (Svg, circle, line, polyline, svg)
 import Svg.Styled.Attributes
     exposing
@@ -88,14 +88,35 @@ withTranslation ( x, y ) (Image t a c s _) =
     Image t a c s (Translation x y)
 
 
+{-| About vecTranslateToImgCenter:
+
+The drawing's math coordinate system is UPxRIGHT while
+SVG viewbox coordinate system is DOWNxRIGHT.
+
+So the vector to translate viewboxe's (0,0) into image's
+center for x-axis is the same as the middle point of the image
+but is inverted for y-axis.
+
+-}
 drawImage : Image -> Svg msg
 drawImage (Image composition angle color scale (Translation x y)) =
     let
         _ =
-            Debug.log "drawImage" (Image composition angle color scale (Translation x y))
+            Debug.log "\n\n\ndrawImage" (Image composition angle color scale (Translation x y))
 
         { topRight, bottomLeft } =
             imageBoundaries angle composition
+
+        ( right, top ) =
+            Debug.log "(r,t)" topRight
+
+        ( left, bottom ) =
+            Debug.log "(l,b)" bottomLeft
+
+        vecTranslateOriginToDrawingCenter =
+            ( (right + left) / 2 * 10
+            , -(top + bottom) / 2 * 10
+            )
 
         ( width, height ) =
             Debug.log "(w,h)" (topRight |> pairExec (-) bottomLeft)
@@ -103,26 +124,30 @@ drawImage (Image composition angle color scale (Translation x y)) =
         margin =
             0.5
 
-        xBegin =
-            Debug.log "xBegin" (10 * (-(Tuple.first bottomLeft) + (margin / 2 * width)))
+        scaledWidth =
+            (1 + margin) * 10 * max 2 width
 
-        yBegin =
-            Debug.log "yBegin" ((*) 10 <| -(Tuple.second bottomLeft) + (margin / 2 * height))
+        scaledHeight =
+            (1 + margin) * 10 * max 2 height
 
-        fw =
-            (1 + margin) * 10 * width
+        vecTranslateOriginToViewportCenter =
+            ( -scaledWidth / 2, -scaledHeight / 2 )
 
-        fh =
-            (1 + margin) * 10 * height
+        vecTranslate =
+            vecTranslateOriginToDrawingCenter |> pairExec (+) vecTranslateOriginToViewportCenter
 
         drawing =
-            transformToSvgPath (digestComposition composition) xBegin yBegin angle
-
-        --        _ =
-        --            Debug.log "minX, maxX, minY, maxY" [ minX, maxX, minY, maxY ]
+            transformToSvgPath (digestComposition composition) 0 0 angle
     in
     svg
-        [ viewBox <| floatsToSpacedString [ 0, 0, fw, fh ]
+        [ viewBox <|
+            Debug.log "viewport" <|
+                floatsToSpacedString
+                    [ Tuple.first vecTranslate
+                    , Tuple.second vecTranslate
+                    , scaledWidth
+                    , scaledHeight
+                    ]
         , style <|
             "display: block; "
                 ++ "height: 100%; "
@@ -141,7 +166,7 @@ drawImage (Image composition angle color scale (Translation x y)) =
                    )
                 ++ ("scale(" ++ String.fromFloat scale ++ ")")
         ]
-        [ originPoint xBegin yBegin
+        [ originPoint 0 0
         , nextLine drawing
         , polyline
             [ points <| .path <| drawing
