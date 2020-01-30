@@ -13,7 +13,7 @@ module LSystem.Draw exposing
 -- Todo: remove Msgs from here. Msgs should live on Update and LSystem.Draw should have its own msgs
 
 import Colors exposing (..)
-import LSystem.Core exposing (State, Step(..), Transformation, buildState, getSvgBorders)
+import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, getSvgBorders)
 import ListExtra exposing (floatsToSpacedString)
 import Svg.Styled exposing (Svg, circle, line, polyline, svg)
 import Svg.Styled.Attributes
@@ -63,10 +63,10 @@ type Translation
 
 
 type Image
-    = Image Transformation Angle Color Scale Translation
+    = Image Block Angle Color Scale Translation
 
 
-image : Transformation -> Image
+image : Block -> Image
 image transformation =
     Image transformation 90 offWhite 1 (Translation 0 0)
 
@@ -155,7 +155,7 @@ drawImage (Image transformation angle color scale (Translation x y)) =
         ]
 
 
-drawSvg : State -> Float -> Float -> Float -> Float -> Svg msg
+drawSvg : Composition -> Float -> Float -> Float -> Float -> Svg msg
 drawSvg state w h wDelta hDelta =
     svg
         [ width "1000"
@@ -166,7 +166,7 @@ drawSvg state w h wDelta hDelta =
         [ polyline
             [ points <|
                 .path <|
-                    transformToSvgPath (buildState state)
+                    transformToSvgPath (digestComposition state)
                         (w / 2)
                         (h / 2)
                         90
@@ -177,12 +177,12 @@ drawSvg state w h wDelta hDelta =
         ]
 
 
-drawSvgFixed : Transformation -> Svg msg
+drawSvgFixed : Block -> Svg msg
 drawSvgFixed transform =
     drawSvgFixedWithColor defaultGreen transform
 
 
-drawSvgFixedWithColor : Color -> Transformation -> Svg msg
+drawSvgFixedWithColor : Color -> Block -> Svg msg
 drawSvgFixedWithColor color transform =
     let
         { minX, maxX, minY, maxY } =
@@ -266,7 +266,7 @@ positionToString pos =
     String.fromFloat pos.x ++ " " ++ String.fromFloat pos.y
 
 
-transformToSvgPath : Transformation -> Float -> Float -> Float -> Drawing
+transformToSvgPath : Block -> Float -> Float -> Float -> Drawing
 transformToSvgPath transform x0 y0 turn =
     let
         initialPos =

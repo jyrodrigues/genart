@@ -50,15 +50,14 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core as LCore
     exposing
-        ( State
+        ( Block
+        , Composition
         , Step(..)
-        , Transformation
-        , appendToStateAt
-        , buildState
-        , dropLastStepFromStateAt
-        , dropStateAt
-        , getTransformAt
-        , stateLength
+        , appendStepAtIndex
+        , digestComposition
+        , dropEntireBlockAtIndex
+        , dropLastStepAtIndex
+        , stepsLength
         )
 import LSystem.Draw
     exposing
@@ -110,7 +109,7 @@ init savedModel =
                     Debug.log "Debug.log - Error while decoding localStorage" err
 
                 model =
-                    expandMinimalModel squareState Colors.darkGray Colors.defaultGreen 90 1 0 0
+                    expandMinimalModel squareComposition Colors.darkGray Colors.defaultGreen 90 1 0 0
             in
             ( model
             , Cmd.batch
@@ -125,7 +124,7 @@ init savedModel =
 
 
 type alias Model =
-    { state : State
+    { state : Composition
     , editingIndex : Int
     , dir : String
 
@@ -154,14 +153,12 @@ type Focus
     | TurnAngleInput
 
 
-squareState : State
-squareState =
-    { base = [ D, L, D, L, D, L, D ]
-    , transforms = [ [ D ] ]
-    }
+squareComposition : Composition
+squareComposition =
+    LCore.fromList [ [ D, L, D, L, D, L, D ], [ D ] ]
 
 
-expandMinimalModel : State -> Color -> Color -> Float -> Float -> Float -> Float -> Model
+expandMinimalModel : Composition -> Color -> Color -> Float -> Float -> Float -> Float -> Model
 expandMinimalModel state bgColor strokeColor turnAngle scale translateX translateY =
     Model
         state
@@ -188,7 +185,7 @@ expandMinimalModel state bgColor strokeColor turnAngle scale translateX translat
 modelDecoder : Decoder Model
 modelDecoder =
     Decode.map7 expandMinimalModel
-        (Decode.field "state" LCore.stateDecoder)
+        (Decode.field "state" LCore.compositionDecoder)
         (Decode.field "bgColor" Colors.decoder)
         (Decode.field "strokeColor" Colors.decoder)
         (Decode.field "turnAngle" Decode.float)
@@ -200,7 +197,7 @@ modelDecoder =
 encodeModel : Model -> Encode.Value
 encodeModel model =
     Encode.object
-        [ ( "state", LCore.encodeState model.state )
+        [ ( "state", LCore.encodeComposition model.state )
         , ( "bgColor", Colors.encode model.backgroundColor )
         , ( "strokeColor", Colors.encode model.strokeColor )
         , ( "turnAngle", Encode.float model.turnAngle )
@@ -251,21 +248,26 @@ infoAndBasicControls : Model -> Html Msg
 infoAndBasicControls model =
     let
         editingTransform =
-            LCore.getTransformAt model.editingIndex model.state
+            LCore.getBlockAtIndex model.editingIndex model.state
 
         stateLengthString =
-            Debug.toString (stateLength model.state)
+            Debug.toString (stepsLength model.state)
 
         dir =
             -- To do: refactor "dir" variable inside model and here
             "{" ++ model.dir ++ "}"
 
         editingTransformBlueprint =
-            LCore.transformToString editingTransform
+            case editingTransform of
+                Nothing ->
+                    ""
+
+                Just block ->
+                    LCore.blockToString block
     in
     controlBlock
         [ button [ onClick ClearSvg ] [ text "ClearSvg" ]
-        , button [ onClick (Iterate editingTransform) ] [ text "Iterate" ]
+        , button [ onClick (Iterate (Maybe.withDefault [ D ] editingTransform)) ] [ text "Iterate" ]
         , button [ onClick Deiterate ] [ text "Deiterate" ]
         , p [] [ text stateLengthString ]
         , p [] [ text dir ]
@@ -364,7 +366,7 @@ transformsList model =
         transforms
 
 
-transformBox : Int -> Float -> Color -> Int -> Transformation -> Html Msg
+transformBox : Int -> Float -> Color -> Int -> Block -> Html Msg
 transformBox editingIndex turnAngle strokeColor index transform =
     div
         [ css
@@ -403,7 +405,7 @@ mainImg model =
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ image (buildState model.state)
+        [ image (digestComposition model.state)
             |> withTurnAngle model.turnAngle
             |> withStrokeColor model.strokeColor
             |> withScale model.scale
@@ -443,7 +445,7 @@ type Msg
       -- Main commands
     | ClearSvg
     | StateBaseChanged Polygon
-    | Iterate Transformation
+    | Iterate Block
     | Deiterate
     | SetEditingIndex Int
     | DropFromState Int
@@ -501,10 +503,10 @@ update msg model =
     <|
         case Debug.log "msg" msg of
             ClearSvg ->
-                { model | state = squareState }
+                { model | state = squareComposition }
 
             Iterate transform ->
-                iterate model transform
+                iterate model (Just transform)
 
             Deiterate ->
                 deiterate model
@@ -537,9 +539,12 @@ update msg model =
 
             DropFromState index ->
                 let
+                    updatedComposition =
+                        LCore.dropEntireBlockAtIndex index model.state
+
                     newEditingIndex =
                         if model.editingIndex == index then
-                            List.length model.state.transforms - 1
+                            List.length (LCore.toList updatedComposition) - 1
 
                         else if model.editingIndex > index then
                             model.editingIndex - 1
@@ -547,7 +552,7 @@ update msg model =
                         else
                             model.editingIndex
                 in
-                { model | state = LCore.dropStateAt index model.state, editingIndex = newEditingIndex }
+                { model | state = updatedComposition, editingIndex = newEditingIndex }
 
             SetBackgroundColor color ->
                 { model | backgroundColor = color }
@@ -583,7 +588,7 @@ update msg model =
 
                     updateModel stateBase turnAngle =
                         { model
-                            | state = { state | base = stateBase }
+                            | state = LCore.changeBase stateBase state
                             , turnAngle = turnAngle
                         }
                 in
@@ -623,27 +628,27 @@ processKey : Model -> String -> Model
 processKey model dir =
     case dir of
         "ArrowLeft" ->
-            { model | state = LCore.appendToStateAt [ L ] model.editingIndex model.state }
+            { model | state = LCore.appendStepAtIndex L model.editingIndex model.state }
 
         "ArrowRight" ->
-            { model | state = LCore.appendToStateAt [ R ] model.editingIndex model.state }
+            { model | state = LCore.appendStepAtIndex R model.editingIndex model.state }
 
         "ArrowUp" ->
-            { model | state = LCore.appendToStateAt [ D ] model.editingIndex model.state }
+            { model | state = LCore.appendStepAtIndex D model.editingIndex model.state }
 
         "ArrowDown" ->
-            { model | state = LCore.appendToStateAt [ S ] model.editingIndex model.state }
+            { model | state = LCore.appendStepAtIndex S model.editingIndex model.state }
 
         " " ->
             { model | scale = 1, translate = ( 0, 0 ) }
 
         "Backspace" ->
-            { model | state = LCore.dropLastStepFromStateAt model.editingIndex model.state }
+            { model | state = LCore.dropLastStepAtIndex model.editingIndex model.state }
 
         "i" ->
             let
                 newModel =
-                    iterate model (LCore.getTransformAt model.editingIndex model.state)
+                    iterate model (LCore.getBlockAtIndex model.editingIndex model.state)
             in
             { newModel | dir = dir }
 
@@ -658,38 +663,44 @@ processKey model dir =
             { model | dir = dir }
 
 
-iterate : Model -> Transformation -> Model
-iterate model transform =
-    let
-        state =
-            model.state
+iterate : Model -> Maybe Block -> Model
+iterate model maybeNewBlock =
+    case maybeNewBlock of
+        Nothing ->
+            model
 
-        newState =
-            { state
-                | transforms = state.transforms ++ [ transform ]
-            }
-    in
-    { model | state = newState, editingIndex = List.length newState.transforms }
+        Just newBlock ->
+            let
+                composition =
+                    model.state
+
+                updatedComposition =
+                    LCore.changeBlocks (LCore.blocks composition ++ [ newBlock ]) composition
+            in
+            { model | state = updatedComposition, editingIndex = List.length (LCore.toList updatedComposition) - 1 }
 
 
 deiterate : Model -> Model
 deiterate model =
     let
-        newTransforms =
-            dropLast model.state.transforms
+        updatedComposition =
+            LCore.dropLastBlock model.state
+
+        updatedLength =
+            List.length (LCore.toList updatedComposition)
 
         newEditingIndex =
-            if model.editingIndex > List.length newTransforms then
-                List.length newTransforms
+            if model.editingIndex < updatedLength then
+                model.editingIndex
 
             else
-                model.editingIndex
+                updatedLength - 1
 
         state =
             model.state
     in
     { model
-        | state = { state | transforms = newTransforms }
+        | state = updatedComposition
         , editingIndex = newEditingIndex
     }
 

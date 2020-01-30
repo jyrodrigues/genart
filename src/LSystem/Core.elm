@@ -1,30 +1,28 @@
 module LSystem.Core exposing
-    ( State
+    ( Block
+    , Composition
     , Step(..)
-    , Transformation
-    , appendToStateAt
-    , applyRule
-    , buildState
-    , charToStep
-    , dropLastStepFromStateAt
-    , dropStateAt
-    , encodeState
+    , appendStepAtIndex
+    , blockToString
+    , blocks
+    , changeBase
+    , changeBlocks
+    , compositionDecoder
+    , digestComposition
+    , dropEntireBlockAtIndex
+    , dropLastBlock
+    , dropLastStepAtIndex
+    , encodeComposition
     , fromList
+    , getBlockAtIndex
     , getSvgBorders
-    , getTransformAt
-    , makeRule
-    , stateDecoder
-    , stateLength
-    , stateToString
-    , stepToString
-    , stringToStep
+    , stepsLength
     , toList
-    , transformToString
     )
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import ListExtra exposing (dropLast, getAt)
+import ListExtra
 
 
 
@@ -38,190 +36,267 @@ type Step
     | S
 
 
-type alias Transformation =
+type alias Block =
     List Step
 
 
+type Composition
+    = Composition Block (List Block)
 
--- todo: Make State an opaque type!
 
 
-type alias State =
-    { base : Transformation
-    , transforms : List Transformation
-    }
+-- GET INFO FROM COMPOSITION
+
+
+base : Composition -> Block
+base (Composition base_ _) =
+    base_
+
+
+changeBase : Block -> Composition -> Composition
+changeBase newBase (Composition _ blocks_) =
+    Composition newBase blocks_
+
+
+blocks : Composition -> List Block
+blocks (Composition _ blocks_) =
+    blocks_
+
+
+changeBlocks : List Block -> Composition -> Composition
+changeBlocks newBlocks (Composition base_ _) =
+    Composition base_ newBlocks
+
+
+stepsLength : Composition -> ( Int, Int )
+stepsLength composition =
+    let
+        countStep step ( dSteps, otherSteps ) =
+            case step of
+                D ->
+                    ( dSteps + 1, otherSteps )
+
+                _ ->
+                    ( dSteps, otherSteps + 1 )
+
+        countSteps block =
+            List.foldl countStep ( 0, 0 ) block
+
+        accumulateLength ( blockCountD, blockCountOthers ) ( accCountD, accCountOthers ) =
+            ( blockCountD * accCountD, accCountOthers + accCountD * blockCountOthers )
+    in
+    composition
+        |> toList
+        |> List.map countSteps
+        |> List.foldl accumulateLength ( 1, 0 )
+
+
+
+-- PROCESS COMPOSITION
+
+
+digestComposition : Composition -> Block
+digestComposition (Composition base_ blocks_) =
+    let
+        digestOne block step =
+            case step of
+                D ->
+                    block
+
+                _ ->
+                    [ step ]
+
+        digest nextBlock digestedSoFar =
+            List.concatMap (digestOne nextBlock) digestedSoFar
+    in
+    List.foldl digest base_ blocks_
+
+
+
+-- EDIT COMPOSITION
+
+
+appendStepAtIndex : Step -> Int -> Composition -> Composition
+appendStepAtIndex step =
+    editBlockAtIndex (ListExtra.pushLast step)
+
+
+dropLastStepAtIndex : Int -> Composition -> Composition
+dropLastStepAtIndex =
+    editBlockAtIndex ListExtra.dropLast
+
+
+editBlockAtIndex : (Block -> Block) -> Int -> Composition -> Composition
+editBlockAtIndex editFn blockIndex composition =
+    let
+        _ =
+            if blockIndex >= List.length (toList composition) then
+                Debug.log "editBlockAtIndex - NoOp, index out of bounds" blockIndex
+
+            else
+                -1
+
+        editAtIndex currentBlockIndex block =
+            if currentBlockIndex == blockIndex then
+                editFn block
+
+            else
+                block
+    in
+    fromList (List.indexedMap editAtIndex (toList composition))
+
+
+dropLastBlock : Composition -> Composition
+dropLastBlock (Composition base_ blocks_) =
+    Composition base_ (ListExtra.dropLast blocks_)
+
+
+dropEntireBlockAtIndex : Int -> Composition -> Composition
+dropEntireBlockAtIndex blockIndex composition =
+    let
+        list =
+            toList composition
+
+        length =
+            List.length list
+    in
+    if length == 1 then
+        Debug.log "dropEntireBlockAtIndex - NoOp, composition has only one block" composition
+
+    else if blockIndex >= length then
+        Debug.log "dropEntireBlockAtIndex - NoOp, index out of bounds" composition
+
+    else
+        fromList (ListExtra.dropIndex blockIndex list)
+
+
+getBlockAtIndex : Int -> Composition -> Maybe Block
+getBlockAtIndex blockIndex composition =
+    List.head (List.drop blockIndex (toList composition))
+
+
+
+{--
+duplicateBlockAndAppendLast : Int -> Composition -> Composition
+duplicateBlockAndAppendLast blockIndex composition =
+    applyIfInRange blockIndex composition
+
+applyIfInRange : Int -> (Composition -> Composition) -> Composition -> Composition
+applyIfInRange index fn composition =
+    if isInRange index composition then
+        fn composition
+
+    else
+        composition
+
+
+isInRange : Int -> Composition -> Bool
+isInRange index composition =
+    index <= List.length (toList composition)
+
+--}
+-- COMPOSITION CONVERSIONS
+
+
+toList : Composition -> List Block
+toList (Composition base_ blocks_) =
+    base_ :: blocks_
+
+
+{-| Note that if the list is empty an almost blank Composition is created
+-}
+fromList : List Block -> Composition
+fromList blocks_ =
+    case blocks_ of
+        head :: tail ->
+            Composition head tail
+
+        [] ->
+            Debug.log
+                "Debug.log - Error trying to create composition from empty list. Returning default: "
+                (Composition [ D ] [])
+
+
+
+-- BLOCK CONVERSIONS
+
+
+blockToString : Block -> String
+blockToString =
+    String.fromList << List.map stepToChar
+
+
+
+-- STEP CONVERSIONS
+
+
+charToStep : Char -> Step
+charToStep char =
+    case char of
+        'D' ->
+            D
+
+        'R' ->
+            R
+
+        'L' ->
+            L
+
+        'S' ->
+            S
+
+        _ ->
+            S
+
+
+stepToChar : Step -> Char
+stepToChar step =
+    case step of
+        D ->
+            'D'
+
+        R ->
+            'R'
+
+        L ->
+            'L'
+
+        S ->
+            'S'
 
 
 
 -- JSON
 
 
-encodeState : State -> Encode.Value
-encodeState state =
-    Encode.list encodeTransform (state.base :: state.transforms)
+{-| State encoder and decoder
+-}
+encodeComposition : Composition -> Encode.Value
+encodeComposition composition =
+    Encode.list encodeBlock (toList composition)
 
 
-stateDecoder : Decoder State
-stateDecoder =
-    let
-        listDecoder =
-            Decode.list transformDecoder
-    in
-    Decode.map2 State
-        (Decode.map (List.head >> Maybe.withDefault [ D ]) listDecoder)
-        (Decode.map (List.tail >> Maybe.withDefault [ [ D, L, D, L, D, L, D ] ]) listDecoder)
+compositionDecoder : Decoder Composition
+compositionDecoder =
+    Decode.map fromList (Decode.list blockDecoder)
 
 
-encodeTransform : Transformation -> Encode.Value
-encodeTransform transform =
-    Encode.string (String.join "" (List.map stepToString transform))
+{-| Block encoder and decoder
+-}
+encodeBlock : Block -> Encode.Value
+encodeBlock block =
+    Encode.string (String.fromList (List.map stepToChar block))
 
 
-transformDecoder : Decoder Transformation
-transformDecoder =
+blockDecoder : Decoder Block
+blockDecoder =
     Decode.map (String.toList >> List.map charToStep) Decode.string
 
 
 
--- TAIL, FOR NOW
+-- MEASURING
 
 
-makeRule : Transformation -> Step -> Transformation
-makeRule transform step =
-    case step of
-        D ->
-            transform
-
-        _ ->
-            [ step ]
-
-
-applyRule : Transformation -> Transformation -> Transformation
-applyRule transform baseState =
-    let
-        rule =
-            makeRule transform
-    in
-    List.concatMap rule baseState
-
-
-buildState : State -> Transformation
-buildState state =
-    List.foldl applyRule state.base state.transforms
-
-
-stateLength : State -> ( Int, Int )
-stateLength state =
-    let
-        countSteps transform =
-            List.foldl
-                (\step acc ->
-                    if step == D then
-                        ( Tuple.first acc + 1, Tuple.second acc )
-
-                    else
-                        ( Tuple.first acc, Tuple.second acc + 1 )
-                )
-                ( 0, 0 )
-                transform
-    in
-    List.foldl
-        (\l acc ->
-            let
-                ( ld, lo ) =
-                    countSteps l
-
-                ( accd, acco ) =
-                    acc
-            in
-            ( accd * ld, accd * lo + acco )
-        )
-        (countSteps state.base)
-        state.transforms
-
-
-appendToStateAt : Transformation -> Int -> State -> State
-appendToStateAt transform =
-    changeStateAt (\t -> t ++ transform)
-
-
-dropLastStepFromStateAt : Int -> State -> State
-dropLastStepFromStateAt =
-    changeStateAt (\t -> dropLast t)
-
-
-dropStateAt : Int -> State -> State
-dropStateAt =
-    -- todo: bug: this is not dropping the transformation, it's replacing it for an empty one
-    -- refactor `changeStateAt` to receive (Transformation -> Maybe Transformation) ?
-    maybeChangeStateAt (\t -> Nothing)
-
-
-changeStateAt : (Transformation -> Transformation) -> Int -> State -> State
-changeStateAt fn =
-    let
-        justFn =
-            \t -> Just <| fn t
-    in
-    maybeChangeStateAt justFn
-
-
-maybeChangeStateAt : (Transformation -> Maybe Transformation) -> Int -> State -> State
-maybeChangeStateAt fn index state =
-    let
-        stateList =
-            toList state
-
-        before =
-            List.take index stateList
-
-        transformed =
-            fn <| getTransformAt index state
-
-        after =
-            List.drop (index + 1) stateList
-    in
-    case transformed of
-        Just t ->
-            fromList (before ++ [ t ] ++ after)
-
-        Nothing ->
-            fromList (before ++ after)
-
-
-getTransformAt : Int -> State -> Transformation
-getTransformAt index state =
-    case getAt index (toList state) of
-        Just t ->
-            t
-
-        Nothing ->
-            Debug.log ("Error: Trying to access index " ++ String.fromInt index ++ " on current state. Returning empty: ") []
-
-
-toList : State -> List Transformation
-toList state =
-    state.base :: state.transforms
-
-
-fromList : List Transformation -> State
-fromList list =
-    case list of
-        x :: xs ->
-            { base = x, transforms = xs }
-
-        [] ->
-            Debug.log
-                "Error trying to create state from empty list. Returning a default state: "
-                { base = [ D, L, D, L, D, L, D ], transforms = [ [ D ] ] }
-
-
-{-|
-
-
-## MEASURING
-
--}
 type Direction
     = Up
     | Down
@@ -343,86 +418,14 @@ changeDirection step dir =
             dir
 
 
-getSvgBorders : Transformation -> Maxes
-getSvgBorders transform =
+getSvgBorders : Block -> Maxes
+getSvgBorders block =
     let
         ( finalPos, finalMaxes ) =
-            List.foldl countMax ( initialPos Right, initialMaxes ) transform
+            List.foldl countMax ( initialPos Right, initialMaxes ) block
     in
     { maxX = finalMaxes.maxX + 1
     , minX = finalMaxes.minX - 1
     , maxY = finalMaxes.maxY + 1
     , minY = finalMaxes.minY - 1
     }
-
-
-
--- STRING CONVERSION
-
-
-charToStep : Char -> Step
-charToStep char =
-    case char of
-        'D' ->
-            D
-
-        'R' ->
-            R
-
-        'L' ->
-            L
-
-        'S' ->
-            S
-
-        _ ->
-            S
-
-
-stringToStep : String -> Step
-stringToStep char =
-    case char of
-        "D" ->
-            D
-
-        "R" ->
-            R
-
-        "L" ->
-            L
-
-        "S" ->
-            S
-
-        _ ->
-            S
-
-
-stepToString : Step -> String
-stepToString step =
-    case step of
-        D ->
-            "D"
-
-        R ->
-            "R"
-
-        L ->
-            "L"
-
-        S ->
-            "S"
-
-
-stateToString : State -> String
-stateToString state =
-    buildState state
-        |> List.map stepToString
-        |> String.join " "
-
-
-transformToString : Transformation -> String
-transformToString transform =
-    transform
-        |> List.map stepToString
-        |> String.join " "
