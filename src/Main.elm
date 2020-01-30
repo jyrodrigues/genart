@@ -16,9 +16,12 @@ import Css
         , color
         , display
         , fixed
+        , fontFamily
+        , fontSize
         , height
         , hidden
         , left
+        , margin
         , overflow
         , overflowX
         , overflowY
@@ -33,7 +36,7 @@ import Css
         , zero
         )
 import Html
-import Html.Styled exposing (Html, br, button, div, input, label, p, span, text, toUnstyled)
+import Html.Styled exposing (Html, b, br, button, div, h2, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
 import Html.Styled.Events
     exposing
@@ -223,6 +226,7 @@ controlPanel model =
         , colorControls model.backgroundColor model.strokeColor
         , turnAngleControl model.turnAngle
         , curatedSettings
+        , controlsList
         ]
 
 
@@ -313,9 +317,32 @@ curatedSettings =
         ]
 
 
+controlsList : Html Msg
+controlsList =
+    controlBlock
+        [ h2 [] [ text "Controls" ]
+        , controlText "Arrow Up" "Draw"
+        , controlText "Arrow Left/Right" "Turn"
+        , controlText "Backspace" "Undo last 'Arrow' move on selected image block"
+        , controlText "i" "Undo last 'Arrow' move on selected image block"
+        , controlText "d" "Delete first image block"
+        , controlText "Space" "Center the image again"
+        , br [] []
+        , p [] [ text "You can edit any image block by clicking on the pen icon or delete them clicking on the trash icon" ]
+        , p [] [ text "You can also pan and zoom by dragging and scrolling the image" ]
+        ]
+
+
+controlText command explanation =
+    div [ css [ margin (px 10) ] ]
+        [ span [ css [ fontSize (px 14), backgroundColor (Css.hex "#555") ] ] [ text command ]
+        , text <| ": " ++ explanation
+        ]
+
+
 controlBlock : List (Html Msg) -> Html Msg
 controlBlock =
-    div [ css [ padding (px 10), borderBottom3 (px 1) solid (toCssColor Colors.black) ] ]
+    div [ css [ padding (px 10), borderBottom3 (px 1) solid (toCssColor Colors.black), fontFamily Css.monospace ] ]
 
 
 transformsList : Model -> Html Msg
@@ -337,7 +364,15 @@ transformsList model =
             , borderRight3 (px 1) solid (toCssColor Colors.black)
             ]
         ]
-        transforms
+        (h2
+            [ css
+                [ color (toCssColor Colors.offWhite)
+                , fontFamily Css.monospace
+                ]
+            ]
+            [ text "Image Blocks" ]
+            :: transforms
+        )
 
 
 transformBox : Int -> Float -> Color -> Int -> Block -> Html Msg
