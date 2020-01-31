@@ -57,6 +57,7 @@ import LSystem.Draw
     exposing
         ( drawImage
         , image
+        , withBackgroundColor
         , withId
         , withScale
         , withStrokeColor
@@ -396,7 +397,13 @@ transformsList model =
         transforms =
             model.composition
                 |> LCore.toList
-                |> List.indexedMap (transformBox model.editingIndex model.turnAngle model.strokeColor)
+                |> List.indexedMap
+                    (transformBox
+                        model.editingIndex
+                        model.turnAngle
+                        model.strokeColor
+                        model.backgroundColor
+                    )
                 |> List.reverse
     in
     fixedDiv
@@ -420,8 +427,8 @@ transformsList model =
         )
 
 
-transformBox : Int -> Float -> Color -> Int -> Block -> Html Msg
-transformBox editingIndex turnAngle strokeColor index transform =
+transformBox : Int -> Float -> Color -> Color -> Int -> Block -> Html Msg
+transformBox editingIndex turnAngle strokeColor backgroundColor index transform =
     div
         [ css
             [ height (px 200)
@@ -432,6 +439,7 @@ transformBox editingIndex turnAngle strokeColor index transform =
         [ image (LCore.fromList [ transform ])
             |> withTurnAngle turnAngle
             |> withStrokeColor strokeColor
+            |> withBackgroundColor backgroundColor
             |> drawImage
         , Icons.trash
             |> withColor Colors.red_
@@ -462,6 +470,7 @@ mainImg model =
         [ image model.composition
             |> withTurnAngle model.turnAngle
             |> withStrokeColor model.strokeColor
+            |> withBackgroundColor model.backgroundColor
             |> withScale model.scale
             |> withTranslation model.translate
             |> withId "MainSVG"

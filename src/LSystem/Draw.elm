@@ -1,6 +1,7 @@
 module LSystem.Draw exposing
     ( drawImage
     , image
+    , withBackgroundColor
     , withId
     , withScale
     , withStrokeColor
@@ -60,38 +61,48 @@ type Translation
     = Translation Float Float
 
 
+
+--                      StrokeColor BackgroundColor
+--                              |     |
+
+
 type Image
-    = Image Composition Angle Color Scale Translation (Maybe Id)
+    = Image Composition Angle Color Color Scale Translation (Maybe Id)
 
 
 image : Composition -> Image
 image composition =
-    Image composition 90 Colors.offWhite 1 (Translation 0 0) Nothing
+    Image composition 90 Colors.offWhite Colors.gray 1 (Translation 0 0) Nothing
 
 
 withTurnAngle : Angle -> Image -> Image
-withTurnAngle angle (Image t _ c s xy id) =
-    Image t angle c s xy id
+withTurnAngle angle (Image t _ sc bc s xy id) =
+    Image t angle sc bc s xy id
 
 
 withStrokeColor : Color -> Image -> Image
-withStrokeColor color (Image t a _ s xy id) =
-    Image t a color s xy id
+withStrokeColor color (Image t a _ bc s xy id) =
+    Image t a color bc s xy id
+
+
+withBackgroundColor : Color -> Image -> Image
+withBackgroundColor color (Image t a sc _ s xy id) =
+    Image t a sc color s xy id
 
 
 withScale : Scale -> Image -> Image
-withScale scale (Image t a c _ xy id) =
-    Image t a c scale xy id
+withScale scale (Image t a sc bc _ xy id) =
+    Image t a sc bc scale xy id
 
 
 withTranslation : ( Float, Float ) -> Image -> Image
-withTranslation ( x, y ) (Image t a c s _ id) =
-    Image t a c s (Translation x y) id
+withTranslation ( x, y ) (Image t a sc bc s _ id) =
+    Image t a sc bc s (Translation x y) id
 
 
 withId : Id -> Image -> Image
-withId id (Image t a c s xy _) =
-    Image t a c s xy (Just id)
+withId id (Image t a sc bc s xy _) =
+    Image t a sc bc s xy (Just id)
 
 
 {-| About vecTranslateToImgCenter:
@@ -105,7 +116,7 @@ but is inverted for y-axis.
 
 -}
 drawImage : Image -> Svg msg
-drawImage (Image composition angle color scale (Translation x y) maybeId) =
+drawImage (Image composition angle color bgColor scale (Translation x y) maybeId) =
     let
         { topRight, bottomLeft } =
             imageBoundaries angle composition
@@ -162,6 +173,9 @@ drawImage (Image composition angle color scale (Translation x y) maybeId) =
             "display: block; "
                 ++ "height: 100%; "
                 ++ "width: 100%; "
+                ++ "background-color: "
+                ++ Colors.toString bgColor
+                ++ "; "
                 ++ "transform: "
                 -- As stated here (https://stackoverflow.com/a/10765771),
                 -- multiple transform functions are applied from right
