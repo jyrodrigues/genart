@@ -1,6 +1,7 @@
 module LSystem.Draw exposing
     ( drawImage
     , image
+    , withId
     , withScale
     , withStrokeColor
     , withTranslation
@@ -16,6 +17,7 @@ import Svg.Styled.Attributes
         ( cx
         , cy
         , fill
+        , id
         , points
         , r
         , stroke
@@ -50,37 +52,46 @@ type alias Scale =
     Float
 
 
+type alias Id =
+    String
+
+
 type Translation
     = Translation Float Float
 
 
 type Image
-    = Image Composition Angle Color Scale Translation
+    = Image Composition Angle Color Scale Translation (Maybe Id)
 
 
 image : Composition -> Image
 image composition =
-    Image composition 90 Colors.offWhite 1 (Translation 0 0)
+    Image composition 90 Colors.offWhite 1 (Translation 0 0) Nothing
 
 
 withTurnAngle : Angle -> Image -> Image
-withTurnAngle angle (Image t _ c s xy) =
-    Image t angle c s xy
+withTurnAngle angle (Image t _ c s xy id) =
+    Image t angle c s xy id
 
 
 withStrokeColor : Color -> Image -> Image
-withStrokeColor color (Image t a _ s xy) =
-    Image t a color s xy
+withStrokeColor color (Image t a _ s xy id) =
+    Image t a color s xy id
 
 
 withScale : Scale -> Image -> Image
-withScale scale (Image t a c _ xy) =
-    Image t a c scale xy
+withScale scale (Image t a c _ xy id) =
+    Image t a c scale xy id
 
 
 withTranslation : ( Float, Float ) -> Image -> Image
-withTranslation ( x, y ) (Image t a c s _) =
-    Image t a c s (Translation x y)
+withTranslation ( x, y ) (Image t a c s _ id) =
+    Image t a c s (Translation x y) id
+
+
+withId : Id -> Image -> Image
+withId id (Image t a c s xy _) =
+    Image t a c s xy (Just id)
 
 
 {-| About vecTranslateToImgCenter:
@@ -94,7 +105,7 @@ but is inverted for y-axis.
 
 -}
 drawImage : Image -> Svg msg
-drawImage (Image composition angle color scale (Translation x y)) =
+drawImage (Image composition angle color scale (Translation x y) maybeId) =
     let
         { topRight, bottomLeft } =
             imageBoundaries angle composition
@@ -130,16 +141,24 @@ drawImage (Image composition angle color scale (Translation x y)) =
 
         drawing =
             transformToSvgPath (digestComposition composition) 0 0 angle
+
+        maybeIdAttr =
+            case maybeId of
+                Just id_ ->
+                    [ id id_ ]
+
+                Nothing ->
+                    []
     in
     svg
-        [ viewBox <|
+        ([ viewBox <|
             floatsToSpacedString
                 [ Tuple.first vecTranslate
                 , Tuple.second vecTranslate
                 , Tuple.first scaledSize
                 , Tuple.second scaledSize
                 ]
-        , style <|
+         , style <|
             "display: block; "
                 ++ "height: 100%; "
                 ++ "width: 100%; "
@@ -156,7 +175,9 @@ drawImage (Image composition angle color scale (Translation x y)) =
                         ++ "px)"
                    )
                 ++ ("scale(" ++ String.fromFloat scale ++ ")")
-        ]
+         ]
+            ++ maybeIdAttr
+        )
         [ originPoint 0 0
         , nextLine drawing
         , polyline

@@ -57,6 +57,7 @@ import LSystem.Draw
     exposing
         ( drawImage
         , image
+        , withId
         , withScale
         , withStrokeColor
         , withTranslation
@@ -69,6 +70,9 @@ import Url.Parser as Parser exposing ((</>), Parser, oneOf, s, string)
 
 
 port saveStateToLocalStorage : Encode.Value -> Cmd msg
+
+
+port downloadSvg : () -> Cmd msg
 
 
 
@@ -131,6 +135,8 @@ type
     | SetStrokeColor Color
       -- Angle
     | SetTurnAngle Float
+      -- Download
+    | DownloadSvg
       -- Focus
     | SetFocus Focus
       -- URL
@@ -288,6 +294,7 @@ infoAndBasicControls model =
         , button [ onClick Deiterate ] [ text "Deiterate" ]
         , p [] [ text stateLengthString ]
         , p [] [ text editingTransformBlueprint ]
+        , button [ onClick DownloadSvg ] [ text "Download Image" ]
         ]
 
 
@@ -457,6 +464,7 @@ mainImg model =
             |> withStrokeColor model.strokeColor
             |> withScale model.scale
             |> withTranslation model.translate
+            |> withId "MainSVG"
             |> drawImage
         ]
 
@@ -510,6 +518,10 @@ update msg model =
                 replaceUrl model.navKey model.composition
             )
 
+        -- Already getting ugly:
+        DownloadSvg ->
+            ( model, downloadSvg () )
+
         -- TODO Don't save to localStorage neither replaceUrl on every msg!
         {--TODO
             Maybe create a type like UrlMsg = LinkClicked | UrlChanged | AppMsg Msg
@@ -535,7 +547,7 @@ updateModel msg model =
             -- TODO: Change this hacky implementation; add basePolygon to localStorage; and add a button to clear
             -- localStorage.
             updateCompositionBaseAndAngle
-                { model | composition = squareComposition }
+                { model | composition = squareComposition, editingIndex = LCore.length squareComposition - 1 }
                 model.basePolygon
 
         Iterate editingIndex ->
