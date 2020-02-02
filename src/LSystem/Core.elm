@@ -303,7 +303,7 @@ type alias Boundaries =
 
 
 type alias Position =
-    ( Float, Float, Int )
+    ( Float, Float, Float )
 
 
 computeDStep : ( Boundaries, Position ) -> ( Boundaries, Position )
@@ -312,7 +312,7 @@ computeDStep ( boundaries, ( x, y, angle ) ) =
         --_ =
         --Debug.log "Before computeDStep" ( boundaries, ( x, y, angle ) )
         stepVector =
-            fromPolar ( 1, degrees (toFloat angle) )
+            fromPolar ( 1, degrees angle )
 
         newXY =
             ( x, y ) |> pairExec (+) stepVector
@@ -332,15 +332,28 @@ computeDStep ( boundaries, ( x, y, angle ) ) =
     ( newBoundaries, newPosition )
 
 
-turnLeft : Int -> ( Boundaries, Position ) -> ( Boundaries, Position )
+modBy360 : Float -> Float
+modBy360 degrees =
+    let
+        remainder =
+            -- TODO think about this line:
+            degrees - (degrees |> round |> toFloat)
+    in
+    degrees
+        |> round
+        |> toFloat
+        |> (+) remainder
+
+
+turnLeft : Float -> ( Boundaries, Position ) -> ( Boundaries, Position )
 turnLeft degrees ( boundaries, ( x, y, angle ) ) =
     --Debug.log "turnLeft" ( boundaries, ( x, y, modBy 360 (angle + degrees) ) )
-    ( boundaries, ( x, y, modBy 360 (angle + degrees) ) )
+    ( boundaries, ( x, y, modBy360 (angle + degrees) ) )
 
 
-turnRight : Int -> ( Boundaries, Position ) -> ( Boundaries, Position )
+turnRight : Float -> ( Boundaries, Position ) -> ( Boundaries, Position )
 turnRight degrees ( boundaries, ( x, y, angle ) ) =
-    ( boundaries, ( x, y, modBy 360 (angle - degrees) ) )
+    ( boundaries, ( x, y, modBy360 (angle - degrees) ) )
 
 
 {-| OK
@@ -358,10 +371,10 @@ imageBoundaries degrees composition =
                     computeDStep boundariesAndPosition
 
                 L ->
-                    turnLeft (round degrees) boundariesAndPosition
+                    turnLeft degrees boundariesAndPosition
 
                 R ->
-                    turnRight (round degrees) boundariesAndPosition
+                    turnRight degrees boundariesAndPosition
 
                 _ ->
                     boundariesAndPosition
