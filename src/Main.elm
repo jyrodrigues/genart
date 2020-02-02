@@ -66,6 +66,7 @@ import LSystem.Draw
         )
 import ListExtra exposing (pairExec, pairMap)
 import Task
+import Time
 import Url
 import Url.Parser as Parser exposing ((</>), Parser, oneOf, s, string)
 
@@ -78,6 +79,9 @@ port downloadSvg : () -> Cmd msg
 
 
 -- FUNDAMENTAL TYPES
+-- MODEL
+-- TYPES
+-- MSG
 
 
 type alias Model =
@@ -109,6 +113,11 @@ type alias Model =
     -- Url
     , url : Url.Url
     , navKey : Nav.Key
+
+    -- Video
+    , videoAngleChangeRate : Float
+    , playingVideo : Bool
+    , videoAngleChangeDirection : Float
     }
 
 
@@ -143,6 +152,11 @@ type
       -- URL
     | UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
+      -- Video
+    | TogglePlayingVideo
+    | VideoSpeedFaster
+    | VideoSpeedSlower
+    | ReverseAngleChangeDirection
 
 
 
@@ -269,6 +283,7 @@ controlPanel model =
         ]
         [ infoAndBasicControls model
         , colorControls model.backgroundColor model.strokeColor
+        , videoControls model.playingVideo
         , turnAngleControl model.turnAngle
         , curatedSettings
         , controlsList
@@ -319,6 +334,25 @@ colorControls backgroundColor strokeColor =
         [ colorControl "BgColor" SetBackgroundColor "Change background color" backgroundColor
         , br [] []
         , colorControl "StrokeColor" SetStrokeColor "Change stroke color" strokeColor
+        ]
+
+
+videoControls : Bool -> Html Msg
+videoControls playingVideo =
+    controlBlock
+        [ span [ css [ display block ] ] [ text "Video Playback" ]
+        , button [ onClick TogglePlayingVideo ]
+            [ text
+                (if playingVideo then
+                    "Stop"
+
+                 else
+                    "Play"
+                )
+            ]
+        , button [ onClick VideoSpeedFaster ] [ text "Faster" ]
+        , button [ onClick VideoSpeedSlower ] [ text "Slower" ]
+        , button [ onClick ReverseAngleChangeDirection ] [ text "Reverse" ]
         ]
 
 
@@ -374,7 +408,6 @@ controlsList =
         , controlText "d" "Delete first image block"
         , controlText "Space" "Center the image again"
         , br [] []
-        , p [] [ text "You can edit any image block by clicking on the pen icon or delete them clicking on the trash icon" ]
         , p [] [ text "You can also pan and zoom by dragging and scrolling the image" ]
         ]
 
@@ -629,6 +662,18 @@ updateModel msg model =
                 Err _ ->
                     model
 
+        TogglePlayingVideo ->
+            { model | playingVideo = not model.playingVideo }
+
+        VideoSpeedFaster ->
+            { model | videoAngleChangeRate = min 1 (model.videoAngleChangeRate * 1.4) }
+
+        VideoSpeedSlower ->
+            { model | videoAngleChangeRate = max 0.001 (model.videoAngleChangeRate / 1.4) }
+
+        ReverseAngleChangeDirection ->
+            { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }
+
         -- TODO remove this
         _ ->
             model
@@ -752,14 +797,32 @@ getImgDivPosition =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        ([]
-            |> ListExtra.appendIf (model.focus == KeyboardEditing) [ Browser.Events.onKeyUp keyPressDecoder ]
-            |> ListExtra.appendIf model.panStarted
-                [ Browser.Events.onMouseMove mouseMoveDecoder
-                , Browser.Events.onMouseUp (Decode.succeed PanEnded)
-                ]
-        )
+    let
+        panSubs =
+            if model.panStarted then
+                Sub.batch
+                    [ Browser.Events.onMouseMove mouseMoveDecoder
+                    , Browser.Events.onMouseUp (Decode.succeed PanEnded)
+                    ]
+
+            else
+                Sub.none
+
+        keyPressSub =
+            if model.focus == KeyboardEditing then
+                Browser.Events.onKeyUp keyPressDecoder
+
+            else
+                Sub.none
+
+        playingVideoSub =
+            if model.playingVideo then
+                Time.every 50 (always (SetTurnAngle (model.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
+
+            else
+                Sub.none
+    in
+    Sub.batch [ keyPressSub, panSubs, playingVideoSub ]
 
 
 
@@ -839,6 +902,10 @@ expandMinimalModel state bgColor strokeColor turnAngle scale translateX translat
         -- Url
         url
         navKey
+        -- Video
+        0.1
+        False
+        1
 
 
 basicModelFrom : Composition -> Url.Url -> Nav.Key -> Model
