@@ -36,6 +36,7 @@ import Css
         , width
         , zero
         )
+import Debouncer.Messages as Debouncer
 import Html
 import Html.Styled exposing (Html, b, br, button, div, h2, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
@@ -77,6 +78,19 @@ port downloadSvg : () -> Cmd msg
 
 
 
+-- Debouncer
+-- https://package.elm-lang.org/packages/Gizra/elm-debouncer/2.0.0/Debouncer-Messages
+
+
+updateDebouncer : Debouncer.UpdateConfig Msg Model
+updateDebouncer =
+    { mapMsg = Throttle1Second
+    , getDebouncer = .throttle1Second
+    , setDebouncer = \debouncer model -> { model | throttle1Second = debouncer }
+    }
+
+
+
 -- FUNDAMENTAL TYPES
 
 
@@ -109,6 +123,9 @@ type alias Model =
     -- Url
     , url : Url.Url
     , navKey : Nav.Key
+
+    -- Debouncer
+    , throttle1Second : Debouncer.Debouncer Msg
     }
 
 
@@ -143,6 +160,8 @@ type
       -- URL
     | UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
+      -- Debounce
+    | Throttle1Second (Debouncer.Msg Msg)
 
 
 
@@ -506,6 +525,10 @@ fixedDiv attrs children =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        _ =
+            Debug.log "msg" msg
+    in
     case msg of
         LinkClicked urlRequest ->
             case urlRequest of
@@ -530,6 +553,9 @@ update msg model =
         -- Already getting ugly:
         DownloadSvg ->
             ( model, downloadSvg () )
+
+        Throttle1Second subMsg ->
+            Debouncer.update update updateDebouncer subMsg model
 
         -- TODO Don't save to localStorage neither replaceUrl on every msg!
         {--TODO
@@ -763,6 +789,11 @@ subscriptions model =
 
 
 
+{--
+                |> provideInput
+                |> MsgQuietForOneSecond
+                |> onClick
+--}
 -- URL
 
 
@@ -839,6 +870,11 @@ expandMinimalModel state bgColor strokeColor turnAngle scale translateX translat
         -- Url
         url
         navKey
+        (Debouncer.manual
+            |> Debouncer.emitWhileUnsettled (Just 200)
+            |> Debouncer.emitWhenUnsettled (Just 0)
+            |> Debouncer.toDebouncer
+        )
 
 
 basicModelFrom : Composition -> Url.Url -> Nav.Key -> Model
@@ -893,17 +929,25 @@ mouseMoveDecoder =
     mousePositionDecoder MouseMoved
 
 
-mousePositionDecoder : (( Float, Float ) -> msg) -> Decoder msg
+mousePositionDecoder : (( Float, Float ) -> Msg) -> Decoder Msg
 mousePositionDecoder msg =
+    --Decode.map (throttledMousePositionWith msg) <|
     Decode.map msg <|
         Decode.map2 Tuple.pair
             (Decode.field "clientX" Decode.float)
             (Decode.field "clientY" Decode.float)
 
 
+throttledMousePositionWith : (( Float, Float ) -> Msg) -> ( Float, Float ) -> Msg
+throttledMousePositionWith msg ( x, y ) =
+    msg ( x, y )
+        |> Debouncer.provideInput
+        |> Throttle1Second
+
+
 zoomOnWheel : Html.Styled.Attribute Msg
 zoomOnWheel =
-    preventDefaultOn "wheel" (Decode.map alwaysPreventDefault wheelDecoder)
+    preventDefaultOn "wheel" (Decode.map alwaysPreventDefault wheelToZoomDecoder)
 
 
 alwaysPreventDefault : Msg -> ( Msg, Bool )
@@ -911,9 +955,16 @@ alwaysPreventDefault msg =
     ( msg, True )
 
 
-wheelDecoder : Decoder Msg
-wheelDecoder =
-    Decode.map4 Zoom
+throttledZoomMsg : Float -> Float -> ShiftKey -> ( Float, Float ) -> Msg
+throttledZoomMsg deltaX deltaY shift ( x, y ) =
+    Zoom deltaX deltaY shift ( x, y )
+        |> Debouncer.provideInput
+        |> Throttle1Second
+
+
+wheelToZoomDecoder : Decoder Msg
+wheelToZoomDecoder =
+    Decode.map4 throttledZoomMsg
         (Decode.field "deltaX" Decode.float)
         (Decode.field "deltaY" Decode.float)
         (Decode.field "shiftKey" Decode.bool)
