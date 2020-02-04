@@ -4,3 +4,5 @@ yarn-error.log
 dist
 .idea
 *.swp
+.DS_Store
+svg_results

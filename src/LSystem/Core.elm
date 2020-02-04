@@ -2,6 +2,7 @@ module LSystem.Core exposing
     ( Block
     , Composition
     , Step(..)
+    , appendBlock
     , appendStepAtIndex
     , blockToString
     , blocks
@@ -9,6 +10,7 @@ module LSystem.Core exposing
     , changeBlocks
     , compositionDecoder
     , digestComposition
+    , dropAllBlocksButBase
     , dropBlockAtIndex
     , dropLastBlock
     , dropLastStepAtIndex
@@ -177,6 +179,16 @@ dropBlockAtIndex blockIndex composition =
         fromList (ListExtra.dropIndex blockIndex (toList composition))
 
 
+dropAllBlocksButBase : Composition -> Composition
+dropAllBlocksButBase (Composition base_ _) =
+    Composition base_ []
+
+
+appendBlock : Block -> Composition -> Composition
+appendBlock block (Composition base_ blocks_) =
+    Composition base_ (ListExtra.pushLast block blocks_)
+
+
 {-| Formerly known as `iterate`
 -}
 duplicateBlockAndAppendAsLast : Int -> Composition -> Composition
@@ -190,7 +202,7 @@ duplicateBlockAndAppendAsLast blockIndex composition =
             composition
 
         Just newBlock ->
-            changeBlocks (blocks composition ++ [ newBlock ]) composition
+            appendBlock newBlock composition
 
 
 

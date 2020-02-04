@@ -88,7 +88,6 @@ type alias Model =
     -- Aplication heart
     { composition : Composition
     , editingIndex : Int
-    , basePolygon : Polygon
 
     -- Pan and Zoom
     , scale : Float
@@ -585,12 +584,12 @@ update msg model =
 updateModel : Msg -> Model -> Model
 updateModel msg model =
     case Debug.log "msg" msg of
+        -- TODO: Add a button to clear localStorage.
         ResetDrawing ->
-            -- TODO: Change this hacky implementation; add basePolygon to localStorage; and add a button to clear
-            -- localStorage.
-            updateCompositionBaseAndAngle
-                { model | composition = squareComposition, editingIndex = LCore.length squareComposition - 1 }
-                model.basePolygon
+            { model
+                | composition = model.composition |> LCore.dropAllBlocksButBase |> LCore.appendBlock [ D ]
+                , editingIndex = 1
+            }
 
         Iterate editingIndex ->
             iterate model editingIndex
@@ -760,26 +759,42 @@ applyZoom deltaY mousePos model =
 
 updateCompositionBaseAndAngle : Model -> Polygon -> Model
 updateCompositionBaseAndAngle model polygon =
-    let
-        resetModel stateBase turnAngle =
-            { model
-                | composition = LCore.changeBase stateBase model.composition
-                , turnAngle = turnAngle
-                , basePolygon = polygon
-            }
-    in
+    { model
+        | composition = LCore.changeBase (polygonBlock polygon) model.composition
+        , turnAngle = polygonAngle polygon
+    }
+
+
+polygonBlock : Polygon -> Block
+polygonBlock polygon =
     case polygon of
         Triangle ->
-            resetModel [ D, L, D, L, D ] 120
+            [ D, L, D, L, D ]
 
         Square ->
-            resetModel [ D, L, D, L, D, L, D ] 90
+            [ D, L, D, L, D, L, D ]
 
         Pentagon ->
-            resetModel [ D, L, D, L, D, L, D, L, D ] 72
+            [ D, L, D, L, D, L, D, L, D ]
 
         Hexagon ->
-            resetModel [ D, L, D, L, D, L, D, L, D, L, D ] 60
+            [ D, L, D, L, D, L, D, L, D, L, D ]
+
+
+polygonAngle : Polygon -> Float
+polygonAngle polygon =
+    case polygon of
+        Triangle ->
+            120
+
+        Square ->
+            90
+
+        Pentagon ->
+            72
+
+        Hexagon ->
+            60
 
 
 
@@ -883,7 +898,6 @@ expandMinimalModel state bgColor strokeColor turnAngle scale translateX translat
         -- Aplication heart
         state
         1
-        Square
         -- Pan and Zoom
         scale
         False
