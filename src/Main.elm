@@ -53,10 +53,9 @@ import Icons exposing (withColor, withConditionalColor, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core as LCore exposing (Block, Composition, Step(..))
-import LSystem.Draw
+import LSystem.Draw as LDraw
     exposing
         ( drawImage
-        , image
         , withBackgroundColor
         , withId
         , withScale
@@ -71,54 +70,14 @@ import Url
 import Url.Parser as Parser exposing ((</>), Parser, oneOf, s, string)
 
 
-port saveStateToLocalStorage : Encode.Value -> Cmd msg
+port saveModelToLocalStorage : Encode.Value -> Cmd msg
 
 
 port downloadSvg : () -> Cmd msg
 
 
 
--- FUNDAMENTAL TYPES
--- MODEL
--- TYPES
--- MSG
-
-
-type alias Model =
-    -- Aplication heart
-    { composition : Composition
-    , editingIndex : Int
-    , basePolygon : Polygon
-
-    -- Pan and Zoom
-    , scale : Float
-    , panStarted : Bool
-    , lastPos : ( Float, Float )
-    , translate : ( Float, Float )
-
-    -- Main Image Div Coordinates
-    , imgDivCenter : ( Float, Float )
-    , imgDivStart : ( Float, Float )
-
-    -- Color
-    , backgroundColor : Color
-    , strokeColor : Color
-
-    -- Angle
-    , turnAngle : Float
-
-    -- Browser Focus
-    , focus : Focus
-
-    -- Url
-    , url : Url.Url
-    , navKey : Nav.Key
-
-    -- Video
-    , videoAngleChangeRate : Float
-    , playingVideo : Bool
-    , videoAngleChangeDirection : Float
-    }
+-- MSG, ROUTE AND FLAGS
 
 
 {-| TODO: Rename Msgs: put all verbs in past tense and choose better words.
@@ -159,8 +118,8 @@ type
     | ReverseAngleChangeDirection
 
 
-
--- OTHER TYPES
+type alias ShiftKey =
+    Bool
 
 
 type Route
@@ -169,22 +128,6 @@ type Route
 
 type alias Flags =
     Encode.Value
-
-
-type alias ShiftKey =
-    Bool
-
-
-type Focus
-    = KeyboardEditing
-    | TurnAngleInput
-
-
-type Polygon
-    = Triangle
-    | Square
-    | Pentagon
-    | Hexagon
 
 
 
@@ -203,19 +146,33 @@ main =
         }
 
 
+
+-- INIT
+
+
+{-|
+
+    - Parse URL
+    - Parse localStorage
+        - If URL is invalid then tryGetLastestFromStorage
+        - Else create new.
+
+-}
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init savedModel url navKey =
-    case parseUrlToRoute url of
+init localStorage url navKey =
+    case Maybe.map (\(Home composition) -> composition) (parseUrlToRoute url) of
         -- Got a valid Composition from the URL
-        Just (Home composition) ->
+        Just composition ->
             let
                 model =
-                    basicModelFrom composition url navKey
+                    defaultModel url navKey
+                        |> withComposition composition
+                        |> withEditingIndexOnTopBlock
             in
-            ( { model | editingIndex = LCore.length model.composition - 1 }, getImgDivPosition )
+            ( model, getImgDivPosition )
 
         Nothing ->
-            case Decode.decodeValue modelDecoder savedModel of
+            case Decode.decodeValue modelDecoder localStorage of
                 -- Got a valid composition from localStorage
                 Ok modelWithoutUrlAndKey ->
                     let
@@ -224,7 +181,7 @@ init savedModel url navKey =
                     in
                     ( model
                     , Cmd.batch
-                        [ replaceUrl navKey model.composition
+                        [ replaceUrl navKey model.image.composition
                         , getImgDivPosition
                         ]
                     )
@@ -236,15 +193,326 @@ init savedModel url navKey =
                             Debug.log "Debug.log - Error while decoding localStorage" err
 
                         model =
-                            basicModelFrom squareComposition url navKey
+                            defaultModel url navKey
                     in
                     ( model
                     , Cmd.batch
-                        [ saveStateToLocalStorage (encodeModel model)
-                        , replaceUrl navKey model.composition
+                        [ saveModelToLocalStorage (encodeModel model)
+                        , replaceUrl navKey model.image.composition
                         , getImgDivPosition
                         ]
                     )
+
+
+
+-- MODEL AND STORAGE
+
+
+type alias Model =
+    { image : ImageEssentials
+    , editState : EditState
+    , gallery : Gallery
+    , videoSettings : VideoSettings
+    , support : ModelSupport
+    }
+
+
+
+{--N.B.
+    There are (at least) three alternatives as to how organize the Model type:
+    - A plain flat Record;
+    - Extensible Records;
+    - Nesting.
+
+    The plain flat option was working great but got too cumbersome to keep on going.
+    Then I tested with extensible records, but as per Evan's comment on
+    https://groups.google.com/forum/#!msg/elm-discuss/AaL8iLjhEdU/pBe29vQdCgAJ
+    I decided to go back to nesting.
+--}
+
+
+type alias ImageEssentials =
+    { composition : Composition
+
+    -- Colors
+    , backgroundColor : Color
+    , strokeColor : Color
+
+    -- Angle
+    , turnAngle : Float
+    }
+
+
+type alias EditState =
+    -- Edit block index
+    { editingIndex : Int
+
+    -- Position
+    , scale : Float
+    , translate : ( Float, Float )
+    }
+
+
+type alias Gallery =
+    List Composition
+
+
+type alias VideoSettings =
+    { videoAngleChangeDirection : Float
+    , videoAngleChangeRate : Float
+    , playingVideo : Bool
+    }
+
+
+type alias ModelSupport =
+    -- Useful for 'ResetDrawing' operation (or is it? TODO)
+    { basePolygon : Polygon
+
+    -- Pan Stuff
+    , panStarted : Bool
+    , lastPos : ( Float, Float )
+
+    -- Main Image Div Coordinates
+    , imgDivCenter : ( Float, Float )
+    , imgDivStart : ( Float, Float )
+
+    -- Browser Focus
+    , focus : Focus
+
+    -- Url
+    , url : Url.Url
+    , navKey : Nav.Key
+    }
+
+
+type Polygon
+    = Triangle
+    | Square
+    | Pentagon
+    | Hexagon
+
+
+type Focus
+    = KeyboardEditing
+    | TurnAngleInput
+
+
+
+-- MODEL DEFAULT AND HELPERS
+
+
+defaultModel : Url.Url -> Nav.Key -> Model
+defaultModel url navKey =
+    { image = defaultImageEssentials
+    , editState = defaultEditState
+    , gallery = defaultGallery
+    , videoSettings = defaultVideoSettings
+    , support = defaultModelSupport url navKey
+    }
+
+
+defaultImageEssentials : ImageEssentials
+defaultImageEssentials =
+    { composition = polygonComposition Square
+
+    -- Colors
+    , backgroundColor = Colors.darkGray
+    , strokeColor = Colors.defaultGreen
+
+    -- Angle
+    , turnAngle = 90
+    }
+
+
+defaultEditState =
+    -- Edit block index
+    { editingIndex = LCore.length (polygonComposition Square) - 1
+
+    -- Position
+    , scale = 1
+    , translate = ( 0, 0 )
+    }
+
+
+defaultGallery : Gallery
+defaultGallery =
+    []
+
+
+defaultVideoSettings : VideoSettings
+defaultVideoSettings =
+    { videoAngleChangeDirection = 1
+    , videoAngleChangeRate = 0.01
+    , playingVideo = False
+    }
+
+
+defaultModelSupport : Url.Url -> Nav.Key -> ModelSupport
+defaultModelSupport url navKey =
+    -- Useful for 'ResetDrawing' operation (or is it? TODO)
+    { basePolygon = Square
+
+    -- Pan Stuff
+    , lastPos = ( 0, 0 )
+    , panStarted = False
+
+    -- Main Image Div Coordinates
+    , imgDivCenter = ( 0, 0 )
+    , imgDivStart = ( 0, 0 )
+
+    -- Browser Focus
+    , focus = KeyboardEditing
+
+    -- Url
+    , url = url
+    , navKey = navKey
+    }
+
+
+storageToModel : ImageEssentials -> EditState -> Gallery -> VideoSettings -> Url.Url -> Nav.Key -> Model
+storageToModel image editState gallery videoSettings url navKey =
+    Model image editState gallery videoSettings (defaultModelSupport url navKey)
+
+
+updateImageEssentials : (ImageEssentials -> ImageEssentials) -> Model -> Model
+updateImageEssentials fn model =
+    { model | image = fn model.image }
+
+
+updateEditState : (EditState -> EditState) -> Model -> Model
+updateEditState fn model =
+    { model | editState = fn model.editState }
+
+
+updateVideoSettings : (VideoSettings -> VideoSettings) -> Model -> Model
+updateVideoSettings fn model =
+    { model | videoSettings = fn model.videoSettings }
+
+
+updateSupport : (ModelSupport -> ModelSupport) -> Model -> Model
+updateSupport fn model =
+    { model | support = fn model.support }
+
+
+withComposition : Composition -> Model -> Model
+withComposition composition model =
+    model |> updateImageEssentials (\image -> { image | composition = composition })
+
+
+withEditingIndex : Int -> Model -> Model
+withEditingIndex index model =
+    model |> updateEditState (\editState -> { editState | editingIndex = index })
+
+
+withEditingIndexOnTopBlock : Model -> Model
+withEditingIndexOnTopBlock model =
+    model |> withEditingIndex (LCore.length model.image.composition - 1)
+
+
+resetModelDrawingToPolygon : Model -> Model
+resetModelDrawingToPolygon model =
+    let
+        newComposition =
+            polygonComposition model.support.basePolygon
+    in
+    model
+        |> updateImageEssentials
+            -- TODO experiment with this approach
+            --[ (.composition, newComposition)
+            --, (.turnAngle, polygonAngle model.support.basePolygon)
+            --]
+            (\image -> { image | composition = newComposition, turnAngle = polygonAngle model.support.basePolygon })
+        |> withEditingIndexOnTopBlock
+
+
+
+-- MODEL ENCODER and DECODER
+
+
+modelDecoder : Decoder (Url.Url -> Nav.Key -> Model)
+modelDecoder =
+    Decode.map4 storageToModel
+        (Decode.field "image" imageEssentialsDecoder)
+        (Decode.field "editState" editStateDecoder)
+        (Decode.field "gallery" galleryDecoder)
+        (Decode.field "videoSettings" videoSettingsDecoder)
+
+
+encodeModel : Model -> Encode.Value
+encodeModel model =
+    Encode.object
+        [ ( "image", encodeImageEssentials model.image )
+        , ( "editState", encodeEditState model.editState )
+        , ( "gallery", encodeGallery model.gallery )
+        , ( "videoSettings", encodeVideoSettings model.videoSettings )
+        ]
+
+
+imageEssentialsDecoder : Decoder ImageEssentials
+imageEssentialsDecoder =
+    Decode.map4 ImageEssentials
+        (Decode.field "composition" LCore.compositionDecoder)
+        (Decode.field "backgroundColor" Colors.decoder)
+        (Decode.field "strokeColor" Colors.decoder)
+        (Decode.field "turnAngle" Decode.float)
+
+
+encodeImageEssentials : ImageEssentials -> Encode.Value
+encodeImageEssentials image =
+    Encode.object
+        [ ( "composition", LCore.encodeComposition image.composition )
+        , ( "backgroundColor", Colors.encode image.backgroundColor )
+        , ( "strokeColor", Colors.encode image.strokeColor )
+        , ( "turnAngle", Encode.float image.turnAngle )
+        ]
+
+
+editStateDecoder : Decoder EditState
+editStateDecoder =
+    Decode.map3 EditState
+        (Decode.field "editingIndex" Decode.int)
+        (Decode.field "scale" Decode.float)
+        (Decode.map2 Tuple.pair
+            (Decode.field "translateX" Decode.float)
+            (Decode.field "translateY" Decode.float)
+        )
+
+
+encodeEditState : EditState -> Encode.Value
+encodeEditState editState =
+    Encode.object
+        [ ( "editingIndex", Encode.int editState.editingIndex )
+        , ( "scale", Encode.float editState.scale )
+        , ( "translateX", Encode.float (Tuple.first editState.translate) )
+        , ( "translateY", Encode.float (Tuple.second editState.translate) )
+        ]
+
+
+galleryDecoder : Decoder (List Composition)
+galleryDecoder =
+    Decode.list LCore.compositionDecoder
+
+
+encodeGallery : Gallery -> Encode.Value
+encodeGallery =
+    Encode.list LCore.encodeComposition
+
+
+videoSettingsDecoder : Decoder VideoSettings
+videoSettingsDecoder =
+    Decode.map3 VideoSettings
+        (Decode.field "videoAngleChangeDirection" Decode.float)
+        (Decode.field "videoAngleChangeRate" Decode.float)
+        (Decode.field "playingVideo" Decode.bool)
+
+
+encodeVideoSettings : VideoSettings -> Encode.Value
+encodeVideoSettings videoSettings =
+    Encode.object
+        [ ( "videoAngleChangeDirection", Encode.float videoSettings.videoAngleChangeDirection )
+        , ( "videoAngleChangeRate", Encode.float videoSettings.videoAngleChangeRate )
+        , ( "playingVideo", Encode.bool videoSettings.playingVideo )
+        ]
 
 
 
@@ -259,7 +527,7 @@ view model =
             [ css [ width (pct 100), height (pct 100) ] ]
             [ controlPanel model
             , transformsList model
-            , mainImg model
+            , mainImg model.image model.editState
             ]
             |> toUnstyled
         ]
@@ -277,27 +545,27 @@ controlPanel model =
             , borderLeft3 (px 1) solid (toCssColor Colors.black)
             , overflowY scroll
             , overflowX hidden
-            , backgroundColor (toCssColor model.backgroundColor)
+            , backgroundColor (toCssColor model.image.backgroundColor)
             , color (toCssColor offWhite)
             ]
         ]
-        [ infoAndBasicControls model
-        , colorControls model.backgroundColor model.strokeColor
-        , videoControls model.playingVideo
-        , turnAngleControl model.turnAngle
+        [ infoAndBasicControls model.image.composition model.editState.editingIndex
+        , colorControls model.image.backgroundColor model.image.strokeColor
+        , videoControls model.videoSettings.playingVideo
+        , turnAngleControl model.image.turnAngle
         , curatedSettings
         , controlsList
         ]
 
 
-infoAndBasicControls : Model -> Html Msg
-infoAndBasicControls model =
+infoAndBasicControls : Composition -> Int -> Html Msg
+infoAndBasicControls composition editingIndex =
     let
         stateLengthString =
-            Debug.toString (LCore.stepsLength model.composition)
+            Debug.toString (LCore.stepsLength composition)
 
         editingTransformBlueprint =
-            case LCore.getBlockAtIndex model.editingIndex model.composition of
+            case LCore.getBlockAtIndex editingIndex composition of
                 Nothing ->
                     ""
 
@@ -306,7 +574,7 @@ infoAndBasicControls model =
     in
     controlBlock
         [ button [ onClick ResetDrawing ] [ text "ResetDrawing" ]
-        , button [ onClick (Iterate model.editingIndex) ] [ text "Iterate" ]
+        , button [ onClick (Iterate editingIndex) ] [ text "Iterate" ]
         , button [ onClick Deiterate ] [ text "Deiterate" ]
         , p [] [ text stateLengthString ]
         , p [] [ text editingTransformBlueprint ]
@@ -428,20 +696,20 @@ transformsList : Model -> Html Msg
 transformsList model =
     let
         transforms =
-            model.composition
+            model.image.composition
                 |> LCore.toList
                 |> List.indexedMap
                     (transformBox
-                        model.editingIndex
-                        model.turnAngle
-                        model.strokeColor
-                        model.backgroundColor
+                        model.editState.editingIndex
+                        model.image.turnAngle
+                        model.image.strokeColor
+                        model.image.backgroundColor
                     )
                 |> List.reverse
     in
     fixedDiv
         [ css
-            [ backgroundColor (toCssColor model.backgroundColor)
+            [ backgroundColor (toCssColor model.image.backgroundColor)
             , height (pct 100)
             , width (pct layout.transformsList)
             , overflow scroll
@@ -469,7 +737,7 @@ transformBox editingIndex turnAngle strokeColor backgroundColor index transform 
             , borderBottom3 (px 1) solid (toCssColor Colors.black)
             ]
         ]
-        [ image (LCore.fromList [ transform ])
+        [ LDraw.image (LCore.fromList [ transform ])
             |> withTurnAngle turnAngle
             |> withStrokeColor strokeColor
             |> withBackgroundColor backgroundColor
@@ -485,11 +753,11 @@ transformBox editingIndex turnAngle strokeColor backgroundColor index transform 
         ]
 
 
-mainImg : Model -> Html Msg
-mainImg model =
+mainImg : ImageEssentials -> EditState -> Html Msg
+mainImg image { editingIndex, translate, scale } =
     fixedDiv
         [ css
-            [ backgroundColor (toCssColor model.backgroundColor)
+            [ backgroundColor (toCssColor image.backgroundColor)
             , position fixed
             , height (pct 100)
             , width (pct layout.mainImg)
@@ -500,12 +768,12 @@ mainImg model =
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ image model.composition
-            |> withTurnAngle model.turnAngle
-            |> withStrokeColor model.strokeColor
-            |> withBackgroundColor model.backgroundColor
-            |> withScale model.scale
-            |> withTranslation model.translate
+        [ LDraw.image image.composition
+            |> withTurnAngle image.turnAngle
+            |> withStrokeColor image.strokeColor
+            |> withBackgroundColor image.backgroundColor
+            |> withScale scale
+            |> withTranslation translate
             |> withId "MainSVG"
             |> drawImage
         ]
@@ -543,7 +811,7 @@ update msg model =
         LinkClicked urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
-                    ( model, Nav.replaceUrl model.navKey (Url.toString url) )
+                    ( model, Nav.replaceUrl model.support.navKey (Url.toString url) )
 
                 Browser.External href ->
                     ( model, Nav.load href )
@@ -552,12 +820,12 @@ update msg model =
             ( model
             , if
                 Maybe.map ((++) "#") (Maybe.andThen Url.percentDecode url.fragment)
-                    == Just (compositionToUrlString model.composition)
+                    == Just (compositionToUrlString model.image.composition)
               then
                 Cmd.none
 
               else
-                replaceUrl model.navKey model.composition
+                replaceUrl model.support.navKey model.image.composition
             )
 
         -- Already getting ugly:
@@ -573,8 +841,8 @@ update msg model =
             (\newModel ->
                 ( newModel
                 , Cmd.batch
-                    [ saveStateToLocalStorage (encodeModel newModel)
-                    , replaceUrl newModel.navKey newModel.composition
+                    [ saveModelToLocalStorage (encodeModel newModel)
+                    , replaceUrl newModel.support.navKey newModel.image.composition
                     ]
                 )
             )
@@ -588,9 +856,7 @@ updateModel msg model =
         ResetDrawing ->
             -- TODO: Change this hacky implementation; add basePolygon to localStorage; and add a button to clear
             -- localStorage.
-            updateCompositionBaseAndAngle
-                { model | composition = squareComposition, editingIndex = LCore.length squareComposition - 1 }
-                model.basePolygon
+            resetModelDrawingToPolygon model
 
         Iterate editingIndex ->
             iterate model editingIndex
@@ -607,48 +873,48 @@ updateModel msg model =
             applyZoom deltaY mousePos model
 
         SetEditingIndex index ->
-            { model | editingIndex = index }
+            model |> withEditingIndex index
 
         DropFromState index ->
-            { model
-                | composition = LCore.dropBlockAtIndex index model.composition
-                , editingIndex =
-                    if model.editingIndex >= index then
-                        model.editingIndex - 1
+            model
+                |> withComposition (LCore.dropBlockAtIndex index model.image.composition)
+                |> withEditingIndex
+                    (if model.editState.editingIndex >= index then
+                        model.editState.editingIndex - 1
 
-                    else
-                        model.editingIndex
-            }
+                     else
+                        model.editState.editingIndex
+                    )
 
         SetBackgroundColor color ->
-            { model | backgroundColor = color }
+            model |> updateImageEssentials (\image -> { image | backgroundColor = color })
 
         SetStrokeColor color ->
-            { model | strokeColor = color }
+            model |> updateImageEssentials (\image -> { image | strokeColor = color })
 
         SetTurnAngle turn ->
-            { model | turnAngle = turn }
+            model |> updateImageEssentials (\image -> { image | turnAngle = turn })
 
         PanStarted pos ->
-            { model | panStarted = True, lastPos = pos }
+            model |> updateSupport (\support -> { support | panStarted = True, lastPos = pos })
 
         PanEnded ->
-            { model | panStarted = False }
+            model |> updateSupport (\support -> { support | panStarted = False })
 
         MouseMoved pos ->
-            { model
-                | translate =
-                    pos
-                        |> pairExec (-) model.lastPos
-                        |> pairExec (+) model.translate
-                , lastPos = pos
-            }
+            let
+                updatedTranslate =
+                    pos |> pairExec (-) model.support.lastPos |> pairExec (+) model.editState.translate
+            in
+            model
+                |> updateEditState (\a -> { a | translate = updatedTranslate })
+                |> updateSupport (\a -> { a | lastPos = pos })
 
         SetFocus focus ->
-            { model | focus = focus }
+            model |> updateSupport (\a -> { a | focus = focus })
 
         BasePolygonChanged polygon ->
-            updateCompositionBaseAndAngle model polygon
+            updateCompositionBasePolygon polygon model
 
         GotImgDivPosition result ->
             case result of
@@ -656,23 +922,26 @@ updateModel msg model =
                     let
                         { x, y, width, height } =
                             data.element
+
+                        imgDivCenter =
+                            ( x + width / 2, y + height / 2 )
                     in
-                    { model | imgDivCenter = ( x + width / 2, y + height / 2 ), imgDivStart = ( x, y ) }
+                    model |> updateSupport (\a -> { a | imgDivCenter = imgDivCenter, imgDivStart = ( x, y ) })
 
                 Err _ ->
                     model
 
         TogglePlayingVideo ->
-            { model | playingVideo = not model.playingVideo }
+            model |> updateVideoSettings (\a -> { a | playingVideo = not model.videoSettings.playingVideo })
 
         VideoSpeedFaster ->
-            { model | videoAngleChangeRate = min 1 (model.videoAngleChangeRate * 1.4) }
+            model |> updateVideoSettings (\a -> { a | videoAngleChangeRate = min 1 (model.videoSettings.videoAngleChangeRate * 1.4) })
 
         VideoSpeedSlower ->
-            { model | videoAngleChangeRate = max 0.001 (model.videoAngleChangeRate / 1.4) }
+            model |> updateVideoSettings (\a -> { a | videoAngleChangeRate = max 0.001 (model.videoSettings.videoAngleChangeRate / 1.4) })
 
         ReverseAngleChangeDirection ->
-            { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }
+            model |> updateVideoSettings (\a -> { a | videoAngleChangeDirection = model.videoSettings.videoAngleChangeDirection * -1 })
 
         -- TODO remove this
         _ ->
@@ -683,7 +952,7 @@ processKey : Model -> String -> Model
 processKey model keyPressed =
     let
         appendStep step =
-            { model | composition = LCore.appendStepAtIndex step model.editingIndex model.composition }
+            model |> withComposition (LCore.appendStepAtIndex step model.editState.editingIndex model.image.composition)
     in
     case keyPressed of
         "ArrowLeft" ->
@@ -699,13 +968,13 @@ processKey model keyPressed =
             appendStep S
 
         " " ->
-            { model | scale = 1, translate = ( 0, 0 ) }
+            model |> updateEditState (\editState -> { editState | scale = 1, translate = ( 0, 0 ) })
 
         "Backspace" ->
-            { model | composition = LCore.dropLastStepAtIndex model.editingIndex model.composition }
+            model |> withComposition (LCore.dropLastStepAtIndex model.editState.editingIndex model.image.composition)
 
         "i" ->
-            iterate model model.editingIndex
+            iterate model model.editState.editingIndex
 
         "d" ->
             deiterate model
@@ -716,70 +985,60 @@ processKey model keyPressed =
 
 iterate : Model -> Int -> Model
 iterate model editingIndex =
-    let
-        updatedComposition =
-            LCore.duplicateBlockAndAppendAsLast editingIndex model.composition
-    in
-    { model
-        | composition = updatedComposition
-        , editingIndex = LCore.length updatedComposition - 1
-    }
+    model
+        |> withComposition (LCore.duplicateBlockAndAppendAsLast editingIndex model.image.composition)
+        |> withEditingIndexOnTopBlock
 
 
 deiterate : Model -> Model
 deiterate model =
     let
         updatedComposition =
-            LCore.dropLastBlock model.composition
+            LCore.dropLastBlock model.image.composition
+
+        updatedEditingIndex =
+            min model.editState.editingIndex (LCore.length updatedComposition - 1)
     in
-    { model
-        | composition = updatedComposition
-        , editingIndex = min model.editingIndex (LCore.length updatedComposition - 1)
-    }
+    model
+        |> withComposition updatedComposition
+        |> withEditingIndex updatedEditingIndex
 
 
 applyZoom : Float -> ( Float, Float ) -> Model -> Model
 applyZoom deltaY mousePos model =
     let
         scale =
-            max (model.scale - 0.01 * deltaY) 0.1
+            max (model.editState.scale - 0.01 * deltaY) 0.1
 
         vecMouseToImgDivCenter =
-            model.imgDivCenter
+            model.support.imgDivCenter
                 |> pairExec (-) mousePos
     in
-    { model
-        | scale = scale
-        , translate =
-            vecMouseToImgDivCenter
-                |> pairExec (+) model.translate
-                |> pairMap (\value -> value * scale / model.scale)
-                |> pairExec (-) vecMouseToImgDivCenter
-    }
+    model
+        |> updateEditState
+            (\editState ->
+                { editState
+                    | scale = scale
+                    , translate =
+                        vecMouseToImgDivCenter
+                            |> pairExec (+) model.editState.translate
+                            |> pairMap (\value -> value * scale / model.editState.scale)
+                            |> pairExec (-) vecMouseToImgDivCenter
+                }
+            )
 
 
-updateCompositionBaseAndAngle : Model -> Polygon -> Model
-updateCompositionBaseAndAngle model polygon =
-    let
-        resetModel stateBase turnAngle =
-            { model
-                | composition = LCore.changeBase stateBase model.composition
-                , turnAngle = turnAngle
-                , basePolygon = polygon
-            }
-    in
-    case polygon of
-        Triangle ->
-            resetModel [ D, L, D, L, D ] 120
-
-        Square ->
-            resetModel [ D, L, D, L, D, L, D ] 90
-
-        Pentagon ->
-            resetModel [ D, L, D, L, D, L, D, L, D ] 72
-
-        Hexagon ->
-            resetModel [ D, L, D, L, D, L, D, L, D, L, D ] 60
+updateCompositionBasePolygon : Polygon -> Model -> Model
+updateCompositionBasePolygon polygon model =
+    model
+        |> updateSupport (\support -> { support | basePolygon = polygon })
+        |> updateImageEssentials
+            (\image ->
+                { image
+                    | turnAngle = polygonAngle polygon
+                    , composition = LCore.changeBase (polygonBlock polygon) model.image.composition
+                }
+            )
 
 
 
@@ -799,7 +1058,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     let
         panSubs =
-            if model.panStarted then
+            if model.support.panStarted then
                 Sub.batch
                     [ Browser.Events.onMouseMove mouseMoveDecoder
                     , Browser.Events.onMouseUp (Decode.succeed PanEnded)
@@ -809,15 +1068,22 @@ subscriptions model =
                 Sub.none
 
         keyPressSub =
-            if model.focus == KeyboardEditing then
+            if model.support.focus == KeyboardEditing then
                 Browser.Events.onKeyUp keyPressDecoder
 
             else
                 Sub.none
 
         playingVideoSub =
-            if model.playingVideo then
-                Time.every 50 (always (SetTurnAngle (model.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
+            if model.videoSettings.playingVideo then
+                Time.every 50
+                    (always
+                        (SetTurnAngle
+                            (model.image.turnAngle
+                                + (model.videoSettings.videoAngleChangeDirection * model.videoSettings.videoAngleChangeRate)
+                            )
+                        )
+                    )
 
             else
                 Sub.none
@@ -874,78 +1140,6 @@ replaceUrl key composition =
 
 
 
--- MODEL STUFF
-
-
-expandMinimalModel : Composition -> Color -> Color -> Float -> Float -> Float -> Float -> Url.Url -> Nav.Key -> Model
-expandMinimalModel state bgColor strokeColor turnAngle scale translateX translateY url navKey =
-    Model
-        -- Aplication heart
-        state
-        1
-        Square
-        -- Pan and Zoom
-        scale
-        False
-        ( 0, 0 )
-        ( translateX, translateY )
-        -- Main Image Div Coordinates
-        ( 0, 0 )
-        ( 0, 0 )
-        -- Colors
-        bgColor
-        strokeColor
-        -- Angle
-        turnAngle
-        -- Browser Focus
-        KeyboardEditing
-        -- Url
-        url
-        navKey
-        -- Video
-        0.1
-        False
-        1
-
-
-basicModelFrom : Composition -> Url.Url -> Nav.Key -> Model
-basicModelFrom composition url navKey =
-    expandMinimalModel composition Colors.darkGray Colors.defaultGreen 90 1 0 0 url navKey
-
-
-squareComposition : Composition
-squareComposition =
-    LCore.fromList [ [ D, L, D, L, D, L, D ], [ D ] ]
-
-
-{-| Model encoder and decoder
--}
-modelDecoder : Decoder (Url.Url -> Nav.Key -> Model)
-modelDecoder =
-    Decode.map7 expandMinimalModel
-        (Decode.field "state" LCore.compositionDecoder)
-        (Decode.field "bgColor" Colors.decoder)
-        (Decode.field "strokeColor" Colors.decoder)
-        (Decode.field "turnAngle" Decode.float)
-        (Decode.field "scale" Decode.float)
-        (Decode.field "translateX" Decode.float)
-        (Decode.field "translateY" Decode.float)
-
-
-encodeModel : Model -> Encode.Value
-encodeModel model =
-    Encode.object
-        [ ( "state", LCore.encodeComposition model.composition )
-        , ( "bgColor", Colors.encode model.backgroundColor )
-        , ( "strokeColor", Colors.encode model.strokeColor )
-        , ( "turnAngle", Encode.float model.turnAngle )
-        , ( "scale", Encode.float model.scale )
-        , ( "translateX", Encode.float (Tuple.first model.translate) )
-        , ( "translateY", Encode.float (Tuple.second model.translate) )
-        ]
-
-
-
 -- KEYBOARD, MOUSE and WHEEL
 
 
@@ -988,3 +1182,44 @@ wheelDecoder =
             (Decode.field "clientX" Decode.float)
             (Decode.field "clientY" Decode.float)
         )
+
+
+
+-- POLYGON AND COMPOSITIONS
+
+
+polygonBlock : Polygon -> Block
+polygonBlock polygon =
+    case polygon of
+        Triangle ->
+            [ D, L, D, L, D ]
+
+        Square ->
+            [ D, L, D, L, D, L, D ]
+
+        Pentagon ->
+            [ D, L, D, L, D, L, D, L, D ]
+
+        Hexagon ->
+            [ D, L, D, L, D, L, D, L, D, L, D ]
+
+
+polygonAngle : Polygon -> Float
+polygonAngle polygon =
+    case polygon of
+        Triangle ->
+            120
+
+        Square ->
+            90
+
+        Pentagon ->
+            72
+
+        Hexagon ->
+            60
+
+
+polygonComposition : Polygon -> Composition
+polygonComposition polygon =
+    LCore.fromList [ polygonBlock polygon, [ D ] ]
