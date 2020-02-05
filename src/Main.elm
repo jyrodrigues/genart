@@ -21,6 +21,7 @@ import Css
         , fontSize
         , height
         , hidden
+        , inlineBlock
         , left
         , margin
         , overflow
@@ -52,7 +53,7 @@ import Icons exposing (withColor, withConditionalColor, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core as LCore exposing (Block, Composition, Step(..))
-import LSystem.Draw
+import LSystem.Draw as LDraw
     exposing
         ( drawImage
         , image
@@ -86,10 +87,10 @@ port downloadSvg : () -> Cmd msg
 
 {-| TODO: Rename Msgs: put all verbs in past tense and choose better words.
 -}
-type
-    Msg
-    -- Global keyboard listener
-    = KeyPress String
+type Msg
+    = ViewingPage Page
+      -- Global keyboard listener
+    | KeyPress String
       -- Main commands
     | ResetDrawing
     | BasePolygonChanged Polygon
@@ -97,6 +98,8 @@ type
     | Deiterate
     | SetEditingIndex Int
     | DropFromState Int
+      -- Storage
+    | SavedToGallery
       -- Pan and Zoom
     | GotImgDivPosition (Result Browser.Dom.Error Element)
     | PanStarted ( Float, Float )
@@ -131,6 +134,10 @@ type alias Model =
     { composition : Composition
     , editingIndex : Int
 
+    -- Storage
+    , gallery : Gallery
+    , viewingPage : Page
+
     -- Pan and Zoom
     , scale : Float
     , panStarted : Bool
@@ -164,6 +171,15 @@ type alias Model =
 
 
 -- OTHER TYPES
+
+
+type Page
+    = EditPage
+    | GalleryPage
+
+
+type alias Gallery =
+    List ImageEssentials
 
 
 type Route
@@ -208,12 +224,16 @@ type Polygon
 -- MODEL STUFF
 
 
-expandMinimalModel : Composition -> Color -> Color -> Float -> Float -> Float -> Float -> Url.Url -> Nav.Key -> Model
-expandMinimalModel state bgColor strokeColor turnAngle scale translateX translateY url navKey =
+expandMinimalModel : Composition -> Gallery -> Color -> Color -> Float -> Float -> Float -> Float -> Url.Url -> Nav.Key -> Model
+expandMinimalModel composition gallery bgColor strokeColor turnAngle scale translateX translateY url navKey =
     Model
         -- Aplication heart
-        state
+        composition
+        -- TODO Try changing editing-index to be Maybe idx
         1
+        -- Storage
+        gallery
+        EditPage
         -- Pan and Zoom
         scale
         False
@@ -240,7 +260,7 @@ expandMinimalModel state bgColor strokeColor turnAngle scale translateX translat
 
 basicModelFrom : ImageEssentials -> Url.Url -> Nav.Key -> Model
 basicModelFrom { composition, turnAngle, backgroundColor, strokeColor } url navKey =
-    expandMinimalModel composition backgroundColor strokeColor turnAngle 1 0 0 url navKey
+    expandMinimalModel composition [] backgroundColor strokeColor turnAngle 1 0 0 url navKey
 
 
 squareImage : ImageEssentials
@@ -256,6 +276,16 @@ modelToImageEssentials model =
     , turnAngle = model.turnAngle
     , backgroundColor = model.backgroundColor
     , strokeColor = model.strokeColor
+    }
+
+
+modelWithImageEssentials : ImageEssentials -> Model -> Model
+modelWithImageEssentials { composition, turnAngle, backgroundColor, strokeColor } model =
+    { model
+        | composition = composition
+        , turnAngle = turnAngle
+        , backgroundColor = backgroundColor
+        , strokeColor = strokeColor
     }
 
 
@@ -295,12 +325,25 @@ isJust maybe =
             False
 
 
+
+-- INIT
+
+
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init savedModel url navKey =
+    let
+        maybeModelWithoutUrlAndKey =
+            Result.toMaybe (Decode.decodeValue modelDecoder savedModel)
+    in
     case parseUrlToImageEssentials url of
         Just image ->
             -- Got a valid Composition from the URL
-            ( modelWithEditIndexLast <| basicModelFrom image url navKey, getImgDivPosition )
+            case maybeModelWithoutUrlAndKey of
+                Just modelWithoutUrlAndKey ->
+                    ( modelWithoutUrlAndKey url navKey |> modelWithImageEssentials image, getImgDivPosition )
+
+                Nothing ->
+                    ( basicModelFrom image url navKey |> modelWithEditIndexLast, getImgDivPosition )
 
         Nothing ->
             case Decode.decodeValue modelDecoder savedModel of
@@ -341,6 +384,80 @@ init savedModel url navKey =
 
 view : Model -> Browser.Document Msg
 view model =
+    case Debug.log "viewingPage" model.viewingPage of
+        EditPage ->
+            editView model
+
+        GalleryPage ->
+            galleryView model
+
+
+
+-- GALLERY VIEW
+
+
+galleryView : Model -> Browser.Document Msg
+galleryView model =
+    { title = "Generative Art"
+    , body =
+        [ div
+            [ css [ width (pct 100), height (pct 100), backgroundColor (toCssColor Colors.darkGray), overflow hidden ] ]
+            [ fixedDiv
+                [ css
+                    [ width (pct layout.controlPanel)
+                    , height (pct 100)
+                    , right zero
+                    ]
+                ]
+                [ button [ onClick (ViewingPage EditPage), css [ margin (px 10) ] ] [ text "Back to Edit" ] ]
+            , div
+                [ css
+                    [ width (pct (layout.transformsList + layout.mainImg))
+                    , height (pct 100)
+                    , padding (px 10)
+                    , overflow scroll
+                    ]
+                ]
+                (List.map imageBox model.gallery)
+            ]
+            |> toUnstyled
+        ]
+    }
+
+
+imageBox : ImageEssentials -> Html Msg
+imageBox image =
+    div
+        [ css
+            [ width (pct 40)
+            , borderBottom3 (px 1) solid (toCssColor Colors.black)
+            , display inlineBlock
+            , margin (px 10)
+            ]
+        ]
+        [ LDraw.image image.composition
+            |> withTurnAngle image.turnAngle
+            |> withStrokeColor image.strokeColor
+            |> withBackgroundColor image.backgroundColor
+            |> drawImage
+        , Icons.trash
+            |> withColor Colors.red_
+            --|> withOnClick (DropFromState index)
+            |> Icons.toSvg
+        , Icons.pen
+            |> withColor Colors.green_
+            --|> withConditionalColor (index == editingIndex) Colors.green_
+            --|> withOnClick (SetEditingIndex index)
+            |> Icons.toSvg
+        ]
+
+
+
+-- EDIT VIEW
+
+
+editView : Model -> Browser.Document Msg
+editView model =
     { title = "Generative Art"
     , body =
         [ div
@@ -393,12 +510,14 @@ infoAndBasicControls model =
                     LCore.blockToString block
     in
     controlBlock
-        [ button [ onClick ResetDrawing ] [ text "ResetDrawing" ]
+        [ button [ onClick (ViewingPage GalleryPage) ] [ text "Go to Gallery" ]
+        , button [ onClick ResetDrawing ] [ text "ResetDrawing" ]
         , button [ onClick (Iterate model.editingIndex) ] [ text "Iterate" ]
         , button [ onClick Deiterate ] [ text "Deiterate" ]
         , p [] [ text stateLengthString ]
         , p [] [ text editingTransformBlueprint ]
         , button [ onClick DownloadSvg ] [ text "Download Image" ]
+        , button [ onClick SavedToGallery ] [ text "Save to Gallery" ]
         ]
 
 
@@ -765,6 +884,12 @@ updateModel msg model =
         ReverseAngleChangeDirection ->
             { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }
 
+        SavedToGallery ->
+            { model | gallery = modelToImageEssentials model :: model.gallery }
+
+        ViewingPage page ->
+            { model | viewingPage = page }
+
         -- TODO remove this
         _ ->
             model
@@ -1026,8 +1151,9 @@ replaceUrl key imageEssentials =
 
 modelDecoder : Decoder (Url.Url -> Nav.Key -> Model)
 modelDecoder =
-    Decode.map7 expandMinimalModel
+    Decode.map8 expandMinimalModel
         (Decode.field "state" LCore.compositionDecoder)
+        (Decode.field "gallery" (Decode.list imageEssentialsDecoder))
         (Decode.field "bgColor" Colors.decoder)
         (Decode.field "strokeColor" Colors.decoder)
         (Decode.field "turnAngle" Decode.float)
@@ -1040,12 +1166,32 @@ encodeModel : Model -> Encode.Value
 encodeModel model =
     Encode.object
         [ ( "state", LCore.encodeComposition model.composition )
+        , ( "gallery", Encode.list encodeImageEssentials model.gallery )
         , ( "bgColor", Colors.encode model.backgroundColor )
         , ( "strokeColor", Colors.encode model.strokeColor )
         , ( "turnAngle", Encode.float model.turnAngle )
         , ( "scale", Encode.float model.scale )
         , ( "translateX", Encode.float (Tuple.first model.translate) )
         , ( "translateY", Encode.float (Tuple.second model.translate) )
+        ]
+
+
+imageEssentialsDecoder : Decoder ImageEssentials
+imageEssentialsDecoder =
+    Decode.map4 ImageEssentials
+        (Decode.field "composition" LCore.compositionDecoder)
+        (Decode.field "turnAngle" Decode.float)
+        (Decode.field "bgColor" Colors.decoder)
+        (Decode.field "strokeColor" Colors.decoder)
+
+
+encodeImageEssentials : ImageEssentials -> Encode.Value
+encodeImageEssentials { composition, turnAngle, backgroundColor, strokeColor } =
+    Encode.object
+        [ ( "composition", LCore.encodeComposition composition )
+        , ( "turnAngle", Encode.float turnAngle )
+        , ( "bgColor", Colors.encode backgroundColor )
+        , ( "strokeColor", Colors.encode strokeColor )
         ]
 
 
