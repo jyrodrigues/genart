@@ -193,6 +193,8 @@ type alias Gallery =
 
 type Route
     = Home UrlDataVersions
+    | Gallery
+    | NotFound String
 
 
 type alias UrlDataVersions =
@@ -298,6 +300,16 @@ modelWithImageEssentials { composition, turnAngle, backgroundColor, strokeColor 
     }
 
 
+modelWithMaybeRoute : Maybe Route -> Model -> Model
+modelWithMaybeRoute maybeRoute model =
+    case maybeRoute of
+        Just Gallery ->
+            { model | viewingPage = GalleryPage }
+
+        _ ->
+            model
+
+
 modelWithEditIndexLast : Model -> Model
 modelWithEditIndexLast model =
     { model | editingIndex = LCore.length model.composition - 1 }
@@ -343,16 +355,27 @@ init savedModel url navKey =
     let
         maybeModelWithoutUrlAndKey =
             Result.toMaybe (Decode.decodeValue modelDecoder savedModel)
+
+        ( maybeRoute, maybeImage ) =
+            parseUrlToImageEssentials url
     in
-    case parseUrlToImageEssentials url of
+    case maybeImage of
         Just image ->
             -- Got a valid Composition from the URL
             case maybeModelWithoutUrlAndKey of
                 Just modelWithoutUrlAndKey ->
-                    ( modelWithoutUrlAndKey url navKey |> modelWithImageEssentials image, getImgDivPosition )
+                    ( modelWithoutUrlAndKey url navKey
+                        |> modelWithMaybeRoute maybeRoute
+                        |> modelWithImageEssentials image
+                    , getImgDivPosition
+                    )
 
                 Nothing ->
-                    ( basicModelFrom image url navKey |> modelWithEditIndexLast, getImgDivPosition )
+                    ( basicModelFrom image url navKey
+                        |> modelWithMaybeRoute maybeRoute
+                        |> modelWithEditIndexLast
+                    , getImgDivPosition
+                    )
 
         Nothing ->
             case Decode.decodeValue modelDecoder savedModel of
@@ -361,6 +384,7 @@ init savedModel url navKey =
                     let
                         model =
                             modelWithoutUrlAndKey url navKey
+                                |> modelWithMaybeRoute maybeRoute
                     in
                     ( model
                     , Cmd.batch
@@ -377,6 +401,7 @@ init savedModel url navKey =
 
                         model =
                             basicModelFrom squareImage url navKey
+                                |> modelWithMaybeRoute maybeRoute
                     in
                     ( model
                     , Cmd.batch
@@ -770,11 +795,24 @@ update msg model =
                     ( model, Nav.load href )
 
         UrlChanged url ->
-            ( model
+            let
+                ( maybeRoute, maybeImage ) =
+                    parseUrlToImageEssentials url
+
+                newModel =
+                    case maybeRoute of
+                        Just Gallery ->
+                            { model | viewingPage = GalleryPage }
+
+                        _ ->
+                            model
+            in
+            ( newModel
             , if
                 -- This if-statement prevents a bug with infinite loop
                 -- TODO Refactor and remove this.
-                parseUrlToImageEssentials url == Just (modelToImageEssentials model)
+                (maybeImage == Just (modelToImageEssentials model))
+                    || (maybeRoute == Just Gallery)
               then
                 Cmd.none
 
@@ -1092,26 +1130,56 @@ subscriptions model =
 -- URL
 
 
-parseUrlToImageEssentials : Url.Url -> Maybe ImageEssentials
+parseUrlToImageEssentials : Url.Url -> ( Maybe Route, Maybe ImageEssentials )
 parseUrlToImageEssentials url =
-    parseUrlToRoute url
-        |> Maybe.andThen
-            (\(Home data) ->
-                if isJust data.v1_dataOnQueryParams then
-                    data.v1_dataOnQueryParams
+    let
+        maybeRoute =
+            parseUrlToRoute url
 
-                else if isJust data.v0_dataOnHash then
-                    -- Migrating from old URL format
-                    Maybe.map compositionToBasicImage data.v0_dataOnHash
+        routeToMaybeImageEssentials route =
+            case route of
+                Home data ->
+                    if isJust data.v1_dataOnQueryParams then
+                        data.v1_dataOnQueryParams
 
-                else
+                    else if isJust data.v0_dataOnHash then
+                        -- Migrating from old URL format
+                        Maybe.map compositionToBasicImage data.v0_dataOnHash
+
+                    else
+                        Nothing
+
+                Gallery ->
                     Nothing
-            )
+
+                NotFound _ ->
+                    Nothing
+    in
+    maybeRoute
+        |> Maybe.andThen routeToMaybeImageEssentials
+        |> Tuple.pair maybeRoute
 
 
 parseUrlToRoute : Url.Url -> Maybe Route
 parseUrlToRoute url =
-    Parser.parse urlParser url
+    Parser.parse
+        (Parser.oneOf
+            [ urlParser
+            , galleryParser
+            , notFoundParser
+            ]
+        )
+        url
+
+
+galleryParser : Parser (Route -> a) a
+galleryParser =
+    Parser.map Gallery (Parser.s "gallery")
+
+
+notFoundParser : Parser (Route -> a) a
+notFoundParser =
+    Parser.map NotFound (Parser.custom "ANYTHING" (\s -> Just s))
 
 
 urlParser : Parser (Route -> a) a

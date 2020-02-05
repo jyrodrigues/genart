@@ -52,7 +52,7 @@ module.exports = {
     inline: true,
     stats: { colors: true },
     port: 9000,
+    historyApiFallback: true,
   },
-
 
 }
