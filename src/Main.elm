@@ -68,7 +68,9 @@ import ListExtra exposing (pairExec, pairMap)
 import Task
 import Time
 import Url
+import Url.Builder
 import Url.Parser as Parser exposing ((</>), Parser, oneOf, s, string)
+import Url.Parser.Query as Query
 
 
 port saveStateToLocalStorage : Encode.Value -> Cmd msg
@@ -163,7 +165,21 @@ type
 
 
 type Route
-    = Home Composition
+    = Home UrlDataVersions
+
+
+type alias UrlDataVersions =
+    { v0_dataOnHash : Maybe Composition
+    , v1_dataOnQueryParams : Maybe Composition
+    }
+
+
+type alias ImageEssentials =
+    { composition : Composition
+    , turnAngle : Float
+    , backgroundColor : Color
+    , strokeColor : Color
+    }
 
 
 type alias Flags =
@@ -202,11 +218,20 @@ main =
         }
 
 
+isJust maybe =
+    case maybe of
+        Just _ ->
+            True
+
+        Nothing ->
+            False
+
+
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init savedModel url navKey =
-    case parseUrlToRoute url of
-        -- Got a valid Composition from the URL
-        Just (Home composition) ->
+    case parseUrlToComposition url of
+        Just composition ->
+            -- Got a valid Composition from the URL
             let
                 model =
                     basicModelFrom composition url navKey
@@ -550,8 +575,9 @@ update msg model =
         UrlChanged url ->
             ( model
             , if
-                Maybe.map ((++) "#") (Maybe.andThen Url.percentDecode url.fragment)
-                    == Just (compositionToUrlString model.composition)
+                -- This if-statement prevents a bug with infinite loop
+                -- TODO Refactor and remove this.
+                parseUrlToComposition url == Just model.composition
               then
                 Cmd.none
 
@@ -559,6 +585,7 @@ update msg model =
                 replaceUrl model.navKey model.composition
             )
 
+        --}
         -- Already getting ugly:
         DownloadSvg ->
             ( model, downloadSvg () )
@@ -844,35 +871,99 @@ subscriptions model =
 -- URL
 
 
+parseUrlToComposition : Url.Url -> Maybe Composition
+parseUrlToComposition url =
+    parseUrlToRoute url
+        |> Maybe.andThen
+            (\(Home data) ->
+                if isJust data.v1_dataOnQueryParams then
+                    data.v1_dataOnQueryParams
+
+                else if isJust data.v0_dataOnHash then
+                    data.v0_dataOnHash
+
+                else
+                    Nothing
+            )
+
+
 parseUrlToRoute : Url.Url -> Maybe Route
 parseUrlToRoute url =
-    -- Based on the RealWorld Example we treats the fragment like a path.
-    -- This makes it *literally* the path, so we can proceed
-    -- with parsing as if it had been a normal path all along.
-    -- TODO change to query param!
-    { url | path = Maybe.withDefault "" url.fragment, fragment = Nothing }
-        |> Parser.parse urlParser
+    Parser.parse urlParser url
+
+
+
+{--
+-- Last Step: Everything in Query
+urlParserLatest : Parser (Route -> Route) Route
+urlParserLatest =
+    Parser.map Home <|
+        Parser.query <|
+            Query.map4 (Maybe.map4 ImageEssentials)
+                (Query.string "composition"
+                    |> Query.map (Maybe.andThen (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe))
+                )
+                (Query.string "angle" |> Query.map (Maybe.andThen String.toFloat))
+                (Query.string "bg" |> Query.map (Maybe.andThen (Decode.decodeString Colors.decoder >> Result.toMaybe)))
+                (Query.string "stroke" |> Query.map (Maybe.andThen (Decode.decodeString Colors.decoder >> Result.toMaybe)))
+
+
+type alias ImageEssentialsStrings =
+    { composition : String
+    , turnAngle : String
+    , backgroundColor : String
+    , strokeColor : String
+    }
+
+
+test : Query.Parser (Maybe ImageEssentialsStrings)
+test =
+    Query.map4 (Maybe.map4 ImageEssentialsStrings)
+        (Query.string "composition")
+        (Query.string "angle")
+        (Query.string "bg")
+        (Query.string "stroke")
+--}
 
 
 urlParser : Parser (Route -> a) a
 urlParser =
-    -- Can be transformed into multiple Routes like this:
-    -- oneOf
-    -- [ Parser.map Blank Parser.top
     Parser.map Home
-        (Parser.custom "COMPOSITION" <|
-            Url.percentDecode
-                >> Maybe.andThen (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe)
+        (Parser.map
+            UrlDataVersions
+            (Parser.query queryToCompositionParser </> fragmentToCompositionParser)
         )
+
+
+{-| Current version of Url building and parsing
+-}
+queryToCompositionParser : Query.Parser (Maybe Composition)
+queryToCompositionParser =
+    Query.string "composition"
+        |> Query.map (Maybe.withDefault "")
+        |> Query.map (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe)
+
+
+{-| Backwards compatibility: Old version of Url building and parsing.
+-}
+fragmentToCompositionParser : Parser (Maybe Composition -> a) a
+fragmentToCompositionParser =
+    Parser.fragment <|
+        Maybe.andThen
+            (Url.percentDecode
+                >> Maybe.andThen (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe)
+            )
 
 
 compositionToUrlString : Composition -> String
 compositionToUrlString composition =
-    composition
-        |> LCore.encodeComposition
-        |> Encode.encode 0
-        -- goes in front, like "#[['D','R'],['D']]"
-        |> (++) "#"
+    let
+        compositionString =
+            composition
+                |> LCore.encodeComposition
+                |> Encode.encode 0
+    in
+    Url.Builder.absolute [] [ Url.Builder.string "composition" compositionString ]
 
 
 replaceUrl : Nav.Key -> Composition -> Cmd msg
