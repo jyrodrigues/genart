@@ -8,9 +8,11 @@
     "webpack-dev-server": "^3.1.7"
   },
   "scripts": {
-    "build": "webpack",
+    "bundle": "webpack",
     "serve": "webpack-dev-server",
-    "clean": "rm -rf ./dist"
+    "clean": "rm -rf ./dist",
+    "copy": "cp _redirects dist/",
+    "build": "npm run bundle && npm run copy"
   },
   "devDependencies": {
     "webpack-cli": "^3.1.0"
@@ -19,6 +21,5 @@
   "version": "0.0.1",
   "main": "index.js",
   "repository": "https://github.com/jyrodrigues/genart",
-  "author": "José Rodrigues <jyrodrigues@gmail.com>",
-  "license": "MIT"
+  "author": "José Rodrigues <jyrodrigues@gmail.com>"
 }
