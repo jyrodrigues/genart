@@ -36,8 +36,7 @@ import Css
         , width
         , zero
         )
-import Html
-import Html.Styled exposing (Html, b, br, button, div, h2, input, label, p, span, text, toUnstyled)
+import Html.Styled exposing (Html, br, button, div, h2, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
 import Html.Styled.Events
     exposing
@@ -69,7 +68,7 @@ import Task
 import Time
 import Url
 import Url.Builder
-import Url.Parser as Parser exposing ((</>), Parser, oneOf, s, string)
+import Url.Parser as Parser exposing ((</>), Parser, string)
 import Url.Parser.Query as Query
 
 
@@ -81,45 +80,8 @@ port downloadSvg : () -> Cmd msg
 
 
 -- FUNDAMENTAL TYPES
--- MODEL
 -- TYPES
 -- MSG
-
-
-type alias Model =
-    -- Aplication heart
-    { composition : Composition
-    , editingIndex : Int
-
-    -- Pan and Zoom
-    , scale : Float
-    , panStarted : Bool
-    , lastPos : ( Float, Float )
-    , translate : ( Float, Float )
-
-    -- Main Image Div Coordinates
-    , imgDivCenter : ( Float, Float )
-    , imgDivStart : ( Float, Float )
-
-    -- Color
-    , backgroundColor : Color
-    , strokeColor : Color
-
-    -- Angle
-    , turnAngle : Float
-
-    -- Browser Focus
-    , focus : Focus
-
-    -- Url
-    , url : Url.Url
-    , navKey : Nav.Key
-
-    -- Video
-    , videoAngleChangeRate : Float
-    , playingVideo : Bool
-    , videoAngleChangeDirection : Float
-    }
 
 
 {-| TODO: Rename Msgs: put all verbs in past tense and choose better words.
@@ -161,6 +123,46 @@ type
 
 
 
+-- MODEL
+
+
+type alias Model =
+    -- Aplication heart
+    { composition : Composition
+    , editingIndex : Int
+
+    -- Pan and Zoom
+    , scale : Float
+    , panStarted : Bool
+    , lastPos : ( Float, Float )
+    , translate : ( Float, Float )
+
+    -- Main Image Div Coordinates
+    , imgDivCenter : ( Float, Float )
+    , imgDivStart : ( Float, Float )
+
+    -- Color
+    , backgroundColor : Color
+    , strokeColor : Color
+
+    -- Angle
+    , turnAngle : Float
+
+    -- Browser Focus
+    , focus : Focus
+
+    -- Url
+    , url : Url.Url
+    , navKey : Nav.Key
+
+    -- Video
+    , videoAngleChangeRate : Float
+    , playingVideo : Bool
+    , videoAngleChangeDirection : Float
+    }
+
+
+
 -- OTHER TYPES
 
 
@@ -169,8 +171,8 @@ type Route
 
 
 type alias UrlDataVersions =
-    { v0_dataOnHash : Maybe Composition
-    , v1_dataOnQueryParams : Maybe Composition
+    { v1_dataOnQueryParams : Maybe ImageEssentials
+    , v0_dataOnHash : Maybe Composition
     }
 
 
@@ -203,6 +205,71 @@ type Polygon
 
 
 
+-- MODEL STUFF
+
+
+expandMinimalModel : Composition -> Color -> Color -> Float -> Float -> Float -> Float -> Url.Url -> Nav.Key -> Model
+expandMinimalModel state bgColor strokeColor turnAngle scale translateX translateY url navKey =
+    Model
+        -- Aplication heart
+        state
+        1
+        -- Pan and Zoom
+        scale
+        False
+        ( 0, 0 )
+        ( translateX, translateY )
+        -- Main Image Div Coordinates
+        ( 0, 0 )
+        ( 0, 0 )
+        -- Colors
+        bgColor
+        strokeColor
+        -- Angle
+        turnAngle
+        -- Browser Focus
+        KeyboardEditing
+        -- Url
+        url
+        navKey
+        -- Video
+        0.1
+        False
+        1
+
+
+basicModelFrom : ImageEssentials -> Url.Url -> Nav.Key -> Model
+basicModelFrom { composition, turnAngle, backgroundColor, strokeColor } url navKey =
+    expandMinimalModel composition backgroundColor strokeColor turnAngle 1 0 0 url navKey
+
+
+squareImage : ImageEssentials
+squareImage =
+    [ polygonBlock Square, [ D ] ]
+        |> LCore.fromList
+        |> compositionToBasicImage
+
+
+modelToImageEssentials : Model -> ImageEssentials
+modelToImageEssentials model =
+    { composition = model.composition
+    , turnAngle = model.turnAngle
+    , backgroundColor = model.backgroundColor
+    , strokeColor = model.strokeColor
+    }
+
+
+modelWithEditIndexLast : Model -> Model
+modelWithEditIndexLast model =
+    { model | editingIndex = LCore.length model.composition - 1 }
+
+
+compositionToBasicImage : Composition -> ImageEssentials
+compositionToBasicImage composition =
+    ImageEssentials composition 90 Colors.darkGray Colors.defaultGreen
+
+
+
 -- MAIN
 
 
@@ -218,6 +285,7 @@ main =
         }
 
 
+isJust : Maybe a -> Bool
 isJust maybe =
     case maybe of
         Just _ ->
@@ -229,14 +297,10 @@ isJust maybe =
 
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init savedModel url navKey =
-    case parseUrlToComposition url of
-        Just composition ->
+    case parseUrlToImageEssentials url of
+        Just image ->
             -- Got a valid Composition from the URL
-            let
-                model =
-                    basicModelFrom composition url navKey
-            in
-            ( { model | editingIndex = LCore.length model.composition - 1 }, getImgDivPosition )
+            ( modelWithEditIndexLast <| basicModelFrom image url navKey, getImgDivPosition )
 
         Nothing ->
             case Decode.decodeValue modelDecoder savedModel of
@@ -248,7 +312,7 @@ init savedModel url navKey =
                     in
                     ( model
                     , Cmd.batch
-                        [ replaceUrl navKey model.composition
+                        [ replaceUrl navKey (modelToImageEssentials model)
                         , getImgDivPosition
                         ]
                     )
@@ -260,12 +324,12 @@ init savedModel url navKey =
                             Debug.log "Debug.log - Error while decoding localStorage" err
 
                         model =
-                            basicModelFrom squareComposition url navKey
+                            basicModelFrom squareImage url navKey
                     in
                     ( model
                     , Cmd.batch
                         [ saveStateToLocalStorage (encodeModel model)
-                        , replaceUrl navKey model.composition
+                        , replaceUrl navKey (modelToImageEssentials model)
                         , getImgDivPosition
                         ]
                     )
@@ -436,6 +500,7 @@ controlsList =
         ]
 
 
+controlText : String -> String -> Html msg
 controlText command explanation =
     div [ css [ margin (px 10) ] ]
         [ span [ css [ fontSize (px 14), backgroundColor (Css.hex "#555") ] ] [ text command ]
@@ -577,12 +642,12 @@ update msg model =
             , if
                 -- This if-statement prevents a bug with infinite loop
                 -- TODO Refactor and remove this.
-                parseUrlToComposition url == Just model.composition
+                parseUrlToImageEssentials url == Just (modelToImageEssentials model)
               then
                 Cmd.none
 
               else
-                replaceUrl model.navKey model.composition
+                replaceUrl model.navKey (modelToImageEssentials model)
             )
 
         --}
@@ -600,7 +665,7 @@ update msg model =
                 ( newModel
                 , Cmd.batch
                     [ saveStateToLocalStorage (encodeModel newModel)
-                    , replaceUrl newModel.navKey newModel.composition
+                    , replaceUrl newModel.navKey (modelToImageEssentials newModel)
                     ]
                 )
             )
@@ -610,7 +675,7 @@ update msg model =
 
 updateModel : Msg -> Model -> Model
 updateModel msg model =
-    case Debug.log "msg" msg of
+    case msg of
         -- TODO: Add a button to clear localStorage.
         ResetDrawing ->
             { model
@@ -792,6 +857,10 @@ updateCompositionBaseAndAngle model polygon =
     }
 
 
+
+-- POLYGON
+
+
 polygonBlock : Polygon -> Block
 polygonBlock polygon =
     case polygon of
@@ -871,8 +940,8 @@ subscriptions model =
 -- URL
 
 
-parseUrlToComposition : Url.Url -> Maybe Composition
-parseUrlToComposition url =
+parseUrlToImageEssentials : Url.Url -> Maybe ImageEssentials
+parseUrlToImageEssentials url =
     parseUrlToRoute url
         |> Maybe.andThen
             (\(Home data) ->
@@ -880,7 +949,8 @@ parseUrlToComposition url =
                     data.v1_dataOnQueryParams
 
                 else if isJust data.v0_dataOnHash then
-                    data.v0_dataOnHash
+                    -- Migrating from old URL format
+                    Maybe.map compositionToBasicImage data.v0_dataOnHash
 
                 else
                     Nothing
@@ -892,56 +962,28 @@ parseUrlToRoute url =
     Parser.parse urlParser url
 
 
-
-{--
--- Last Step: Everything in Query
-urlParserLatest : Parser (Route -> Route) Route
-urlParserLatest =
-    Parser.map Home <|
-        Parser.query <|
-            Query.map4 (Maybe.map4 ImageEssentials)
-                (Query.string "composition"
-                    |> Query.map (Maybe.andThen (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe))
-                )
-                (Query.string "angle" |> Query.map (Maybe.andThen String.toFloat))
-                (Query.string "bg" |> Query.map (Maybe.andThen (Decode.decodeString Colors.decoder >> Result.toMaybe)))
-                (Query.string "stroke" |> Query.map (Maybe.andThen (Decode.decodeString Colors.decoder >> Result.toMaybe)))
-
-
-type alias ImageEssentialsStrings =
-    { composition : String
-    , turnAngle : String
-    , backgroundColor : String
-    , strokeColor : String
-    }
-
-
-test : Query.Parser (Maybe ImageEssentialsStrings)
-test =
-    Query.map4 (Maybe.map4 ImageEssentialsStrings)
-        (Query.string "composition")
-        (Query.string "angle")
-        (Query.string "bg")
-        (Query.string "stroke")
---}
-
-
 urlParser : Parser (Route -> a) a
 urlParser =
     Parser.map Home
         (Parser.map
             UrlDataVersions
-            (Parser.query queryToCompositionParser </> fragmentToCompositionParser)
+            (Parser.query queryToImageEssentials </> fragmentToCompositionParser)
         )
 
 
 {-| Current version of Url building and parsing
 -}
-queryToCompositionParser : Query.Parser (Maybe Composition)
-queryToCompositionParser =
-    Query.string "composition"
-        |> Query.map (Maybe.withDefault "")
-        |> Query.map (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe)
+queryToImageEssentials : Query.Parser (Maybe ImageEssentials)
+queryToImageEssentials =
+    let
+        queryMapFromDecoder decoder =
+            Query.map (Maybe.andThen (Result.toMaybe << Decode.decodeString decoder))
+    in
+    Query.map4 (Maybe.map4 ImageEssentials)
+        (Query.string "composition" |> queryMapFromDecoder LCore.compositionDecoder)
+        (Query.string "angle" |> Query.map (Maybe.andThen String.toFloat))
+        (Query.string "bg" |> queryMapFromDecoder Colors.decoder)
+        (Query.string "stroke" |> queryMapFromDecoder Colors.decoder)
 
 
 {-| Backwards compatibility: Old version of Url building and parsing.
@@ -955,19 +997,18 @@ fragmentToCompositionParser =
             )
 
 
-compositionToUrlString : Composition -> String
-compositionToUrlString composition =
-    let
-        compositionString =
-            composition
-                |> LCore.encodeComposition
-                |> Encode.encode 0
-    in
-    Url.Builder.absolute [] [ Url.Builder.string "composition" compositionString ]
+imageEssentialsToUrlString : ImageEssentials -> String
+imageEssentialsToUrlString image =
+    Url.Builder.absolute []
+        [ Url.Builder.string "composition" (image.composition |> LCore.encodeComposition |> Encode.encode 0)
+        , Url.Builder.string "angle" (String.fromFloat image.turnAngle)
+        , Url.Builder.string "bg" (image.backgroundColor |> Colors.encode |> Encode.encode 0)
+        , Url.Builder.string "stroke" (image.strokeColor |> Colors.encode |> Encode.encode 0)
+        ]
 
 
-replaceUrl : Nav.Key -> Composition -> Cmd msg
-replaceUrl key composition =
+replaceUrl : Nav.Key -> ImageEssentials -> Cmd msg
+replaceUrl key imageEssentials =
     {--
             Note about Nav.replaceUrl: Browsers may rate-limit this function by throwing an
             exception. The discussion here suggests that the limit is 100 calls per 30 second
@@ -976,55 +1017,13 @@ replaceUrl key composition =
 
             https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
         --}
-    Nav.replaceUrl key (compositionToUrlString composition)
+    Nav.replaceUrl key (imageEssentialsToUrlString imageEssentials)
 
 
 
--- MODEL STUFF
+-- MODEL ENCODER AND DECODER
 
 
-expandMinimalModel : Composition -> Color -> Color -> Float -> Float -> Float -> Float -> Url.Url -> Nav.Key -> Model
-expandMinimalModel state bgColor strokeColor turnAngle scale translateX translateY url navKey =
-    Model
-        -- Aplication heart
-        state
-        1
-        -- Pan and Zoom
-        scale
-        False
-        ( 0, 0 )
-        ( translateX, translateY )
-        -- Main Image Div Coordinates
-        ( 0, 0 )
-        ( 0, 0 )
-        -- Colors
-        bgColor
-        strokeColor
-        -- Angle
-        turnAngle
-        -- Browser Focus
-        KeyboardEditing
-        -- Url
-        url
-        navKey
-        -- Video
-        0.1
-        False
-        1
-
-
-basicModelFrom : Composition -> Url.Url -> Nav.Key -> Model
-basicModelFrom composition url navKey =
-    expandMinimalModel composition Colors.darkGray Colors.defaultGreen 90 1 0 0 url navKey
-
-
-squareComposition : Composition
-squareComposition =
-    LCore.fromList [ [ D, L, D, L, D, L, D ], [ D ] ]
-
-
-{-| Model encoder and decoder
--}
 modelDecoder : Decoder (Url.Url -> Nav.Key -> Model)
 modelDecoder =
     Decode.map7 expandMinimalModel
