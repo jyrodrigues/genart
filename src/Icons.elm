@@ -1,10 +1,12 @@
 module Icons exposing
-    ( eye
+    ( duplicate
+    , eye
     , pen
     , toSvg
     , trash
     , withColor
     , withConditionalColor
+    , withCss
     , withOnClick
     , withSize
     )
@@ -27,11 +29,11 @@ type alias Size =
 
 
 type Icon msg
-    = Icon Drawing Size Color (Maybe msg)
+    = Icon Drawing Size Color (Maybe msg) (Maybe (List Css.Style))
 
 
 toSvg : Icon msg -> Svg msg
-toSvg (Icon drawing size color maybeMsg) =
+toSvg (Icon drawing size color maybeMsg maybeCss) =
     let
         maybeOnClick =
             case maybeMsg of
@@ -40,10 +42,13 @@ toSvg (Icon drawing size color maybeMsg) =
 
                 Nothing ->
                     []
+
+        css_ =
+            Maybe.withDefault [] maybeCss
     in
     -- TODO remove this. It's a hack because I'm tired. Could even remove the
     -- `div`, used because `bottom: 30px` doesn't exist on Svg.Styled.Attributes
-    div [ css [ position relative, bottom (px 30), display inlineBlock ] ]
+    div [ css ([ position relative, bottom (px 30), display inlineBlock ] ++ css_) ]
         [ svg
             ([ viewBox "0 0 100 100"
              , width (String.fromFloat size)
@@ -62,7 +67,7 @@ toSvg (Icon drawing size color maybeMsg) =
 
 standard : String -> Icon msg
 standard drawing =
-    Icon drawing 24 Colors.offWhite Nothing
+    Icon drawing 24 Colors.offWhite Nothing Nothing
 
 
 
@@ -71,27 +76,32 @@ standard drawing =
 
 
 withSize : Float -> Icon msg -> Icon msg
-withSize newSize (Icon drawing _ color maybeMsg) =
-    Icon drawing newSize color maybeMsg
+withSize newSize (Icon drawing _ color maybeMsg maybeCss) =
+    Icon drawing newSize color maybeMsg maybeCss
 
 
 withColor : Color -> Icon msg -> Icon msg
-withColor newColor (Icon drawing size _ maybeMsg) =
-    Icon drawing size newColor maybeMsg
+withColor newColor (Icon drawing size _ maybeMsg maybeCss) =
+    Icon drawing size newColor maybeMsg maybeCss
 
 
 withConditionalColor : Bool -> Color -> Icon msg -> Icon msg
-withConditionalColor shouldApply newColor (Icon drawing size oldColor maybeMsg) =
+withConditionalColor shouldApply newColor (Icon drawing size oldColor maybeMsg maybeCss) =
     if shouldApply then
-        Icon drawing size newColor maybeMsg
+        Icon drawing size newColor maybeMsg maybeCss
 
     else
-        Icon drawing size oldColor maybeMsg
+        Icon drawing size oldColor maybeMsg maybeCss
 
 
 withOnClick : msg -> Icon msg -> Icon msg
-withOnClick msg (Icon drawing size color _) =
-    Icon drawing size color (Just msg)
+withOnClick msg (Icon drawing size color _ maybeCss) =
+    Icon drawing size color (Just msg) maybeCss
+
+
+withCss : List Css.Style -> Icon msg -> Icon msg
+withCss attributes (Icon drawing size color maybeMsg _) =
+    Icon drawing size color maybeMsg (Just attributes)
 
 
 pen : Icon msg
@@ -107,6 +117,11 @@ trash =
 eye : Icon msg
 eye =
     standard "M 50 18.75 C 29.167969 18.75 11.375 31.707031 4.167969 50 C 11.375 68.292969 29.167969 81.25 50 81.25 C 70.832031 81.25 88.625 68.292969 95.832031 50 C 88.625 31.707031 70.855469 18.75 50 18.75 Z M 50 70.832031 C 38.5 70.832031 29.167969 61.5 29.167969 50 C 29.167969 38.5 38.5 29.167969 50 29.167969 C 61.5 29.167969 70.832031 38.5 70.832031 50 C 70.832031 61.5 61.5 70.832031 50 70.832031 Z M 50 37.5 C 43.105469 37.5 37.5 43.105469 37.5 50 C 37.5 56.894531 43.105469 62.5 50 62.5 C 56.894531 62.5 62.5 56.894531 62.5 50 C 62.5 43.105469 56.894531 37.5 50 37.5 Z M 50 37.5"
+
+
+duplicate : Icon msg
+duplicate =
+    standard "M 88.277344 21.988281 L 67.179688 0.890625 C 66.601562 0.3125 65.820312 0 65.027344 0 L 34.492188 0 C 32.8125 0 31.449219 1.363281 31.449219 3.042969 L 31.449219 20.511719 L 13.980469 20.511719 C 12.300781 20.511719 10.9375 21.875 10.9375 23.554688 L 10.9375 96.957031 C 10.9375 98.636719 12.300781 100 13.980469 100 L 65.613281 100 C 67.292969 100 68.65625 98.636719 68.65625 96.957031 L 68.65625 79.488281 L 86.125 79.488281 C 87.804688 79.488281 89.167969 78.125 89.167969 76.445312 L 89.167969 24.140625 C 89.167969 23.367188 88.871094 22.582031 88.277344 21.988281 Z M 83.082031 73.402344 L 68.65625 73.402344 L 68.65625 44.652344 C 68.65625 43.863281 68.347656 43.085938 67.765625 42.5 L 46.667969 21.402344 C 46.09375 20.828125 45.316406 20.511719 44.515625 20.511719 L 37.535156 20.511719 L 37.535156 6.085938 L 61.984375 6.085938 L 61.984375 24.140625 C 61.984375 25.820312 63.347656 27.183594 65.027344 27.183594 L 83.082031 27.183594 Z M 62.570312 93.914062 L 17.023438 93.914062 L 17.023438 26.597656 L 41.472656 26.597656 L 41.472656 44.652344 C 41.472656 46.332031 42.835938 47.695312 44.515625 47.695312 L 62.570312 47.695312 Z M 47.558594 30.898438 L 58.269531 41.609375 L 47.558594 41.609375 Z M 78.78125 21.097656 L 68.070312 21.097656 L 68.070312 10.386719 C 69.410156 11.726562 77.710938 20.03125 78.78125 21.097656 Z M 78.78125 21.097656"
 
 
 

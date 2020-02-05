@@ -7,14 +7,18 @@ import Browser.Navigation as Nav
 import Colors exposing (Color, offWhite, toCssColor)
 import Css
     exposing
-        ( backgroundColor
+        ( absolute
+        , backgroundColor
         , block
+        , border3
         , borderBottom3
         , borderBox
         , borderLeft3
         , borderRight3
+        , bottom
         , boxSizing
         , color
+        , cursor
         , display
         , fixed
         , fontFamily
@@ -29,11 +33,14 @@ import Css
         , overflowY
         , padding
         , pct
+        , pointer
         , position
         , px
+        , relative
         , right
         , scroll
         , solid
+        , top
         , width
         , zero
         )
@@ -49,7 +56,7 @@ import Html.Styled.Events
         , onMouseUp
         , preventDefaultOn
         )
-import Icons exposing (withColor, withConditionalColor, withOnClick)
+import Icons exposing (withColor, withConditionalColor, withCss, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core as LCore exposing (Block, Composition, Step(..))
@@ -100,6 +107,8 @@ type Msg
     | DropFromState Int
       -- Storage
     | SavedToGallery
+    | RemovedFromGallery Int
+    | DuplicateToEdit Int
       -- Pan and Zoom
     | GotImgDivPosition (Result Browser.Dom.Error Element)
     | PanStarted ( Float, Float )
@@ -418,36 +427,40 @@ galleryView model =
                     , overflow scroll
                     ]
                 ]
-                (List.map imageBox model.gallery)
+                (List.indexedMap imageBox model.gallery)
             ]
             |> toUnstyled
         ]
     }
 
 
-imageBox : ImageEssentials -> Html Msg
-imageBox image =
+imageBox : Int -> ImageEssentials -> Html Msg
+imageBox index image =
     div
         [ css
             [ width (pct 40)
             , borderBottom3 (px 1) solid (toCssColor Colors.black)
             , display inlineBlock
             , margin (px 10)
+            , position relative
             ]
         ]
         [ LDraw.image image.composition
             |> withTurnAngle image.turnAngle
             |> withStrokeColor image.strokeColor
             |> withBackgroundColor image.backgroundColor
+            |> LDraw.withOnClick (DuplicateToEdit index)
             |> drawImage
         , Icons.trash
+            |> withOnClick (RemovedFromGallery index)
             |> withColor Colors.red_
-            --|> withOnClick (DropFromState index)
-            |> Icons.toSvg
-        , Icons.pen
-            |> withColor Colors.green_
-            --|> withConditionalColor (index == editingIndex) Colors.green_
-            --|> withOnClick (SetEditingIndex index)
+            |> withCss
+                [ cursor pointer
+                , border3 (px 1) solid (toCssColor Colors.black)
+                , position absolute
+                , bottom zero
+                , left zero
+                ]
             |> Icons.toSvg
         ]
 
@@ -889,6 +902,20 @@ updateModel msg model =
 
         ViewingPage page ->
             { model | viewingPage = page }
+
+        RemovedFromGallery index ->
+            { model | gallery = ListExtra.dropIndex index model.gallery }
+
+        DuplicateToEdit index ->
+            let
+                image =
+                    ListExtra.getAt index model.gallery
+                        |> Maybe.withDefault (modelToImageEssentials model)
+
+                newModel =
+                    modelWithImageEssentials image model
+            in
+            { newModel | viewingPage = EditPage }
 
         -- TODO remove this
         _ ->

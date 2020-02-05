@@ -4,6 +4,7 @@ module LSystem.Draw exposing
     , withBackgroundColor
     , withId
     , withScale
+    , withOnClick
     , withStrokeColor
     , withTranslation
     , withTurnAngle
@@ -13,6 +14,7 @@ import Colors exposing (Color)
 import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
 import Svg.Styled exposing (Svg, circle, line, polyline, svg)
+import Svg.Styled.Events exposing (onClick)
 import Svg.Styled.Attributes
     exposing
         ( cx
@@ -66,43 +68,48 @@ type Translation
 --                              |     |
 
 
-type Image
-    = Image Composition Angle Color Color Scale Translation (Maybe Id)
+type Image msg
+    = Image Composition Angle Color Color Scale Translation (Maybe Id) (Maybe msg)
 
 
-image : Composition -> Image
+image : Composition -> Image msg
 image composition =
-    Image composition 90 Colors.offWhite Colors.gray 1 (Translation 0 0) Nothing
+    Image composition 90 Colors.offWhite Colors.gray 1 (Translation 0 0) Nothing Nothing
 
 
-withTurnAngle : Angle -> Image -> Image
-withTurnAngle angle (Image t _ sc bc s xy id) =
-    Image t angle sc bc s xy id
+withTurnAngle : Angle -> Image msg -> Image msg
+withTurnAngle angle (Image t _ sc bc s xy id mm) =
+    Image t angle sc bc s xy id mm
 
 
-withStrokeColor : Color -> Image -> Image
-withStrokeColor color (Image t a _ bc s xy id) =
-    Image t a color bc s xy id
+withStrokeColor : Color -> Image msg -> Image msg
+withStrokeColor color (Image t a _ bc s xy id mm) =
+    Image t a color bc s xy id mm
 
 
-withBackgroundColor : Color -> Image -> Image
-withBackgroundColor color (Image t a sc _ s xy id) =
-    Image t a sc color s xy id
+withBackgroundColor : Color -> Image msg -> Image msg
+withBackgroundColor color (Image t a sc _ s xy id mm) =
+    Image t a sc color s xy id mm
 
 
-withScale : Scale -> Image -> Image
-withScale scale (Image t a sc bc _ xy id) =
-    Image t a sc bc scale xy id
+withScale : Scale -> Image msg -> Image msg
+withScale scale (Image t a sc bc _ xy id mm) =
+    Image t a sc bc scale xy id mm
 
 
-withTranslation : ( Float, Float ) -> Image -> Image
-withTranslation ( x, y ) (Image t a sc bc s _ id) =
-    Image t a sc bc s (Translation x y) id
+withTranslation : ( Float, Float ) -> Image msg -> Image msg
+withTranslation ( x, y ) (Image t a sc bc s _ id mm) =
+    Image t a sc bc s (Translation x y) id mm
 
 
-withId : Id -> Image -> Image
-withId id (Image t a sc bc s xy _) =
-    Image t a sc bc s xy (Just id)
+withId : Id -> Image msg -> Image msg
+withId id (Image t a sc bc s xy _ mm) =
+    Image t a sc bc s xy (Just id) mm
+
+
+withOnClick : msg -> Image msg -> Image msg
+withOnClick msg (Image t a sc bc s xy id _) =
+    Image t a sc bc s xy id (Just msg)
 
 
 {-| About vecTranslateToImgCenter:
@@ -115,8 +122,8 @@ center for x-axis is the same as the middle point of the image
 but is inverted for y-axis.
 
 -}
-drawImage : Image -> Svg msg
-drawImage (Image composition angle color bgColor scale (Translation x y) maybeId) =
+drawImage : Image msg -> Svg msg
+drawImage (Image composition angle color bgColor scale (Translation x y) maybeId maybeMsg) =
     let
         { topRight, bottomLeft } =
             imageBoundaries angle composition
@@ -160,6 +167,14 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
 
                 Nothing ->
                     []
+
+        maybeOnClick =
+            case maybeMsg of
+                Just msg ->
+                    [ onClick msg ]
+
+                Nothing ->
+                    []
     in
     svg
         ([ viewBox <|
@@ -191,6 +206,7 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
                 ++ ("scale(" ++ String.fromFloat scale ++ ")")
          ]
             ++ maybeIdAttr
+            ++ maybeOnClick
         )
         [ originPoint 0 0
         , nextLine drawing
