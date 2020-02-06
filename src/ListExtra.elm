@@ -5,6 +5,7 @@ module ListExtra exposing
     , floatsToSpacedString
     , getAt
     , getLast
+    , maybeMap6
     , pairExec
     , pairMap
     , pushLast
@@ -74,3 +75,42 @@ pairMap op pair =
     ( op (Tuple.first pair)
     , op (Tuple.second pair)
     )
+
+
+
+-- MAYBE EXTRA
+
+
+maybeMap6 : (a -> b -> c -> d -> e -> f -> value) -> Maybe a -> Maybe b -> Maybe c -> Maybe d -> Maybe e -> Maybe f -> Maybe value
+maybeMap6 func ma mb mc md me mf =
+    case ma of
+        Nothing ->
+            Nothing
+
+        Just a ->
+            case mb of
+                Nothing ->
+                    Nothing
+
+                Just b ->
+                    case mc of
+                        Nothing ->
+                            Nothing
+
+                        Just c ->
+                            case md of
+                                Nothing ->
+                                    Nothing
+
+                                Just d ->
+                                    case me of
+                                        Nothing ->
+                                            Nothing
+
+                                        Just e ->
+                                            case mf of
+                                                Nothing ->
+                                                    Nothing
+
+                                                Just f ->
+                                                    Just (func a b c d e f)
