@@ -192,13 +192,24 @@ type Page
 type Route
     = Home UrlDataVersions
     | Gallery
-    | NotFound String
+    | NotFound
 
 
 type alias UrlDataVersions =
     { v1_dataOnQueryParams : Maybe ImageEssentials
     , v0_dataOnHash : Maybe Composition
     }
+
+
+mapRouteToPage : Route -> Page
+mapRouteToPage route =
+    -- TODO think about this flow that requires this function. It doesn't seem the best one.
+    case route of
+        Gallery ->
+            GalleryPage
+
+        _ ->
+            EditPage
 
 
 
@@ -345,19 +356,27 @@ modelWithImage { composition, turnAngle, backgroundColor, strokeColor } model =
     }
 
 
-modelWithMaybeRoute : Maybe Route -> Model -> Model
-modelWithMaybeRoute maybeRoute model =
-    case maybeRoute of
-        Just Gallery ->
-            { model | viewingPage = GalleryPage }
-
-        _ ->
-            model
+modelWithRoute : Route -> Model -> Model
+modelWithRoute route model =
+    { model | viewingPage = mapRouteToPage route }
 
 
 modelWithEditIndexLast : Model -> Model
 modelWithEditIndexLast model =
     { model | editingIndex = LCore.length model.composition - 1 }
+
+
+urlDataVersionsToImage : UrlDataVersions -> Maybe ImageEssentials
+urlDataVersionsToImage dataVersions =
+    if isJust dataVersions.v1_dataOnQueryParams then
+        dataVersions.v1_dataOnQueryParams
+
+    else if isJust dataVersions.v0_dataOnHash then
+        -- Migrating from old URL format
+        Maybe.map (replaceComposition initialImage) dataVersions.v0_dataOnHash
+
+    else
+        Nothing
 
 
 
@@ -393,34 +412,48 @@ isJust maybe =
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init localStorage url navKey =
     let
-        imageAndGallery =
-            decodeAndCombineUrlAndStorage localStorage url
+        route =
+            parseUrl url
 
-        ( maybeRouteFromUrl, _ ) =
-            parseUrlToImage url
+        imageAndGallery =
+            decodeAndCombineUrlAndStorage localStorage route
 
         model =
             initialModelFromImageAndGallery imageAndGallery url navKey
-                |> modelWithMaybeRoute maybeRouteFromUrl
+                |> modelWithRoute (Debug.log "init route" route)
                 |> modelWithEditIndexLast
+
+        updateUrl =
+            case route of
+                Gallery ->
+                    []
+
+                _ ->
+                    [ replaceUrl navKey imageAndGallery.image ]
     in
     ( model
     , Cmd.batch
-        [ getImgDivPosition
-        , replaceUrl navKey imageAndGallery.image
-        , saveStateToLocalStorage (encodeModel model)
-        ]
+        ([ getImgDivPosition
+         , saveStateToLocalStorage (encodeModel model)
+         ]
+            ++ updateUrl
+        )
     )
 
 
-decodeAndCombineUrlAndStorage : Flags -> Url.Url -> ImageAndGallery
-decodeAndCombineUrlAndStorage localStorage url =
+decodeAndCombineUrlAndStorage : Flags -> Route -> ImageAndGallery
+decodeAndCombineUrlAndStorage localStorage route =
     let
         resultImageAndGalleryFromStorage =
             Decode.decodeValue imageAndGalleryDecoder localStorage
 
-        ( _, maybeImageFromUrl ) =
-            parseUrlToImage url
+        maybeImageFromUrl =
+            case route of
+                Home dataVersions ->
+                    urlDataVersionsToImage dataVersions
+
+                _ ->
+                    Nothing
     in
     case ( maybeImageFromUrl, resultImageAndGalleryFromStorage ) of
         ( Just urlImage, Ok storedImageAndGallery ) ->
@@ -442,7 +475,7 @@ decodeAndCombineUrlAndStorage localStorage url =
 
 view : Model -> Browser.Document Msg
 view model =
-    case Debug.log "viewingPage" model.viewingPage of
+    case Debug.log "route" model.viewingPage of
         EditPage ->
             editView model
 
@@ -829,21 +862,7 @@ update msg model =
 
         UrlChanged url ->
             -- Called via replaceUrl (and indirectly via click on internal links/href, see LinkClicked above)
-            let
-                ( maybeRoute, _ ) =
-                    parseUrlToImage url
-
-                newModel =
-                    case maybeRoute of
-                        Just Gallery ->
-                            { model | viewingPage = GalleryPage }
-
-                        _ ->
-                            -- TODO Learn proper difference between (Just NotFound) route variant and (Nothing) and
-                            -- remove this wildcard branch
-                            model
-            in
-            ( newModel, Cmd.none )
+            ( { model | viewingPage = mapRouteToPage (parseUrl url) }, Cmd.none )
 
         DownloadSvg ->
             ( model, downloadSvg () )
@@ -1151,46 +1170,18 @@ subscriptions model =
 -- URL
 
 
-parseUrlToImage : Url.Url -> ( Maybe Route, Maybe ImageEssentials )
-parseUrlToImage url =
+parseUrl : Url.Url -> Route
+parseUrl url =
     let
-        maybeRoute =
-            parseUrlToRoute url
-
-        routeToMaybeImage route =
-            case route of
-                Home data ->
-                    if isJust data.v1_dataOnQueryParams then
-                        data.v1_dataOnQueryParams
-
-                    else if isJust data.v0_dataOnHash then
-                        -- Migrating from old URL format
-                        Maybe.map (replaceComposition initialImage) data.v0_dataOnHash
-
-                    else
-                        Nothing
-
-                Gallery ->
-                    Nothing
-
-                NotFound _ ->
-                    Nothing
+        parsedRoute =
+            Parser.parse (Parser.oneOf [ homeParser, galleryParser ]) url
     in
-    maybeRoute
-        |> Maybe.andThen routeToMaybeImage
-        |> Tuple.pair maybeRoute
+    case parsedRoute of
+        Just route ->
+            route
 
-
-parseUrlToRoute : Url.Url -> Maybe Route
-parseUrlToRoute url =
-    Parser.parse
-        (Parser.oneOf
-            [ urlParser
-            , galleryParser
-            , notFoundParser
-            ]
-        )
-        url
+        Nothing ->
+            NotFound
 
 
 galleryParser : Parser (Route -> a) a
@@ -1198,13 +1189,8 @@ galleryParser =
     Parser.map Gallery (Parser.s "gallery")
 
 
-notFoundParser : Parser (Route -> a) a
-notFoundParser =
-    Parser.map NotFound (Parser.custom "ANYTHING" (\s -> Just s))
-
-
-urlParser : Parser (Route -> a) a
-urlParser =
+homeParser : Parser (Route -> a) a
+homeParser =
     Parser.map Home
         (Parser.map
             UrlDataVersions
