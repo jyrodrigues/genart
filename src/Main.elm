@@ -79,6 +79,10 @@ import Url.Parser as Parser exposing ((</>), Parser, string)
 import Url.Parser.Query as Query
 
 
+
+-- PORTS
+
+
 port saveStateToLocalStorage : Encode.Value -> Cmd msg
 
 
@@ -86,6 +90,7 @@ port downloadSvg : () -> Cmd msg
 
 
 
+-- TYPES
 -- MSG
 
 
@@ -253,6 +258,7 @@ type alias Position =
 
 
 
+-- IMPLEMENTATION, LOGIC, FUNCTIONS
 -- MODEL
 
 
@@ -313,11 +319,6 @@ initialModel image gallery url navKey =
     }
 
 
-initialModelFromImage : ImageEssentials -> Url.Url -> Nav.Key -> Model
-initialModelFromImage image url navKey =
-    initialModel image [] url navKey
-
-
 initialModelFromImageAndGallery : ImageAndGallery -> Url.Url -> Nav.Key -> Model
 initialModelFromImageAndGallery { image, gallery } url navKey =
     initialModel image gallery url navKey
@@ -331,13 +332,6 @@ modelToImage model =
     , strokeColor = model.strokeColor
     , translate = model.translate
     , scale = model.scale
-    }
-
-
-modelToImageAndGallery : Model -> ImageAndGallery
-modelToImageAndGallery model =
-    { image = modelToImage model
-    , gallery = model.gallery
     }
 
 
@@ -396,29 +390,6 @@ isJust maybe =
 -- INIT
 
 
-decodeAndCombineUrlAndStorage : Flags -> Url.Url -> ImageAndGallery
-decodeAndCombineUrlAndStorage localStorage url =
-    let
-        resultImageAndGalleryFromStorage =
-            Decode.decodeValue imageAndGalleryDecoder localStorage
-
-        ( maybeRouteFromUrl, maybeImageFromUrl ) =
-            parseUrlToImage url
-    in
-    case ( maybeImageFromUrl, resultImageAndGalleryFromStorage ) of
-        ( Just urlImage, Ok storedImageAndGallery ) ->
-            { image = urlImage, gallery = storedImageAndGallery.gallery }
-
-        ( Just urlImage, Err _ ) ->
-            { image = urlImage, gallery = [] }
-
-        ( Nothing, Ok storedImageAndGallery ) ->
-            storedImageAndGallery
-
-        ( Nothing, Err _ ) ->
-            { image = initialImage, gallery = [] }
-
-
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init localStorage url navKey =
     let
@@ -440,6 +411,29 @@ init localStorage url navKey =
         , saveStateToLocalStorage (encodeModel model)
         ]
     )
+
+
+decodeAndCombineUrlAndStorage : Flags -> Url.Url -> ImageAndGallery
+decodeAndCombineUrlAndStorage localStorage url =
+    let
+        resultImageAndGalleryFromStorage =
+            Decode.decodeValue imageAndGalleryDecoder localStorage
+
+        ( _, maybeImageFromUrl ) =
+            parseUrlToImage url
+    in
+    case ( maybeImageFromUrl, resultImageAndGalleryFromStorage ) of
+        ( Just urlImage, Ok storedImageAndGallery ) ->
+            { image = urlImage, gallery = storedImageAndGallery.gallery }
+
+        ( Just urlImage, Err _ ) ->
+            { image = urlImage, gallery = [] }
+
+        ( Nothing, Ok storedImageAndGallery ) ->
+            storedImageAndGallery
+
+        ( Nothing, Err _ ) ->
+            { image = initialImage, gallery = [] }
 
 
 
@@ -815,6 +809,15 @@ fixedDiv attrs children =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        updateAndSaveImageAndGallery newModel =
+            ( newModel
+            , Cmd.batch
+                [ saveStateToLocalStorage (encodeModel newModel)
+                , replaceUrl newModel.navKey (modelToImage newModel)
+                ]
+            )
+    in
     case msg of
         LinkClicked urlRequest ->
             case urlRequest of
@@ -825,8 +828,9 @@ update msg model =
                     ( model, Nav.load href )
 
         UrlChanged url ->
+            -- Called via replaceUrl (and indirectly via click on internal links/href, see LinkClicked above)
             let
-                ( maybeRoute, maybeImage ) =
+                ( maybeRoute, _ ) =
                     parseUrlToImage url
 
                 newModel =
@@ -835,111 +839,91 @@ update msg model =
                             { model | viewingPage = GalleryPage }
 
                         _ ->
+                            -- TODO Learn proper difference between (Just NotFound) route variant and (Nothing) and
+                            -- remove this wildcard branch
                             model
             in
-            ( newModel
-            , if
-                -- This if-statement prevents a bug with infinite loop
-                -- TODO Refactor and remove this.
-                (maybeImage == Just (modelToImage model))
-                    || (maybeRoute == Just Gallery)
-              then
-                Cmd.none
+            ( newModel, Cmd.none )
 
-              else
-                replaceUrl model.navKey (modelToImage model)
-            )
-
-        --}
-        -- Already getting ugly:
         DownloadSvg ->
             ( model, downloadSvg () )
 
-        -- TODO Don't save to localStorage neither replaceUrl on every msg!
-        {--TODO
-            Maybe create a type like UrlMsg = LinkClicked | UrlChanged | AppMsg Msg
-            then remove wildcard here and on updateModel.
-        --}
-        _ ->
-            (\newModel ->
-                ( newModel
-                , Cmd.batch
-                    [ saveStateToLocalStorage (encodeModel newModel)
-                    , replaceUrl newModel.navKey (modelToImage newModel)
-                    ]
-                )
-            )
-            <|
-                updateModel msg model
-
-
-updateModel : Msg -> Model -> Model
-updateModel msg model =
-    case msg of
-        -- TODO: Add a button to clear localStorage.
         ResetDrawing ->
-            { model
-                | composition = model.composition |> LCore.dropAllBlocksButBase |> LCore.appendBlock [ D ]
-                , editingIndex = 1
-            }
+            updateAndSaveImageAndGallery
+                { model
+                    | composition = model.composition |> LCore.dropAllBlocksButBase |> LCore.appendBlock [ D ]
+                    , editingIndex = 1
+                }
 
         Iterate editingIndex ->
-            iterate model editingIndex
+            updateAndSaveImageAndGallery <| iterate model editingIndex
 
         Deiterate ->
-            deiterate model
+            updateAndSaveImageAndGallery <| deiterate model
 
         KeyPress keyString ->
-            processKey model keyString
+            updateAndSaveImageAndGallery <| processKey model keyString
 
         -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
         -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
         Zoom _ deltaY _ mousePos ->
-            applyZoom deltaY mousePos model
+            updateAndSaveImageAndGallery <| applyZoom deltaY mousePos model
 
         SetEditingIndex index ->
-            { model | editingIndex = index }
+            ( { model | editingIndex = index }, Cmd.none )
 
         DropFromState index ->
-            { model
-                | composition = LCore.dropBlockAtIndex index model.composition
-                , editingIndex =
-                    if model.editingIndex >= index then
-                        model.editingIndex - 1
+            updateAndSaveImageAndGallery <|
+                { model
+                    | composition = LCore.dropBlockAtIndex index model.composition
+                    , editingIndex =
+                        if model.editingIndex >= index then
+                            model.editingIndex - 1
 
-                    else
-                        model.editingIndex
-            }
+                        else
+                            model.editingIndex
+                }
 
         SetBackgroundColor color ->
-            { model | backgroundColor = color }
+            updateAndSaveImageAndGallery <| { model | backgroundColor = color }
 
         SetStrokeColor color ->
-            { model | strokeColor = color }
+            updateAndSaveImageAndGallery <| { model | strokeColor = color }
 
         SetTurnAngle turn ->
-            { model | turnAngle = turn }
+            let
+                newModel =
+                    { model | turnAngle = turn }
+            in
+            if model.playingVideo then
+                -- Don't update URL and Local Storage on each video step
+                ( newModel, Cmd.none )
+
+            else
+                updateAndSaveImageAndGallery newModel
 
         PanStarted pos ->
-            { model | panStarted = True, lastPos = pos }
+            ( { model | panStarted = True, lastPos = pos }, Cmd.none )
 
         PanEnded ->
-            { model | panStarted = False }
+            updateAndSaveImageAndGallery <| { model | panStarted = False }
 
         MouseMoved pos ->
-            { model
+            ( { model
                 | translate =
                     pos
                         |> pairExec (-) model.lastPos
                         |> pairExec (+) model.translate
                 , lastPos = pos
-            }
+              }
+            , Cmd.none
+            )
 
         SetFocus focus ->
-            { model | focus = focus }
+            ( { model | focus = focus }, Cmd.none )
 
         BasePolygonChanged polygon ->
-            updateCompositionBaseAndAngle model polygon
+            updateAndSaveImageAndGallery <| updateCompositionBaseAndAngle model polygon
 
         GotImgDivPosition result ->
             case result of
@@ -948,31 +932,42 @@ updateModel msg model =
                         { x, y, width, height } =
                             data.element
                     in
-                    { model | imgDivCenter = ( x + width / 2, y + height / 2 ), imgDivStart = ( x, y ) }
+                    ( { model | imgDivCenter = ( x + width / 2, y + height / 2 ), imgDivStart = ( x, y ) }, Cmd.none )
 
                 Err _ ->
-                    model
+                    ( model, Cmd.none )
 
         TogglePlayingVideo ->
-            { model | playingVideo = not model.playingVideo }
+            let
+                newModel =
+                    { model | playingVideo = not model.playingVideo }
+            in
+            if model.playingVideo then
+                -- When video stopped save model in URL and Local Storage
+                -- N.B. Copying the URL while a playing video will copy the last image saved
+                -- i.e. before playing video or the last not-angle edit while playing.
+                updateAndSaveImageAndGallery <| newModel
+
+            else
+                ( newModel, Cmd.none )
 
         VideoSpeedFaster ->
-            { model | videoAngleChangeRate = min 1 (model.videoAngleChangeRate * 1.4) }
+            ( { model | videoAngleChangeRate = min 1 (model.videoAngleChangeRate * 1.4) }, Cmd.none )
 
         VideoSpeedSlower ->
-            { model | videoAngleChangeRate = max 0.001 (model.videoAngleChangeRate / 1.4) }
+            ( { model | videoAngleChangeRate = max 0.001 (model.videoAngleChangeRate / 1.4) }, Cmd.none )
 
         ReverseAngleChangeDirection ->
-            { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }
+            ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )
 
         SavedToGallery ->
-            { model | gallery = modelToImage model :: model.gallery }
+            updateAndSaveImageAndGallery <| { model | gallery = modelToImage model :: model.gallery }
 
         ViewingPage page ->
-            { model | viewingPage = page }
+            ( { model | viewingPage = page }, Cmd.none )
 
         RemovedFromGallery index ->
-            { model | gallery = ListExtra.dropIndex index model.gallery }
+            updateAndSaveImageAndGallery <| { model | gallery = ListExtra.dropIndex index model.gallery }
 
         DuplicateToEdit index ->
             let
@@ -983,11 +978,7 @@ updateModel msg model =
                 newModel =
                     modelWithImage image model
             in
-            { newModel | viewingPage = EditPage }
-
-        -- TODO remove this
-        _ ->
-            model
+            updateAndSaveImageAndGallery <| { newModel | viewingPage = EditPage }
 
 
 processKey : Model -> String -> Model
@@ -1195,9 +1186,8 @@ parseUrlToRoute url =
     Parser.parse
         (Parser.oneOf
             [ urlParser
-
-            --, galleryParser
-            --, notFoundParser
+            , galleryParser
+            , notFoundParser
             ]
         )
         url
