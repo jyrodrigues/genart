@@ -185,12 +185,12 @@ type alias Model =
 
 
 type Page
-    = EditPage
+    = EditorPage
     | GalleryPage
 
 
 type Route
-    = Home UrlDataVersions
+    = Editor UrlDataVersions
     | Gallery
     | NotFound
 
@@ -209,7 +209,7 @@ mapRouteToPage route =
             GalleryPage
 
         _ ->
-            EditPage
+            EditorPage
 
 
 
@@ -297,7 +297,7 @@ initialModel image gallery url navKey =
 
     -- Storage
     , gallery = gallery
-    , viewingPage = EditPage
+    , viewingPage = EditorPage
 
     -- Pan and Zoom
     , scale = image.scale
@@ -420,7 +420,7 @@ init localStorage url navKey =
 
         model =
             initialModelFromImageAndGallery imageAndGallery url navKey
-                |> modelWithRoute (Debug.log "init route" route)
+                |> modelWithRoute route
                 |> modelWithEditIndexLast
 
         updateUrl =
@@ -449,7 +449,7 @@ decodeAndCombineUrlAndStorage localStorage route =
 
         maybeImageFromUrl =
             case route of
-                Home dataVersions ->
+                Editor dataVersions ->
                     urlDataVersionsToImage dataVersions
 
                 _ ->
@@ -475,9 +475,9 @@ decodeAndCombineUrlAndStorage localStorage route =
 
 view : Model -> Browser.Document Msg
 view model =
-    case Debug.log "route" model.viewingPage of
-        EditPage ->
-            editView model
+    case model.viewingPage of
+        EditorPage ->
+            editorView model
 
         GalleryPage ->
             galleryView model
@@ -500,7 +500,7 @@ galleryView model =
                     , right zero
                     ]
                 ]
-                [ button [ onClick (ViewingPage EditPage), css [ margin (px 10) ] ] [ text "Back to Edit" ] ]
+                [ button [ onClick (ViewingPage EditorPage), css [ margin (px 10) ] ] [ text "Back to editor" ] ]
             , div
                 [ css
                     [ width (pct (layout.transformsList + layout.mainImg))
@@ -548,11 +548,11 @@ imageBox index image =
 
 
 
--- EDIT VIEW
+-- EDITOR VIEW
 
 
-editView : Model -> Browser.Document Msg
-editView model =
+editorView : Model -> Browser.Document Msg
+editorView model =
     { title = "Generative Art"
     , body =
         [ div
@@ -997,7 +997,7 @@ update msg model =
                 newModel =
                     modelWithImage image model
             in
-            updateAndSaveImageAndGallery <| { newModel | viewingPage = EditPage }
+            updateAndSaveImageAndGallery <| { newModel | viewingPage = EditorPage }
 
 
 processKey : Model -> String -> Model
@@ -1174,7 +1174,7 @@ parseUrl : Url.Url -> Route
 parseUrl url =
     let
         parsedRoute =
-            Parser.parse (Parser.oneOf [ homeParser, galleryParser ]) url
+            Parser.parse (Parser.oneOf [ editorParser, galleryParser ]) url
     in
     case parsedRoute of
         Just route ->
@@ -1189,9 +1189,9 @@ galleryParser =
     Parser.map Gallery (Parser.s "gallery")
 
 
-homeParser : Parser (Route -> a) a
-homeParser =
-    Parser.map Home
+editorParser : Parser (Route -> a) a
+editorParser =
+    Parser.map Editor
         (Parser.map
             UrlDataVersions
             -- Fragment is parsed for backward-compatibility only
