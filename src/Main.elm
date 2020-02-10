@@ -61,13 +61,15 @@ import Json.Encode as Encode
 import LSystem.Core as LCore exposing (Block, Composition, Step(..))
 import LSystem.Draw as LDraw
     exposing
-        ( drawImage
-        , image
+        ( Image
+        , Polygon(..)
+        , drawImage
         , withBackgroundColor
+        , withComposition
         , withId
         , withScale
         , withStrokeColor
-        , withTranslation
+        , withTranslate
         , withTurnAngle
         )
 import ListExtra exposing (pairExec, pairMap)
@@ -138,33 +140,31 @@ type Msg
 
 
 -- MODEL
+{--
+type Model
+    = Editor EditorModel Nav.Key
+    | Gallery GalleryModel Nav.Key
+
+
+type GalleryModel
+    = GalleryModel (List Image Msg)
+--}
 
 
 type alias Model =
     -- Aplication heart
-    { composition : Composition
+    { image : Image Msg
     , editingIndex : Int
-
-    -- Storage
     , gallery : Gallery
     , viewingPage : Page
 
     -- Pan and Zoom
-    , scale : Float
     , panStarted : Bool
     , lastPos : Position
-    , translate : Position
 
     -- Main Image Div Coordinates
     , imgDivCenter : Position
     , imgDivStart : Position
-
-    -- Color
-    , backgroundColor : Color
-    , strokeColor : Color
-
-    -- Angle
-    , turnAngle : Float
 
     -- Browser Focus
     , focus : Focus
@@ -190,20 +190,13 @@ type Page
 
 
 type Route
-    = Editor UrlDataVersions
+    = Editor (Image Msg)
     | Gallery
     | NotFound
 
 
-type alias UrlDataVersions =
-    { v1_dataOnQueryParams : Maybe ImageEssentials
-    , v0_dataOnHash : Maybe Composition
-    }
-
-
 mapRouteToPage : Route -> Page
 mapRouteToPage route =
-    -- TODO think about this flow that requires this function. It doesn't seem the best one.
     case route of
         Gallery ->
             GalleryPage
@@ -212,26 +205,12 @@ mapRouteToPage route =
             EditorPage
 
 
-
--- IMAGE ESSENTIALS
-
-
-type alias ImageEssentials =
-    { composition : Composition
-    , turnAngle : Float
-    , backgroundColor : Color
-    , strokeColor : Color
-    , translate : Position
-    , scale : Float
-    }
-
-
 type alias Gallery =
-    List ImageEssentials
+    List (Image Msg)
 
 
 type alias ImageAndGallery =
-    { image : ImageEssentials
+    { image : Image Msg
     , gallery : Gallery
     }
 
@@ -257,13 +236,6 @@ type Focus
     | TurnAngleInput
 
 
-type Polygon
-    = Triangle
-    | Square
-    | Pentagon
-    | Hexagon
-
-
 type alias Position =
     ( Float, Float )
 
@@ -273,26 +245,10 @@ type alias Position =
 -- MODEL
 
 
-initialImage : ImageEssentials
-initialImage =
-    { composition = LCore.fromList [ polygonBlock Square, [ D ] ]
-    , turnAngle = polygonAngle Square
-    , backgroundColor = Colors.darkGray
-    , strokeColor = Colors.defaultGreen
-    , translate = ( 0, 0 )
-    , scale = 1
-    }
-
-
-replaceComposition : ImageEssentials -> Composition -> ImageEssentials
-replaceComposition image composition =
-    { image | composition = composition }
-
-
-initialModel : ImageEssentials -> Gallery -> Url.Url -> Nav.Key -> Model
+initialModel : Image Msg -> Gallery -> Url.Url -> Nav.Key -> Model
 initialModel image gallery url navKey =
     -- Aplication heart
-    { composition = image.composition
+    { image = image
     , editingIndex = 1
 
     -- Storage
@@ -300,21 +256,12 @@ initialModel image gallery url navKey =
     , viewingPage = EditorPage
 
     -- Pan and Zoom
-    , scale = image.scale
     , panStarted = False
     , lastPos = ( 0, 0 )
-    , translate = image.translate
 
     -- Main Image Div Coordinates
     , imgDivCenter = ( 0, 0 )
     , imgDivStart = ( 0, 0 )
-
-    -- Color
-    , backgroundColor = image.backgroundColor
-    , strokeColor = image.strokeColor
-
-    -- Angle
-    , turnAngle = image.turnAngle
 
     -- Browser Focus
     , focus = KeyboardEditing
@@ -335,27 +282,6 @@ initialModelFromImageAndGallery { image, gallery } url navKey =
     initialModel image gallery url navKey
 
 
-modelToImage : Model -> ImageEssentials
-modelToImage model =
-    { composition = model.composition
-    , turnAngle = model.turnAngle
-    , backgroundColor = model.backgroundColor
-    , strokeColor = model.strokeColor
-    , translate = model.translate
-    , scale = model.scale
-    }
-
-
-modelWithImage : ImageEssentials -> Model -> Model
-modelWithImage { composition, turnAngle, backgroundColor, strokeColor } model =
-    { model
-        | composition = composition
-        , turnAngle = turnAngle
-        , backgroundColor = backgroundColor
-        , strokeColor = strokeColor
-    }
-
-
 modelWithRoute : Route -> Model -> Model
 modelWithRoute route model =
     { model | viewingPage = mapRouteToPage route }
@@ -363,20 +289,7 @@ modelWithRoute route model =
 
 modelWithEditIndexLast : Model -> Model
 modelWithEditIndexLast model =
-    { model | editingIndex = LCore.length model.composition - 1 }
-
-
-urlDataVersionsToImage : UrlDataVersions -> Maybe ImageEssentials
-urlDataVersionsToImage dataVersions =
-    if isJust dataVersions.v1_dataOnQueryParams then
-        dataVersions.v1_dataOnQueryParams
-
-    else if isJust dataVersions.v0_dataOnHash then
-        -- Migrating from old URL format
-        Maybe.map (replaceComposition initialImage) dataVersions.v0_dataOnHash
-
-    else
-        Nothing
+    { model | editingIndex = LCore.length (LDraw.getComposition model.image) - 1 }
 
 
 
@@ -393,16 +306,6 @@ main =
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
-
-
-isJust : Maybe a -> Bool
-isJust maybe =
-    case maybe of
-        Just _ ->
-            True
-
-        Nothing ->
-            False
 
 
 
@@ -446,27 +349,19 @@ decodeAndCombineUrlAndStorage localStorage route =
     let
         resultImageAndGalleryFromStorage =
             Decode.decodeValue imageAndGalleryDecoder localStorage
-
-        maybeImageFromUrl =
-            case route of
-                Editor dataVersions ->
-                    urlDataVersionsToImage dataVersions
-
-                _ ->
-                    Nothing
     in
-    case ( maybeImageFromUrl, resultImageAndGalleryFromStorage ) of
-        ( Just urlImage, Ok storedImageAndGallery ) ->
+    case ( route, resultImageAndGalleryFromStorage ) of
+        ( Editor urlImage, Ok storedImageAndGallery ) ->
             { image = urlImage, gallery = storedImageAndGallery.gallery }
 
-        ( Just urlImage, Err _ ) ->
+        ( Editor urlImage, Err _ ) ->
             { image = urlImage, gallery = [] }
 
-        ( Nothing, Ok storedImageAndGallery ) ->
+        ( _, Ok storedImageAndGallery ) ->
             storedImageAndGallery
 
-        ( Nothing, Err _ ) ->
-            { image = initialImage, gallery = [] }
+        ( _, Err _ ) ->
+            { image = LDraw.initialImage, gallery = [] }
 
 
 
@@ -516,7 +411,7 @@ galleryView model =
     }
 
 
-imageBox : Int -> ImageEssentials -> Html Msg
+imageBox : Int -> Image Msg -> Html Msg
 imageBox index image =
     div
         [ css
@@ -527,10 +422,7 @@ imageBox index image =
             , position relative
             ]
         ]
-        [ LDraw.image image.composition
-            |> withTurnAngle image.turnAngle
-            |> withStrokeColor image.strokeColor
-            |> withBackgroundColor image.backgroundColor
+        [ image
             |> LDraw.withOnClick (DuplicateToEdit index)
             |> drawImage
         , Icons.trash
@@ -568,6 +460,16 @@ editorView model =
 
 controlPanel : Model -> Html Msg
 controlPanel model =
+    let
+        backgroundColor_ =
+            LDraw.getBackgroundColor model.image
+
+        strokeColor_ =
+            LDraw.getStrokeColor model.image
+
+        turnAngle_ =
+            LDraw.getTurnAngle model.image
+    in
     fixedDiv
         [ css
             [ height (pct 100)
@@ -577,14 +479,14 @@ controlPanel model =
             , borderLeft3 (px 1) solid (toCssColor Colors.black)
             , overflowY scroll
             , overflowX hidden
-            , backgroundColor (toCssColor model.backgroundColor)
+            , backgroundColor (toCssColor backgroundColor_)
             , color (toCssColor offWhite)
             ]
         ]
         [ infoAndBasicControls model
-        , colorControls model.backgroundColor model.strokeColor
+        , colorControls backgroundColor_ strokeColor_
         , videoControls model.playingVideo
-        , turnAngleControl model.turnAngle
+        , turnAngleControl turnAngle_
         , curatedSettings
         , controlsList
         ]
@@ -594,10 +496,10 @@ infoAndBasicControls : Model -> Html Msg
 infoAndBasicControls model =
     let
         stateLengthString =
-            Debug.toString (LCore.stepsLength model.composition)
+            Debug.toString (LCore.stepsLength (LDraw.getComposition model.image))
 
         editingTransformBlueprint =
-            case LCore.getBlockAtIndex model.editingIndex model.composition of
+            case LCore.getBlockAtIndex model.editingIndex (LDraw.getComposition model.image) of
                 Nothing ->
                     ""
 
@@ -731,20 +633,16 @@ transformsList : Model -> Html Msg
 transformsList model =
     let
         transforms =
-            model.composition
-                |> LCore.toList
-                |> List.indexedMap
-                    (transformBox
-                        model.editingIndex
-                        model.turnAngle
-                        model.strokeColor
-                        model.backgroundColor
-                    )
+            LDraw.splitIntoBlockImages model.image
+                |> List.indexedMap (transformBox model.editingIndex)
                 |> List.reverse
+
+        backgroundColor_ =
+            LDraw.getBackgroundColor model.image
     in
     fixedDiv
         [ css
-            [ backgroundColor (toCssColor model.backgroundColor)
+            [ backgroundColor (toCssColor backgroundColor_)
             , height (pct 100)
             , width (pct layout.transformsList)
             , overflow scroll
@@ -763,8 +661,8 @@ transformsList model =
         )
 
 
-transformBox : Int -> Float -> Color -> Color -> Int -> Block -> Html Msg
-transformBox editingIndex turnAngle strokeColor backgroundColor index transform =
+transformBox : Int -> Int -> Image Msg -> Html Msg
+transformBox editingIndex index image =
     div
         [ css
             [ height (px 200)
@@ -772,11 +670,7 @@ transformBox editingIndex turnAngle strokeColor backgroundColor index transform 
             , borderBottom3 (px 1) solid (toCssColor Colors.black)
             ]
         ]
-        [ image (LCore.fromList [ transform ])
-            |> withTurnAngle turnAngle
-            |> withStrokeColor strokeColor
-            |> withBackgroundColor backgroundColor
-            |> drawImage
+        [ drawImage image
         , Icons.trash
             |> withColor Colors.red_
             |> withOnClick (DropFromState index)
@@ -790,9 +684,13 @@ transformBox editingIndex turnAngle strokeColor backgroundColor index transform 
 
 mainImg : Model -> Html Msg
 mainImg model =
+    let
+        backgroundColor_ =
+            LDraw.getBackgroundColor model.image
+    in
     fixedDiv
         [ css
-            [ backgroundColor (toCssColor model.backgroundColor)
+            [ backgroundColor (toCssColor backgroundColor_)
             , position fixed
             , height (pct 100)
             , width (pct layout.mainImg)
@@ -803,12 +701,7 @@ mainImg model =
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ image model.composition
-            |> withTurnAngle model.turnAngle
-            |> withStrokeColor model.strokeColor
-            |> withBackgroundColor model.backgroundColor
-            |> withScale model.scale
-            |> withTranslation model.translate
+        [ model.image
             |> withId "MainSVG"
             |> drawImage
         ]
@@ -847,7 +740,7 @@ update msg model =
             ( newModel
             , Cmd.batch
                 [ saveStateToLocalStorage (encodeModel newModel)
-                , replaceUrl newModel.navKey (modelToImage newModel)
+                , replaceUrl newModel.navKey newModel.image
                 ]
             )
     in
@@ -868,9 +761,15 @@ update msg model =
             ( model, downloadSvg () )
 
         ResetDrawing ->
+            let
+                newComposition =
+                    LDraw.getComposition model.image
+                        |> LCore.dropAllBlocksButBase
+                        |> LCore.appendBlock [ D ]
+            in
             updateAndSaveImageAndGallery
                 { model
-                    | composition = model.composition |> LCore.dropAllBlocksButBase |> LCore.appendBlock [ D ]
+                    | image = withComposition newComposition model.image
                     , editingIndex = 1
                 }
 
@@ -894,7 +793,7 @@ update msg model =
         DropFromState index ->
             updateAndSaveImageAndGallery <|
                 { model
-                    | composition = LCore.dropBlockAtIndex index model.composition
+                    | image = LDraw.mapComposition (LCore.dropBlockAtIndex index) model.image
                     , editingIndex =
                         if model.editingIndex >= index then
                             model.editingIndex - 1
@@ -904,15 +803,15 @@ update msg model =
                 }
 
         SetBackgroundColor color ->
-            updateAndSaveImageAndGallery <| { model | backgroundColor = color }
+            updateAndSaveImageAndGallery <| { model | image = withBackgroundColor color model.image }
 
         SetStrokeColor color ->
-            updateAndSaveImageAndGallery <| { model | strokeColor = color }
+            updateAndSaveImageAndGallery <| { model | image = withStrokeColor color model.image }
 
         SetTurnAngle turn ->
             let
                 newModel =
-                    { model | turnAngle = turn }
+                    { model | image = withTurnAngle turn model.image }
             in
             if model.playingVideo then
                 -- Don't update URL and Local Storage on each video step
@@ -927,12 +826,18 @@ update msg model =
         PanEnded ->
             updateAndSaveImageAndGallery <| { model | panStarted = False }
 
-        MouseMoved pos ->
+        MouseMoved (( px, py ) as pos) ->
+            let
+                ( lx, ly ) =
+                    model.lastPos
+
+                updatePosition oldPos =
+                    { x = px - lx + oldPos.x
+                    , y = py - ly + oldPos.y
+                    }
+            in
             ( { model
-                | translate =
-                    pos
-                        |> pairExec (-) model.lastPos
-                        |> pairExec (+) model.translate
+                | image = LDraw.mapTranslate updatePosition model.image
                 , lastPos = pos
               }
             , Cmd.none
@@ -942,7 +847,7 @@ update msg model =
             ( { model | focus = focus }, Cmd.none )
 
         BasePolygonChanged polygon ->
-            updateAndSaveImageAndGallery <| updateCompositionBaseAndAngle model polygon
+            updateAndSaveImageAndGallery <| { model | image = LDraw.updateDefiningPolygon polygon model.image }
 
         GotImgDivPosition result ->
             case result of
@@ -980,7 +885,7 @@ update msg model =
             ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )
 
         SavedToGallery ->
-            updateAndSaveImageAndGallery <| { model | gallery = modelToImage model :: model.gallery }
+            updateAndSaveImageAndGallery <| { model | gallery = model.image :: model.gallery }
 
         ViewingPage page ->
             ( { model | viewingPage = page }, Cmd.none )
@@ -990,12 +895,12 @@ update msg model =
 
         DuplicateToEdit index ->
             let
-                image =
-                    ListExtra.getAt index model.gallery
-                        |> Maybe.withDefault (modelToImage model)
-
                 newModel =
-                    modelWithImage image model
+                    { model
+                        | image =
+                            ListExtra.getAt index model.gallery
+                                |> Maybe.withDefault model.image
+                    }
             in
             updateAndSaveImageAndGallery <| { newModel | viewingPage = EditorPage }
 
@@ -1004,7 +909,7 @@ processKey : Model -> String -> Model
 processKey model keyPressed =
     let
         appendStep step =
-            { model | composition = LCore.appendStepAtIndex step model.editingIndex model.composition }
+            { model | image = LDraw.appendStepAtIndex step model.editingIndex model.image }
     in
     case keyPressed of
         "ArrowLeft" ->
@@ -1020,10 +925,19 @@ processKey model keyPressed =
             appendStep S
 
         " " ->
-            { model | scale = 1, translate = ( 0, 0 ) }
+            { model
+                | image =
+                    model.image
+                        |> withScale 1
+                        |> withTranslate { x = 0, y = 0 }
+            }
 
         "Backspace" ->
-            { model | composition = LCore.dropLastStepAtIndex model.editingIndex model.composition }
+            { model
+                | image =
+                    model.image
+                        |> withComposition (LCore.dropLastStepAtIndex model.editingIndex (LDraw.getComposition model.image))
+            }
 
         "i" ->
             iterate model model.editingIndex
@@ -1037,24 +951,18 @@ processKey model keyPressed =
 
 iterate : Model -> Int -> Model
 iterate model editingIndex =
-    let
-        updatedComposition =
-            LCore.duplicateBlockAndAppendAsLast editingIndex model.composition
-    in
-    { model
-        | composition = updatedComposition
-        , editingIndex = LCore.length updatedComposition - 1
-    }
+    { model | image = LDraw.mapComposition (LCore.duplicateBlockAndAppendAsLast editingIndex) model.image }
+        |> modelWithEditIndexLast
 
 
 deiterate : Model -> Model
 deiterate model =
     let
         updatedComposition =
-            LCore.dropLastBlock model.composition
+            LCore.dropLastBlock (LDraw.getComposition model.image)
     in
     { model
-        | composition = updatedComposition
+        | image = withComposition updatedComposition model.image
         , editingIndex = min model.editingIndex (LCore.length updatedComposition - 1)
     }
 
@@ -1062,65 +970,35 @@ deiterate model =
 applyZoom : Float -> Position -> Model -> Model
 applyZoom deltaY mousePos model =
     let
+        modelScale =
+            LDraw.getScale model.image
+
         scale =
-            max (model.scale - 0.01 * deltaY) 0.1
+            max (modelScale - 0.01 * deltaY) 0.1
 
         vecMouseToImgDivCenter =
             model.imgDivCenter
                 |> pairExec (-) mousePos
-    in
-    { model
-        | scale = scale
-        , translate =
+
+        modelTranslate =
+            model.image
+                |> LDraw.getTranslate
+
+        modelTranslateAsPair =
+            ( modelTranslate.x, modelTranslate.y )
+
+        translate =
             vecMouseToImgDivCenter
-                |> pairExec (+) model.translate
-                |> pairMap (\value -> value * scale / model.scale)
+                |> pairExec (+) modelTranslateAsPair
+                |> pairMap (\value -> value * scale / modelScale)
                 |> pairExec (-) vecMouseToImgDivCenter
-    }
 
-
-updateCompositionBaseAndAngle : Model -> Polygon -> Model
-updateCompositionBaseAndAngle model polygon =
-    { model
-        | composition = LCore.changeBase (polygonBlock polygon) model.composition
-        , turnAngle = polygonAngle polygon
-    }
-
-
-
--- POLYGON
-
-
-polygonBlock : Polygon -> Block
-polygonBlock polygon =
-    case polygon of
-        Triangle ->
-            [ D, L, D, L, D ]
-
-        Square ->
-            [ D, L, D, L, D, L, D ]
-
-        Pentagon ->
-            [ D, L, D, L, D, L, D, L, D ]
-
-        Hexagon ->
-            [ D, L, D, L, D, L, D, L, D, L, D ]
-
-
-polygonAngle : Polygon -> Float
-polygonAngle polygon =
-    case polygon of
-        Triangle ->
-            120
-
-        Square ->
-            90
-
-        Pentagon ->
-            72
-
-        Hexagon ->
-            60
+        translateAsRecord =
+            { x = Tuple.first translate
+            , y = Tuple.second translate
+            }
+    in
+    { model | image = model.image |> withScale scale |> withTranslate translateAsRecord }
 
 
 
@@ -1158,7 +1036,7 @@ subscriptions model =
 
         playingVideoSub =
             if model.playingVideo then
-                Time.every 50 (always (SetTurnAngle (model.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
+                Time.every 50 (always (SetTurnAngle (LDraw.getTurnAngle model.image + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
 
             else
                 Sub.none
@@ -1191,48 +1069,10 @@ galleryParser =
 
 editorParser : Parser (Route -> a) a
 editorParser =
-    Parser.map Editor
-        (Parser.map
-            UrlDataVersions
-            -- Fragment is parsed for backward-compatibility only
-            (Parser.query queryToImage </> fragmentToCompositionParser)
-        )
+    Parser.map Editor LDraw.parserWithDefault
 
 
-{-| Current version of Url building and parsing
--}
-queryToImage : Query.Parser (Maybe ImageEssentials)
-queryToImage =
-    let
-        queryMapFromDecoder decoder =
-            Query.map (Maybe.andThen (Result.toMaybe << Decode.decodeString decoder))
-    in
-    Query.map6 (ListExtra.maybeMap6 ImageEssentials)
-        (Query.string "composition" |> queryMapFromDecoder LCore.compositionDecoder)
-        (Query.string "angle" |> Query.map (Maybe.andThen String.toFloat))
-        (Query.string "bg" |> queryMapFromDecoder Colors.decoder)
-        (Query.string "stroke" |> queryMapFromDecoder Colors.decoder)
-        (Query.map2 (Maybe.map2 Tuple.pair)
-            (Query.string "x" |> Query.map (Maybe.andThen String.toFloat))
-            (Query.string "y" |> Query.map (Maybe.andThen String.toFloat))
-        )
-        (Query.string "scale" |> Query.map (Maybe.andThen String.toFloat))
-
-
-imageToUrlString : ImageEssentials -> String
-imageToUrlString image =
-    Url.Builder.absolute []
-        [ Url.Builder.string "composition" (image.composition |> LCore.encodeComposition |> Encode.encode 0)
-        , Url.Builder.string "angle" (String.fromFloat image.turnAngle)
-        , Url.Builder.string "bg" (image.backgroundColor |> Colors.encode |> Encode.encode 0)
-        , Url.Builder.string "stroke" (image.strokeColor |> Colors.encode |> Encode.encode 0)
-        , Url.Builder.string "x" (Tuple.first image.translate |> Encode.float |> Encode.encode 0)
-        , Url.Builder.string "y" (Tuple.second image.translate |> Encode.float |> Encode.encode 0)
-        , Url.Builder.string "scale" (image.scale |> Encode.float |> Encode.encode 0)
-        ]
-
-
-replaceUrl : Nav.Key -> ImageEssentials -> Cmd msg
+replaceUrl : Nav.Key -> Image Msg -> Cmd msg
 replaceUrl key image =
     {--
             Note about Nav.replaceUrl: Browsers may rate-limit this function by throwing an
@@ -1242,18 +1082,7 @@ replaceUrl key image =
 
             https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
         --}
-    Nav.replaceUrl key (imageToUrlString image)
-
-
-{-| Backwards compatibility: Old version of Url building and parsing.
--}
-fragmentToCompositionParser : Parser (Maybe Composition -> a) a
-fragmentToCompositionParser =
-    Parser.fragment <|
-        Maybe.andThen
-            (Url.percentDecode
-                >> Maybe.andThen (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe)
-            )
+    Nav.replaceUrl key (LDraw.toUrlString image)
 
 
 
@@ -1263,43 +1092,16 @@ fragmentToCompositionParser =
 encodeModel : Model -> Encode.Value
 encodeModel model =
     Encode.object
-        [ ( "image", encodeImage (modelToImage model) )
-        , ( "gallery", Encode.list encodeImage model.gallery )
+        [ ( "image", LDraw.encode model.image )
+        , ( "gallery", Encode.list LDraw.encode model.gallery )
         ]
 
 
 imageAndGalleryDecoder : Decoder ImageAndGallery
 imageAndGalleryDecoder =
     Decode.map2 ImageAndGallery
-        (Decode.field "image" imageDecoder)
-        (Decode.field "gallery" (Decode.list imageDecoder))
-
-
-imageDecoder : Decoder ImageEssentials
-imageDecoder =
-    Decode.map6 ImageEssentials
-        (Decode.field "composition" LCore.compositionDecoder)
-        (Decode.field "turnAngle" Decode.float)
-        (Decode.field "bgColor" Colors.decoder)
-        (Decode.field "strokeColor" Colors.decoder)
-        (Decode.map2 Tuple.pair
-            (Decode.field "translateX" Decode.float)
-            (Decode.field "translateY" Decode.float)
-        )
-        (Decode.field "scale" Decode.float)
-
-
-encodeImage : ImageEssentials -> Encode.Value
-encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
-    Encode.object
-        [ ( "composition", LCore.encodeComposition composition )
-        , ( "turnAngle", Encode.float turnAngle )
-        , ( "bgColor", Colors.encode backgroundColor )
-        , ( "strokeColor", Colors.encode strokeColor )
-        , ( "translateX", Encode.float (Tuple.first translate) )
-        , ( "translateY", Encode.float (Tuple.second translate) )
-        , ( "scale", Encode.float scale )
-        ]
+        (Decode.field "image" LDraw.decoder)
+        (Decode.field "gallery" (Decode.list LDraw.decoder))
 
 
 

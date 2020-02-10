@@ -1,37 +1,68 @@
 module LSystem.Draw exposing
-    ( drawImage
-    , image
+    ( Image
+    , Polygon(..)
+    , appendStepAtIndex
+    , decoder
+    , drawImage
+    , encode
+    , getBackgroundColor
+    , getComposition
+    , getScale
+    , getStrokeColor
+    , getTranslate
+    , getTurnAngle
+    , initialImage
+    , mapComposition
+    , mapTranslate
+    , parser
+    , parserWithDefault
+    , splitIntoBlockImages
+    , toUrlString
+    , updateDefiningPolygon
     , withBackgroundColor
+    , withComposition
     , withId
-    , withScale
     , withOnClick
+    , withScale
     , withStrokeColor
-    , withTranslation
+    , withTranslate
     , withTurnAngle
     )
 
 import Colors exposing (Color)
-import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
+import LSystem.Core as LCore exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
 import Svg.Styled exposing (Svg, circle, line, polyline, svg)
+import Svg.Styled.Attributes exposing (cx, cy, fill, id, points, r, stroke, strokeDasharray, style, viewBox, x1, x2, y1, y2)
 import Svg.Styled.Events exposing (onClick)
-import Svg.Styled.Attributes
-    exposing
-        ( cx
-        , cy
-        , fill
-        , id
-        , points
-        , r
-        , stroke
-        , strokeDasharray
-        , style
-        , viewBox
-        , x1
-        , x2
-        , y1
-        , y2
-        )
+import Url
+import Url.Builder
+import Url.Parser as Parser exposing ((</>), Parser)
+import Url.Parser.Query as Query
+
+
+
+-- IMAGE (MAIN MODULE TYPE)
+
+
+type alias ImageEssentials =
+    { composition : Composition
+    , turnAngle : Float
+    , backgroundColor : Color
+    , strokeColor : Color
+    , translate : Position
+    , scale : Float
+    }
+
+
+type Image msg
+    = Image ImageEssentials (Maybe Id) (Maybe msg)
+
+
+
+-- TYPES
 
 
 type alias Position =
@@ -59,57 +90,155 @@ type alias Id =
     String
 
 
-type Translation
-    = Translation Float Float
+
+-- URL
+-- VERSIONS
+
+
+type alias UrlDataVersions =
+    { v1_dataOnQueryParams : Maybe ImageEssentials
+    , v0_dataOnHash : Maybe Composition
+    }
 
 
 
---                      StrokeColor BackgroundColor
---                              |     |
+-- INIT
 
 
-type Image msg
-    = Image Composition Angle Color Color Scale Translation (Maybe Id) (Maybe msg)
+initialImage : Image msg
+initialImage =
+    Image initialImageEssentials Nothing Nothing
 
 
-image : Composition -> Image msg
-image composition =
-    Image composition 90 Colors.offWhite Colors.gray 1 (Translation 0 0) Nothing Nothing
+initialImageEssentials : ImageEssentials
+initialImageEssentials =
+    { composition = LCore.fromList [ [ D ] ]
+    , turnAngle = 90
+    , backgroundColor = Colors.darkGray
+    , strokeColor = Colors.defaultGreen
+    , translate = { x = 0, y = 0 }
+    , scale = 1
+    }
+
+
+
+-- GET PATTERN
+
+
+getBackgroundColor : Image msg -> Color
+getBackgroundColor (Image { backgroundColor } _ _) =
+    backgroundColor
+
+
+getStrokeColor : Image msg -> Color
+getStrokeColor (Image { strokeColor } _ _) =
+    strokeColor
+
+
+getTurnAngle : Image msg -> Float
+getTurnAngle (Image { turnAngle } _ _) =
+    turnAngle
+
+
+getComposition : Image msg -> Composition
+getComposition (Image { composition } _ _) =
+    composition
+
+
+getTranslate : Image msg -> Position
+getTranslate (Image { translate } _ _) =
+    translate
+
+
+getScale : Image msg -> Scale
+getScale (Image { scale } _ _) =
+    scale
+
+
+
+-- WITH* PATTERN
+
+
+withComposition : Composition -> Image msg -> Image msg
+withComposition composition (Image image id msg) =
+    Image { image | composition = composition } id msg
 
 
 withTurnAngle : Angle -> Image msg -> Image msg
-withTurnAngle angle (Image t _ sc bc s xy id mm) =
-    Image t angle sc bc s xy id mm
+withTurnAngle angle (Image image id msg) =
+    Image { image | turnAngle = angle } id msg
 
 
 withStrokeColor : Color -> Image msg -> Image msg
-withStrokeColor color (Image t a _ bc s xy id mm) =
-    Image t a color bc s xy id mm
+withStrokeColor color (Image image id msg) =
+    Image { image | strokeColor = color } id msg
 
 
 withBackgroundColor : Color -> Image msg -> Image msg
-withBackgroundColor color (Image t a sc _ s xy id mm) =
-    Image t a sc color s xy id mm
+withBackgroundColor color (Image image id msg) =
+    Image { image | backgroundColor = color } id msg
 
 
 withScale : Scale -> Image msg -> Image msg
-withScale scale (Image t a sc bc _ xy id mm) =
-    Image t a sc bc scale xy id mm
+withScale scale (Image image id msg) =
+    Image { image | scale = scale } id msg
 
 
-withTranslation : ( Float, Float ) -> Image msg -> Image msg
-withTranslation ( x, y ) (Image t a sc bc s _ id mm) =
-    Image t a sc bc s (Translation x y) id mm
+withTranslate : Position -> Image msg -> Image msg
+withTranslate translate (Image image id msg) =
+    Image { image | translate = translate } id msg
 
 
 withId : Id -> Image msg -> Image msg
-withId id (Image t a sc bc s xy _ mm) =
-    Image t a sc bc s xy (Just id) mm
+withId id (Image image _ msg) =
+    Image image (Just id) msg
 
 
 withOnClick : msg -> Image msg -> Image msg
-withOnClick msg (Image t a sc bc s xy id _) =
-    Image t a sc bc s xy id (Just msg)
+withOnClick msg (Image image id _) =
+    Image image id (Just msg)
+
+
+withImageEssentials : ImageEssentials -> Image msg -> Image msg
+withImageEssentials imageEssentials (Image _ id msg) =
+    Image imageEssentials id msg
+
+
+
+-- MAP
+
+
+mapComposition : (Composition -> Composition) -> Image msg -> Image msg
+mapComposition fn ((Image { composition } _ _) as image) =
+    withComposition (fn composition) image
+
+
+mapTranslate : (Position -> Position) -> Image msg -> Image msg
+mapTranslate fn ((Image { translate } _ _) as image) =
+    withTranslate (fn translate) image
+
+
+
+-- CONVERSION
+
+
+splitIntoBlockImages : Image msg -> List (Image msg)
+splitIntoBlockImages ((Image { composition } _ _) as image) =
+    LCore.toList composition
+        |> List.map
+            (\block ->
+                withComposition (LCore.fromList [ block ]) image
+            )
+
+
+appendStepAtIndex : Step -> Int -> Image msg -> Image msg
+appendStepAtIndex step editingIndex ((Image { composition } _ _) as image) =
+    image
+        |> withComposition (LCore.appendStepAtIndex step editingIndex composition)
+
+
+
+-- DRAWING
 
 
 {-| About vecTranslateToImgCenter:
@@ -123,10 +252,10 @@ but is inverted for y-axis.
 
 -}
 drawImage : Image msg -> Svg msg
-drawImage (Image composition angle color bgColor scale (Translation x y) maybeId maybeMsg) =
+drawImage (Image { composition, turnAngle, strokeColor, backgroundColor, scale, translate } maybeId maybeMsg) =
     let
         { topRight, bottomLeft } =
-            imageBoundaries angle composition
+            imageBoundaries turnAngle composition
 
         vecTranslateOriginToDrawingCenter =
             topRight
@@ -158,7 +287,7 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
             vecTranslateOriginToDrawingCenter |> pairExec (+) vecTranslateOriginToViewportCenter
 
         drawing =
-            transformToSvgPath (digestComposition composition) 0 0 angle
+            transformToSvgPath (digestComposition composition) 0 0 turnAngle
 
         maybeIdAttr =
             case maybeId of
@@ -189,7 +318,7 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
                 ++ "height: 100%; "
                 ++ "width: 100%; "
                 ++ "background-color: "
-                ++ Colors.toString bgColor
+                ++ Colors.toString backgroundColor
                 ++ "; "
                 ++ "transform: "
                 -- As stated here (https://stackoverflow.com/a/10765771),
@@ -198,9 +327,9 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
                 -- to prevent scaled translation (moving 2px with mouse and
                 -- seeing a 200px move in the image).
                 ++ ("translate("
-                        ++ String.fromFloat x
+                        ++ String.fromFloat translate.x
                         ++ "px, "
-                        ++ String.fromFloat y
+                        ++ String.fromFloat translate.y
                         ++ "px)"
                    )
                 ++ ("scale(" ++ String.fromFloat scale ++ ")")
@@ -212,11 +341,198 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
         , nextLine drawing
         , polyline
             [ points <| .path <| drawing
-            , stroke (Colors.toString color)
+            , stroke (Colors.toString strokeColor)
             , fill "none"
             ]
             []
         ]
+
+
+
+-- ENCODE AND DECODER
+
+
+keyFor :
+    { composition : String
+    , turnAngle : String
+    , backgroundColor : String
+    , strokeColor : String
+    , translateX : String
+    , translateY : String
+    , scale : String
+    }
+keyFor =
+    { composition = "composition"
+    , turnAngle = "turnAngle"
+    , backgroundColor = "backgroundColor"
+    , strokeColor = "strokeColor"
+    , translateX = "translateX"
+    , translateY = "translateY"
+    , scale = "scale"
+    }
+
+
+decoder : Decoder (Image msg)
+decoder =
+    Decode.map (\imageEssentials -> Image imageEssentials Nothing Nothing) <|
+        Decode.map6 ImageEssentials
+            (Decode.field keyFor.composition LCore.compositionDecoder)
+            (Decode.field keyFor.turnAngle Decode.float)
+            (Decode.field keyFor.backgroundColor Colors.decoder)
+            (Decode.field keyFor.strokeColor Colors.decoder)
+            (Decode.map2 Position
+                (Decode.field keyFor.translateX Decode.float)
+                (Decode.field keyFor.translateY Decode.float)
+            )
+            (Decode.field keyFor.scale Decode.float)
+
+
+encode : Image msg -> Encode.Value
+encode (Image { composition, turnAngle, backgroundColor, strokeColor, translate, scale } _ _) =
+    Encode.object
+        [ ( keyFor.composition, LCore.encodeComposition composition )
+        , ( keyFor.turnAngle, Encode.float turnAngle )
+        , ( keyFor.backgroundColor, Colors.encode backgroundColor )
+        , ( keyFor.strokeColor, Colors.encode strokeColor )
+        , ( keyFor.translateX, Encode.float translate.x )
+        , ( keyFor.translateY, Encode.float translate.y )
+        , ( keyFor.scale, Encode.float scale )
+        ]
+
+
+
+-- URL PARSING
+
+
+parserWithDefault : Parser (Image msg -> a) a
+parserWithDefault =
+    Parser.map (Maybe.withDefault initialImage) parser
+
+
+parser : Parser (Maybe (Image msg) -> a) a
+parser =
+    Parser.map urlDataVersionsToImage <|
+        Parser.map
+            UrlDataVersions
+            -- Fragment is parsed for backward-compatibility only
+            (Parser.query queryParser </> fragmentToCompositionParser)
+
+
+{-| Current version of Url building and parsing
+-}
+queryParser : Query.Parser (Maybe ImageEssentials)
+queryParser =
+    let
+        queryMapFromDecoder decoder_ =
+            Query.map (Maybe.andThen (Result.toMaybe << Decode.decodeString decoder_))
+    in
+    Query.map6 (ListExtra.maybeMap6 ImageEssentials)
+        (Query.string keyFor.composition |> queryMapFromDecoder LCore.compositionDecoder)
+        (Query.string keyFor.turnAngle |> Query.map (Maybe.andThen String.toFloat))
+        (Query.string keyFor.backgroundColor |> queryMapFromDecoder Colors.decoder)
+        (Query.string keyFor.strokeColor |> queryMapFromDecoder Colors.decoder)
+        (Query.map2 (Maybe.map2 Position)
+            (Query.string keyFor.translateX |> Query.map (Maybe.andThen String.toFloat))
+            (Query.string keyFor.translateY |> Query.map (Maybe.andThen String.toFloat))
+        )
+        (Query.string keyFor.scale |> Query.map (Maybe.andThen String.toFloat))
+
+
+{-| Backwards compatibility: Old version of Url building and parsing.
+-}
+fragmentToCompositionParser : Parser (Maybe Composition -> a) a
+fragmentToCompositionParser =
+    Parser.fragment <|
+        Maybe.andThen
+            (Url.percentDecode
+                >> Maybe.andThen (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe)
+            )
+
+
+toUrlString : Image msg -> String
+toUrlString (Image image _ _) =
+    Url.Builder.absolute []
+        [ Url.Builder.string keyFor.composition (image.composition |> LCore.encodeComposition |> Encode.encode 0)
+        , Url.Builder.string keyFor.turnAngle (String.fromFloat image.turnAngle)
+        , Url.Builder.string keyFor.backgroundColor (image.backgroundColor |> Colors.encode |> Encode.encode 0)
+        , Url.Builder.string keyFor.strokeColor (image.strokeColor |> Colors.encode |> Encode.encode 0)
+        , Url.Builder.string keyFor.translateX (image.translate.x |> Encode.float |> Encode.encode 0)
+        , Url.Builder.string keyFor.translateY (image.translate.y |> Encode.float |> Encode.encode 0)
+        , Url.Builder.string keyFor.scale (image.scale |> Encode.float |> Encode.encode 0)
+        ]
+
+
+isJust : Maybe a -> Bool
+isJust maybe =
+    case maybe of
+        Just _ ->
+            True
+
+        Nothing ->
+            False
+
+
+urlDataVersionsToImage : UrlDataVersions -> Maybe (Image msg)
+urlDataVersionsToImage dataVersions =
+    if isJust dataVersions.v1_dataOnQueryParams then
+        Maybe.map (\imageEssentials -> withImageEssentials imageEssentials initialImage) dataVersions.v1_dataOnQueryParams
+
+    else if isJust dataVersions.v0_dataOnHash then
+        -- Migrating from old URL format
+        Maybe.map (\composition -> withComposition composition initialImage) dataVersions.v0_dataOnHash
+
+    else
+        Nothing
+
+
+
+-- POLYGON
+
+
+type Polygon
+    = Triangle
+    | Square
+    | Pentagon
+    | Hexagon
+
+
+updateDefiningPolygon : Polygon -> Image msg -> Image msg
+updateDefiningPolygon polygon ((Image { composition } _ _) as image) =
+    image
+        |> withComposition (LCore.changeBase (polygonBlock polygon) composition)
+        |> withTurnAngle (polygonAngle polygon)
+
+
+polygonBlock : Polygon -> Block
+polygonBlock polygon =
+    case polygon of
+        Triangle ->
+            [ D, L, D, L, D ]
+
+        Square ->
+            [ D, L, D, L, D, L, D ]
+
+        Pentagon ->
+            [ D, L, D, L, D, L, D, L, D ]
+
+        Hexagon ->
+            [ D, L, D, L, D, L, D, L, D, L, D ]
+
+
+polygonAngle : Polygon -> Float
+polygonAngle polygon =
+    case polygon of
+        Triangle ->
+            120
+
+        Square ->
+            90
+
+        Pentagon ->
+            72
+
+        Hexagon ->
+            60
 
 
 
