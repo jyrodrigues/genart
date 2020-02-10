@@ -190,7 +190,7 @@ type Page
 
 
 type Route
-    = Editor UrlDataVersions
+    = Editor (Maybe ImageEssentials)
     | Gallery
     | NotFound
 
@@ -415,8 +415,11 @@ init localStorage url navKey =
         route =
             parseUrl url
 
+        decodedLocalStorage =
+            Decode.decodeValue imageAndGalleryDecoder localStorage
+
         imageAndGallery =
-            decodeAndCombineUrlAndStorage localStorage route
+            combineUrlAndStorage decodedLocalStorage route
 
         model =
             initialModelFromImageAndGallery imageAndGallery url navKey
@@ -441,31 +444,19 @@ init localStorage url navKey =
     )
 
 
-decodeAndCombineUrlAndStorage : Flags -> Route -> ImageAndGallery
-decodeAndCombineUrlAndStorage localStorage route =
-    let
-        resultImageAndGalleryFromStorage =
-            Decode.decodeValue imageAndGalleryDecoder localStorage
-
-        maybeImageFromUrl =
-            case route of
-                Editor dataVersions ->
-                    urlDataVersionsToImage dataVersions
-
-                _ ->
-                    Nothing
-    in
-    case ( maybeImageFromUrl, resultImageAndGalleryFromStorage ) of
-        ( Just urlImage, Ok storedImageAndGallery ) ->
+combineUrlAndStorage : Result Decode.Error ImageAndGallery -> Route -> ImageAndGallery
+combineUrlAndStorage resultImageAndGalleryFromStorage route =
+    case ( route, resultImageAndGalleryFromStorage ) of
+        ( Editor (Just urlImage), Ok storedImageAndGallery ) ->
             { image = urlImage, gallery = storedImageAndGallery.gallery }
 
-        ( Just urlImage, Err _ ) ->
+        ( Editor (Just urlImage), Err _ ) ->
             { image = urlImage, gallery = [] }
 
-        ( Nothing, Ok storedImageAndGallery ) ->
+        ( _, Ok storedImageAndGallery ) ->
             storedImageAndGallery
 
-        ( Nothing, Err _ ) ->
+        ( _, Err _ ) ->
             { image = initialImage, gallery = [] }
 
 
@@ -1191,44 +1182,44 @@ galleryParser =
 
 editorParser : Parser (Route -> a) a
 editorParser =
-    Parser.map Editor
-        (Parser.map
-            UrlDataVersions
-            -- Fragment is parsed for backward-compatibility only
-            (Parser.query queryToImage </> fragmentToCompositionParser)
-        )
+    Parser.map Editor <|
+        Parser.map urlDataVersionsToImage <|
+            Parser.map
+                UrlDataVersions
+                -- Fragment is parsed for backward-compatibility only
+                (Parser.query queryToImageParser </> fragmentToCompositionParser)
 
 
 {-| Current version of Url building and parsing
 -}
-queryToImage : Query.Parser (Maybe ImageEssentials)
-queryToImage =
+queryToImageParser : Query.Parser (Maybe ImageEssentials)
+queryToImageParser =
     let
         queryMapFromDecoder decoder =
             Query.map (Maybe.andThen (Result.toMaybe << Decode.decodeString decoder))
     in
     Query.map6 (ListExtra.maybeMap6 ImageEssentials)
-        (Query.string "composition" |> queryMapFromDecoder LCore.compositionDecoder)
-        (Query.string "angle" |> Query.map (Maybe.andThen String.toFloat))
-        (Query.string "bg" |> queryMapFromDecoder Colors.decoder)
-        (Query.string "stroke" |> queryMapFromDecoder Colors.decoder)
+        (Query.string keyFor.composition |> queryMapFromDecoder LCore.compositionDecoder)
+        (Query.string keyFor.turnAngle |> Query.map (Maybe.andThen String.toFloat))
+        (Query.string keyFor.backgroundColor |> queryMapFromDecoder Colors.decoder)
+        (Query.string keyFor.strokeColor |> queryMapFromDecoder Colors.decoder)
         (Query.map2 (Maybe.map2 Tuple.pair)
-            (Query.string "x" |> Query.map (Maybe.andThen String.toFloat))
-            (Query.string "y" |> Query.map (Maybe.andThen String.toFloat))
+            (Query.string keyFor.translateX |> Query.map (Maybe.andThen String.toFloat))
+            (Query.string keyFor.translateY |> Query.map (Maybe.andThen String.toFloat))
         )
-        (Query.string "scale" |> Query.map (Maybe.andThen String.toFloat))
+        (Query.string keyFor.scale |> Query.map (Maybe.andThen String.toFloat))
 
 
 imageToUrlString : ImageEssentials -> String
 imageToUrlString image =
     Url.Builder.absolute []
-        [ Url.Builder.string "composition" (image.composition |> LCore.encodeComposition |> Encode.encode 0)
-        , Url.Builder.string "angle" (String.fromFloat image.turnAngle)
-        , Url.Builder.string "bg" (image.backgroundColor |> Colors.encode |> Encode.encode 0)
-        , Url.Builder.string "stroke" (image.strokeColor |> Colors.encode |> Encode.encode 0)
-        , Url.Builder.string "x" (Tuple.first image.translate |> Encode.float |> Encode.encode 0)
-        , Url.Builder.string "y" (Tuple.second image.translate |> Encode.float |> Encode.encode 0)
-        , Url.Builder.string "scale" (image.scale |> Encode.float |> Encode.encode 0)
+        [ Url.Builder.string keyFor.composition (image.composition |> LCore.encodeComposition |> Encode.encode 0)
+        , Url.Builder.string keyFor.turnAngle (String.fromFloat image.turnAngle)
+        , Url.Builder.string keyFor.backgroundColor (image.backgroundColor |> Colors.encode |> Encode.encode 0)
+        , Url.Builder.string keyFor.strokeColor (image.strokeColor |> Colors.encode |> Encode.encode 0)
+        , Url.Builder.string keyFor.translateX (Tuple.first image.translate |> Encode.float |> Encode.encode 0)
+        , Url.Builder.string keyFor.translateY (Tuple.second image.translate |> Encode.float |> Encode.encode 0)
+        , Url.Builder.string keyFor.scale (image.scale |> Encode.float |> Encode.encode 0)
         ]
 
 
@@ -1275,30 +1266,50 @@ imageAndGalleryDecoder =
         (Decode.field "gallery" (Decode.list imageDecoder))
 
 
+keyFor :
+    { composition : String
+    , turnAngle : String
+    , backgroundColor : String
+    , strokeColor : String
+    , translateX : String
+    , translateY : String
+    , scale : String
+    }
+keyFor =
+    { composition = "composition"
+    , turnAngle = "turnAngle"
+    , backgroundColor = "backgroundColor"
+    , strokeColor = "strokeColor"
+    , translateX = "translateX"
+    , translateY = "translateY"
+    , scale = "scale"
+    }
+
+
 imageDecoder : Decoder ImageEssentials
 imageDecoder =
     Decode.map6 ImageEssentials
-        (Decode.field "composition" LCore.compositionDecoder)
-        (Decode.field "turnAngle" Decode.float)
-        (Decode.field "bgColor" Colors.decoder)
-        (Decode.field "strokeColor" Colors.decoder)
+        (Decode.field keyFor.composition LCore.compositionDecoder)
+        (Decode.field keyFor.turnAngle Decode.float)
+        (Decode.field keyFor.backgroundColor Colors.decoder)
+        (Decode.field keyFor.strokeColor Colors.decoder)
         (Decode.map2 Tuple.pair
-            (Decode.field "translateX" Decode.float)
-            (Decode.field "translateY" Decode.float)
+            (Decode.field keyFor.translateX Decode.float)
+            (Decode.field keyFor.translateY Decode.float)
         )
-        (Decode.field "scale" Decode.float)
+        (Decode.field keyFor.scale Decode.float)
 
 
 encodeImage : ImageEssentials -> Encode.Value
 encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
     Encode.object
-        [ ( "composition", LCore.encodeComposition composition )
-        , ( "turnAngle", Encode.float turnAngle )
-        , ( "bgColor", Colors.encode backgroundColor )
-        , ( "strokeColor", Colors.encode strokeColor )
-        , ( "translateX", Encode.float (Tuple.first translate) )
-        , ( "translateY", Encode.float (Tuple.second translate) )
-        , ( "scale", Encode.float scale )
+        [ ( keyFor.composition, LCore.encodeComposition composition )
+        , ( keyFor.turnAngle, Encode.float turnAngle )
+        , ( keyFor.backgroundColor, Colors.encode backgroundColor )
+        , ( keyFor.strokeColor, Colors.encode strokeColor )
+        , ( keyFor.translateX, Encode.float (Tuple.first translate) )
+        , ( keyFor.translateY, Encode.float (Tuple.second translate) )
+        , ( keyFor.scale, Encode.float scale )
         ]
 
 

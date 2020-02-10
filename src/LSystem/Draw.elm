@@ -3,8 +3,8 @@ module LSystem.Draw exposing
     , image
     , withBackgroundColor
     , withId
-    , withScale
     , withOnClick
+    , withScale
     , withStrokeColor
     , withTranslation
     , withTurnAngle
@@ -14,7 +14,6 @@ import Colors exposing (Color)
 import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
 import Svg.Styled exposing (Svg, circle, line, polyline, svg)
-import Svg.Styled.Events exposing (onClick)
 import Svg.Styled.Attributes
     exposing
         ( cx
@@ -32,6 +31,7 @@ import Svg.Styled.Attributes
         , y1
         , y2
         )
+import Svg.Styled.Events exposing (onClick)
 
 
 type alias Position =
