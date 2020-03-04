@@ -112,7 +112,7 @@ withOnClick msg (Image t a sc bc s xy id _) =
     Image t a sc bc s xy id (Just msg)
 
 
-{-| About vecTranslateToImgCenter:
+{-| About vecTranslateOriginToDrawingCenter:
 
 The drawing's math coordinate system is UPxRIGHT while
 SVG viewbox coordinate system is DOWNxRIGHT.
@@ -126,6 +126,13 @@ drawImage : Image msg -> Svg msg
 drawImage (Image composition angle color bgColor scale (Translation x y) maybeId maybeMsg) =
     let
         { topRight, bottomLeft } =
+            {-- This function call takes a lot of time/resources/cpu and it's one of the main
+                reasons for frame drops (low FPS) when composition is too large.
+
+                What does it means to be too large?
+
+                TODO Memoize this function
+            --}
             imageBoundaries angle composition
 
         vecTranslateOriginToDrawingCenter =
@@ -158,6 +165,13 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
             vecTranslateOriginToDrawingCenter |> pairExec (+) vecTranslateOriginToViewportCenter
 
         drawing =
+            {-- This function call takes a lot of time/resources/cpu and it's one of the main
+                reasons for frame drops (low FPS) when composition is too large.
+
+                What does it means to be too large?
+
+                TODO Memoize this function
+            --}
             transformToSvgPath (digestComposition composition) 0 0 angle
 
         maybeIdAttr =
@@ -271,6 +285,9 @@ transformToSvgPath transform x0 y0 turn =
         transform
 
 
+{-- This `10` value here is scaling the drawing. It's probable related to the viewbox size.
+    TODO Should extract it.
+--}
 movePoint : Position -> Float -> Position
 movePoint pos rad =
     Position (pos.x + cos rad * 10) (pos.y + sin rad * 10)
