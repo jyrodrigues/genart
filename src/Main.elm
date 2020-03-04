@@ -45,6 +45,7 @@ import Css
         )
 import Html.Styled exposing (Html, br, button, div, h2, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
+import Html.Styled.Lazy exposing (lazy6)
 import Html.Styled.Events
     exposing
         ( on
@@ -544,13 +545,17 @@ imageBox index image =
 
 editorView : Model -> Browser.Document Msg
 editorView model =
+    let
+        { composition, turnAngle, strokeColor, scale, translate } = model
+        backgroundColor_ = model.backgroundColor
+    in
     { title = "Generative Art"
     , body =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
             [ controlPanel model
             , transformsList model
-            , mainImg model
+            , lazy6 mainImg composition turnAngle scale translate strokeColor backgroundColor_
             ]
             |> toUnstyled
         ]
@@ -779,11 +784,11 @@ transformBox editingIndex turnAngle strokeColor backgroundColor index transform 
         ]
 
 
-mainImg : Model -> Html Msg
-mainImg model =
+mainImg : Composition -> Float -> Float -> Position -> Color -> Color -> Html Msg
+mainImg composition turnAngle scale translate strokeColor backgroundColor_ =
     fixedDiv
         [ css
-            [ backgroundColor (toCssColor model.backgroundColor)
+            [ backgroundColor (toCssColor backgroundColor_)
             , position fixed
             , height (pct 100)
             , width (pct layout.mainImg)
@@ -794,12 +799,12 @@ mainImg model =
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ image model.composition
-            |> withTurnAngle model.turnAngle
-            |> withStrokeColor model.strokeColor
-            |> withBackgroundColor model.backgroundColor
-            |> withScale model.scale
-            |> withTranslation model.translate
+        [ image composition
+            |> withTurnAngle turnAngle
+            |> withStrokeColor strokeColor
+            |> withBackgroundColor backgroundColor_
+            |> withScale scale
+            |> withTranslation translate
             |> withId "MainSVG"
             |> drawImage
         ]
