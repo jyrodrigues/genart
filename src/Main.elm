@@ -1,4 +1,10 @@
-port module Main exposing (main)
+-- Anything other than `main` is exposed for testing only
+-- TODO research how we could change this in order to only expose `main`
+-- Question: Should Main module be tested? Should every test-deserving function live
+--           outside Main module?
+
+
+port module Main exposing (Route(..), main, parseUrl)
 
 import Browser
 import Browser.Dom exposing (Element)
