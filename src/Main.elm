@@ -45,7 +45,6 @@ import Css
         )
 import Html.Styled exposing (Html, br, button, div, h2, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
-import Html.Styled.Lazy exposing (lazy6)
 import Html.Styled.Events
     exposing
         ( on
@@ -56,6 +55,7 @@ import Html.Styled.Events
         , onMouseUp
         , preventDefaultOn
         )
+import Html.Styled.Lazy exposing (lazy6)
 import Icons exposing (withColor, withConditionalColor, withCss, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -546,8 +546,11 @@ imageBox index image =
 editorView : Model -> Browser.Document Msg
 editorView model =
     let
-        { composition, turnAngle, strokeColor, scale, translate } = model
-        backgroundColor_ = model.backgroundColor
+        { composition, turnAngle, strokeColor, scale, translate } =
+            model
+
+        backgroundColor_ =
+            model.backgroundColor
     in
     { title = "Generative Art"
     , body =

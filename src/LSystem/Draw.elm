@@ -126,7 +126,7 @@ drawImage : Image msg -> Svg msg
 drawImage (Image composition angle color bgColor scale (Translation x y) maybeId maybeMsg) =
     let
         { topRight, bottomLeft } =
-            {-- This function call takes a lot of time/resources/cpu and it's one of the main
+            {--This function call takes a lot of time/resources/cpu and it's one of the main
                 reasons for frame drops (low FPS) when composition is too large.
 
                 What does it means to be too large?
@@ -165,7 +165,7 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
             vecTranslateOriginToDrawingCenter |> pairExec (+) vecTranslateOriginToViewportCenter
 
         drawing =
-            {-- This function call takes a lot of time/resources/cpu and it's one of the main
+            {--This function call takes a lot of time/resources/cpu and it's one of the main
                 reasons for frame drops (low FPS) when composition is too large.
 
                 What does it means to be too large?
@@ -285,9 +285,12 @@ transformToSvgPath transform x0 y0 turn =
         transform
 
 
-{-- This `10` value here is scaling the drawing. It's probable related to the viewbox size.
+
+{--This `10` value here is scaling the drawing. It's probable related to the viewbox size.
     TODO Should extract it.
 --}
+
+
 movePoint : Position -> Float -> Position
 movePoint pos rad =
     Position (pos.x + cos rad * 10) (pos.y + sin rad * 10)
