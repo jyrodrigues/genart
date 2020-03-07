@@ -4,7 +4,7 @@
 --           outside Main module?
 
 
-port module Main exposing (Route(..), initialImage, main, parseUrl, replaceComposition)
+port module Main exposing (ImageEssentials, Route(..), imageToUrlString, initialImage, main, parseUrl, replaceComposition)
 
 import Browser
 import Browser.Dom exposing (Element)
