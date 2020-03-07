@@ -13,15 +13,17 @@ module LSystem.Draw exposing
 import Colors exposing (Color)
 import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
-import Svg.Styled exposing (Svg, circle, line, polyline, svg)
+import Svg.Styled exposing (Svg, circle, defs, line, polyline, radialGradient, stop, svg)
 import Svg.Styled.Attributes
     exposing
         ( cx
         , cy
         , fill
         , id
+        , offset
         , points
         , r
+        , stopColor
         , stroke
         , strokeDasharray
         , style
@@ -228,8 +230,38 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
             [ points <| .path <| drawing
             , stroke (Colors.toString color)
             , fill "none"
+
+            --, stroke "url(#RadialGradient1)"
+            --, fill "url(#RadialGradient2)"
             ]
             []
+
+        --, gradients color bgColor
+        ]
+
+
+
+{--
+    Example with offset center:
+
+      <radialGradient id="RadialGradient2" cx="0.25" cy="0.25" r="0.25">
+        <stop offset="0%" stop-color="red"/>
+        <stop offset="100%" stop-color="blue"/>
+      </radialGradient>
+--}
+
+
+gradients : Color -> Color -> Svg msg
+gradients strokeColor backgroundColor =
+    defs []
+        [ radialGradient [ id "RadialGradient1" ]
+            [ stop [ offset "30%", stopColor (Colors.toString backgroundColor) ] []
+            , stop [ offset "100%", stopColor (Colors.toString strokeColor) ] []
+            ]
+        , radialGradient [ id "RadialGradient2" ]
+            [ stop [ offset "0%", stopColor (Colors.toString strokeColor) ] []
+            , stop [ offset "100%", stopColor (Colors.toString backgroundColor) ] []
+            ]
         ]
 
 
