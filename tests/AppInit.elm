@@ -16,6 +16,7 @@ module AppInit exposing (suite)
 import Colors exposing (Color(..))
 import Expect
 import Fuzz exposing (Fuzzer)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import LSystem.Core as LCore exposing (Composition, Step(..), encodeComposition)
 import Main exposing (..)
@@ -97,6 +98,11 @@ imageEssentialsFuzzer =
         |> Fuzz.andMap Fuzz.float
 
 
+galleryFuzzer : Fuzzer (List ImageEssentials)
+galleryFuzzer =
+    Fuzz.list imageEssentialsFuzzer
+
+
 
 -- COMPOSITION TRANSFORMS
 
@@ -155,13 +161,41 @@ suite : Test
 suite =
     describe "Main"
         [ describe "Core functions inside `init`"
-            [ describe "parseUrl"
+            [ describe "Encode/Decode image and gallery (localStorage)"
+                [ fuzz imageEssentialsFuzzer "Image essentials" <|
+                    \fuzzyImage ->
+                        fuzzyImage
+                            |> encodeImage
+                            |> Decode.decodeValue imageDecoder
+                            |> Expect.equal (Ok fuzzyImage)
+                , fuzz (Fuzz.tuple ( imageEssentialsFuzzer, galleryFuzzer )) "Image and Gallery" <|
+                    \( fuzzyImage, fuzzyGallery ) ->
+                        encodeImageAndGallery fuzzyImage fuzzyGallery
+                            |> Decode.decodeValue imageAndGalleryDecoder
+                            |> Expect.equal (Ok { image = fuzzyImage, gallery = fuzzyGallery })
+                ]
+            , describe "parseUrl"
+                -- https://hybridcode.art/
                 [ test "Empty URL" <|
-                    -- http://hybridcode.art/
                     \_ ->
                         emptyUrl
                             |> parseUrl
                             |> Expect.equal (Editor Nothing)
+
+                -- HAPPY PATH
+                -- https://hybridcode.art/
+                --                      ?composition=%5B%22DLDDD%22%5D
+                --                      &turnAngle=60
+                --                      &backgroundColor=%22%23333333%22
+                --                      &strokeColor=%22%2300b46e%22
+                --                      &translateX=-6.72000000000002
+                --                      &translateY=-0.24000000000000055
+                --                      &scale=1.480000000000001
+                , fuzz imageEssentialsFuzzer "URL v2 - composition on query" <|
+                    \fuzzyImage ->
+                        Maybe.withDefault emptyUrl (Url.fromString ("https://test.art" ++ imageToUrlString fuzzyImage))
+                            |> parseUrl
+                            |> Expect.equal (Editor (Just fuzzyImage))
                 , describe "Backwards compatibility"
                     -- HAPPY PATH
                     -- e.g. https://hybridcode.art/#["DLRS","DLRS"]
@@ -183,7 +217,7 @@ suite =
                                 |> parseUrl
                                 |> Expect.equal (Editor Nothing)
 
-                    -- http://hybridcode.art/
+                    -- https://hybridcode.art/
                     --                      ?composition=%5B%22DLDDD%22%5D
                     --                      &turnAngle=60
                     --                      &backgroundColor=%22%23333333%22
@@ -207,22 +241,7 @@ suite =
                                 |> Expect.equal (Editor (Just fuzzyImage))
                     ]
 
-                -- HAPPY PATH
-                -- http://hybridcode.art/
-                --                      ?composition=%5B%22DLDDD%22%5D
-                --                      &turnAngle=60
-                --                      &backgroundColor=%22%23333333%22
-                --                      &strokeColor=%22%2300b46e%22
-                --                      &translateX=-6.72000000000002
-                --                      &translateY=-0.24000000000000055
-                --                      &scale=1.480000000000001
-                , fuzz imageEssentialsFuzzer "URL v2 - composition on query" <|
-                    \fuzzyImage ->
-                        Maybe.withDefault emptyUrl (Url.fromString ("https://test.art" ++ imageToUrlString fuzzyImage))
-                            |> parseUrl
-                            |> Expect.equal (Editor (Just fuzzyImage))
-
-                {--
+                {--Implement a not-so-strict URL parsing strategy, i.e. allow for missing query parameters.
                 , todo "Missing composition"
                 , todo "Missing turnAngle"
                 , todo "Missing backgroundColor"
@@ -234,9 +253,3 @@ suite =
                 ]
             ]
         ]
-
-
-
---Decode.decodeValue
---imageAndGalleryDecoder
---localStorage

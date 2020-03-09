@@ -4,7 +4,19 @@
 --           outside Main module?
 
 
-port module Main exposing (ImageEssentials, Route(..), imageToUrlString, initialImage, main, parseUrl, replaceComposition)
+port module Main exposing
+    ( ImageEssentials
+    , Route(..)
+    , encodeImage
+    , encodeImageAndGallery
+    , imageAndGalleryDecoder
+    , imageDecoder
+    , imageToUrlString
+    , initialImage
+    , main
+    , parseUrl
+    , replaceComposition
+    )
 
 import Browser
 import Browser.Dom exposing (Element)
@@ -444,7 +456,7 @@ init localStorage url navKey =
     ( model
     , Cmd.batch
         ([ getImgDivPosition
-         , saveStateToLocalStorage (encodeModel model)
+         , saveStateToLocalStorage (encodeImageAndGallery (modelToImage model) model.gallery)
          ]
             ++ updateUrl
         )
@@ -849,10 +861,14 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
         updateAndSaveImageAndGallery newModel =
+            let
+                newImage =
+                    modelToImage newModel
+            in
             ( newModel
             , Cmd.batch
-                [ saveStateToLocalStorage (encodeModel newModel)
-                , replaceUrl newModel.navKey (modelToImage newModel)
+                [ saveStateToLocalStorage (encodeImageAndGallery newImage newModel.gallery)
+                , replaceUrl newModel.navKey newImage
                 ]
             )
     in
@@ -1262,14 +1278,14 @@ fragmentToCompositionParser =
 
 
 
--- MODEL ENCODER AND DECODER
+-- ENCODER AND DECODER: IMAGE AND GALLERY
 
 
-encodeModel : Model -> Encode.Value
-encodeModel model =
+encodeImageAndGallery : ImageEssentials -> List ImageEssentials -> Encode.Value
+encodeImageAndGallery image gallery =
     Encode.object
-        [ ( "image", encodeImage (modelToImage model) )
-        , ( "gallery", Encode.list encodeImage model.gallery )
+        [ ( "image", encodeImage image ) --(modelToImage model) )
+        , ( "gallery", Encode.list encodeImage gallery )
         ]
 
 
