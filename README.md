@@ -1,8 +1,16 @@
 # Exploring generative art
 
-L-Systems
+https://hybridcode.art
+
+### Tech / Building blocks
+- [Elm](http://elm-lang.org)
+- SVG
+- Webpack
+- Netlify
+- L-Systems
+- DNA
 
 ---
 
-Made with [Elm-lang](http://elm-lang.org)
+Made with <3 from Brazil.
 
