@@ -5,16 +5,18 @@
     "file-loader": "^2.0.0",
     "url-loader": "^1.1.1",
     "webpack": "^4.17.1",
-    "webpack-dev-server": "^3.1.7"
+    "webpack-dev-server": "^3.10.3"
   },
   "scripts": {
     "bundle": "webpack",
     "serve": "webpack-dev-server",
     "clean": "rm -rf ./dist",
     "copy": "cp _redirects dist/",
-    "build": "npm run bundle && npm run copy"
+    "build": "npm run bundle && npm run copy",
+    "test": "elm-test"
   },
   "devDependencies": {
+    "elm-test": "^0.19.1-revision2",
     "webpack-cli": "^3.1.0"
   },
   "name": "genart",

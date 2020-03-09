@@ -214,8 +214,14 @@ toList (Composition base_ blocks_) =
     base_ :: blocks_
 
 
-{-| Note that if the list is empty an almost blank Composition is created
--}
+
+{--N.B. An empty list does *not* yield an empty Composition
+
+    TODO change this behavior, allow for empty composition, since this can already be achieved
+         via `backspace` input, deleting every Step of a block
+--}
+
+
 fromList : List Block -> Composition
 fromList blocks_ =
     case blocks_ of
@@ -223,9 +229,7 @@ fromList blocks_ =
             Composition head tail
 
         [] ->
-            Debug.log
-                "Debug.log - Error trying to create composition from empty list. Returning default: "
-                (Composition [ D ] [])
+            Composition [ D ] []
 
 
 

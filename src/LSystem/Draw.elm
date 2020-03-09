@@ -3,8 +3,8 @@ module LSystem.Draw exposing
     , image
     , withBackgroundColor
     , withId
-    , withScale
     , withOnClick
+    , withScale
     , withStrokeColor
     , withTranslation
     , withTurnAngle
@@ -13,16 +13,17 @@ module LSystem.Draw exposing
 import Colors exposing (Color)
 import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
-import Svg.Styled exposing (Svg, circle, line, polyline, svg)
-import Svg.Styled.Events exposing (onClick)
+import Svg.Styled exposing (Svg, circle, defs, line, polyline, radialGradient, stop, svg)
 import Svg.Styled.Attributes
     exposing
         ( cx
         , cy
         , fill
         , id
+        , offset
         , points
         , r
+        , stopColor
         , stroke
         , strokeDasharray
         , style
@@ -32,6 +33,7 @@ import Svg.Styled.Attributes
         , y1
         , y2
         )
+import Svg.Styled.Events exposing (onClick)
 
 
 type alias Position =
@@ -112,7 +114,7 @@ withOnClick msg (Image t a sc bc s xy id _) =
     Image t a sc bc s xy id (Just msg)
 
 
-{-| About vecTranslateToImgCenter:
+{-| About vecTranslateOriginToDrawingCenter:
 
 The drawing's math coordinate system is UPxRIGHT while
 SVG viewbox coordinate system is DOWNxRIGHT.
@@ -126,6 +128,13 @@ drawImage : Image msg -> Svg msg
 drawImage (Image composition angle color bgColor scale (Translation x y) maybeId maybeMsg) =
     let
         { topRight, bottomLeft } =
+            {--This function call takes a lot of time/resources/cpu and it's one of the main
+                reasons for frame drops (low FPS) when composition is too large.
+
+                What does it means to be too large?
+
+                TODO Memoize this function
+            --}
             imageBoundaries angle composition
 
         vecTranslateOriginToDrawingCenter =
@@ -158,6 +167,13 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
             vecTranslateOriginToDrawingCenter |> pairExec (+) vecTranslateOriginToViewportCenter
 
         drawing =
+            {--This function call takes a lot of time/resources/cpu and it's one of the main
+                reasons for frame drops (low FPS) when composition is too large.
+
+                What does it means to be too large?
+
+                TODO Memoize this function
+            --}
             transformToSvgPath (digestComposition composition) 0 0 angle
 
         maybeIdAttr =
@@ -214,8 +230,38 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
             [ points <| .path <| drawing
             , stroke (Colors.toString color)
             , fill "none"
+
+            --, stroke "url(#RadialGradient1)"
+            --, fill "url(#RadialGradient2)"
             ]
             []
+
+        --, gradients color bgColor
+        ]
+
+
+
+{--
+    Example with offset center:
+
+      <radialGradient id="RadialGradient2" cx="0.25" cy="0.25" r="0.25">
+        <stop offset="0%" stop-color="red"/>
+        <stop offset="100%" stop-color="blue"/>
+      </radialGradient>
+--}
+
+
+gradients : Color -> Color -> Svg msg
+gradients strokeColor backgroundColor =
+    defs []
+        [ radialGradient [ id "RadialGradient1" ]
+            [ stop [ offset "30%", stopColor (Colors.toString backgroundColor) ] []
+            , stop [ offset "100%", stopColor (Colors.toString strokeColor) ] []
+            ]
+        , radialGradient [ id "RadialGradient2" ]
+            [ stop [ offset "0%", stopColor (Colors.toString strokeColor) ] []
+            , stop [ offset "100%", stopColor (Colors.toString backgroundColor) ] []
+            ]
         ]
 
 
@@ -269,6 +315,12 @@ transformToSvgPath transform x0 y0 turn =
         (addStepToDrawing turn)
         (Drawing (positionToString initialPos) initialPos 0)
         transform
+
+
+
+{--This `10` value here is scaling the drawing. It's probable related to the viewbox size.
+    TODO Should extract it.
+--}
 
 
 movePoint : Position -> Float -> Position

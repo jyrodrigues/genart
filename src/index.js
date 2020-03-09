@@ -4,7 +4,7 @@
 import "./index.html";
 import { Elm } from "./Main.elm";
 
-var storageName = 'genart/v0.2/state';
+var storageName = 'genart/v0.3/state';
 
 var app = Elm.Main.init({
     node: document.getElementById('elm'),
