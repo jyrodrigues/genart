@@ -163,11 +163,13 @@ suite =
                             |> parseUrl
                             |> Expect.equal (Editor Nothing)
                 , describe "Backwards compatibility"
+                    -- HAPPY PATH
                     -- e.g. https://hybridcode.art/#["DLRS","DLRS"]
                     -- N.B. Experimenting with passing tuples like (input, output)
                     [ fuzz compositionOnFragmentUrlAndRouteFuzzer "URL v1 -- composition on fragment (hash)" <|
                         \( fuzzyUrl, fuzzyRoute ) -> Expect.equal fuzzyRoute (parseUrl fuzzyUrl)
 
+                    -- HAPPY PATH
                     -- e.g. https://hybridcode.art/#%5B%22DLRS%22%2C%22DLRS%22%5D
                     --                               [  " DLRS "   ,  " DLRS "  ]
                     -- N.B. Experimenting with passing tuples like (input, output)
@@ -181,7 +183,15 @@ suite =
                                 |> parseUrl
                                 |> Expect.equal (Editor Nothing)
 
-                    -- e.g. TODO
+                    -- http://hybridcode.art/
+                    --                      ?composition=%5B%22DLDDD%22%5D
+                    --                      &turnAngle=60
+                    --                      &backgroundColor=%22%23333333%22
+                    --                      &strokeColor=%22%2300b46e%22
+                    --                      &translateX=-6.72000000000002
+                    --                      &translateY=-0.24000000000000055
+                    --                      &scale=1.480000000000001
+                    --                      #["DLRS","DLRS"]
                     , fuzz (Fuzz.tuple ( compositionFuzzer, imageEssentialsFuzzer )) "URL v1 and v2 - composition on fragment && on query" <|
                         \( fuzzyComposition, fuzzyImage ) ->
                             Maybe.withDefault emptyUrl
@@ -197,13 +207,22 @@ suite =
                                 |> Expect.equal (Editor (Just fuzzyImage))
                     ]
 
-                -- TODO create ImageEssentials fuzzer
-                -- http://localhost:9000/?composition=%5B%22DLDDD%22%5D&turnAngle=60&backgroundColor=%22%23333333%22&strokeColor=%22%2300b46e%22&translateX=-6.72000000000002&translateY=-0.24000000000000055&scale=1.480000000000001
+                -- HAPPY PATH
+                -- http://hybridcode.art/
+                --                      ?composition=%5B%22DLDDD%22%5D
+                --                      &turnAngle=60
+                --                      &backgroundColor=%22%23333333%22
+                --                      &strokeColor=%22%2300b46e%22
+                --                      &translateX=-6.72000000000002
+                --                      &translateY=-0.24000000000000055
+                --                      &scale=1.480000000000001
                 , fuzz imageEssentialsFuzzer "URL v2 - composition on query" <|
                     \fuzzyImage ->
                         Maybe.withDefault emptyUrl (Url.fromString ("https://test.art" ++ imageToUrlString fuzzyImage))
                             |> parseUrl
                             |> Expect.equal (Editor (Just fuzzyImage))
+
+                {--
                 , todo "Missing composition"
                 , todo "Missing turnAngle"
                 , todo "Missing backgroundColor"
@@ -211,6 +230,7 @@ suite =
                 , todo "Missing translateX"
                 , todo "Missing translateY"
                 , todo "Missing scale"
+                --}
                 ]
             ]
         ]
