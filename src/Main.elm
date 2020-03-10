@@ -81,6 +81,7 @@ import ImageEssentials
         , Position
         , extractImage
         , replaceComposition
+        , replaceImage
         )
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -326,16 +327,6 @@ initialModel image gallery url navKey =
 initialModelFromImageAndGallery : ImageAndGallery -> Url.Url -> Nav.Key -> Model
 initialModelFromImageAndGallery { image, gallery } url navKey =
     initialModel image gallery url navKey
-
-
-modelWithImage : ImageEssentials -> Model -> Model
-modelWithImage { composition, turnAngle, backgroundColor, strokeColor } model =
-    { model
-        | composition = composition
-        , turnAngle = turnAngle
-        , backgroundColor = backgroundColor
-        , strokeColor = strokeColor
-    }
 
 
 modelWithRoute : Route -> Model -> Model
@@ -979,7 +970,7 @@ update msg model =
                         |> Maybe.withDefault (extractImage model)
 
                 newModel =
-                    modelWithImage image model
+                    replaceImage image model
             in
             updateAndSaveImageAndGallery <| { newModel | viewingPage = EditorPage }
 

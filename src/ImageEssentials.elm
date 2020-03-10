@@ -5,6 +5,7 @@ module ImageEssentials exposing
     , Position
     , extractImage
     , replaceComposition
+    , replaceImage
     )
 
 {--
@@ -74,6 +75,16 @@ extractImage something =
     , strokeColor = something.strokeColor
     , translate = something.translate
     , scale = something.scale
+    }
+
+
+replaceImage : ImageEssentials -> HasImageEssentials a -> HasImageEssentials a
+replaceImage { composition, turnAngle, backgroundColor, strokeColor } something =
+    { something
+        | composition = composition
+        , turnAngle = turnAngle
+        , backgroundColor = backgroundColor
+        , strokeColor = strokeColor
     }
 
 
