@@ -5,8 +5,7 @@
 
 
 port module Main exposing
-    ( ImageEssentials
-    , Route(..)
+    ( Route(..)
     , encodeImage
     , encodeImageAndGallery
     , imageAndGalleryDecoder
@@ -15,7 +14,6 @@ port module Main exposing
     , initialImage
     , main
     , parseUrl
-    , replaceComposition
     )
 
 import Browser
@@ -75,6 +73,15 @@ import Html.Styled.Events
         )
 import Html.Styled.Lazy exposing (lazy6)
 import Icons exposing (withColor, withConditionalColor, withCss, withOnClick)
+import ImageEssentials
+    exposing
+        ( Gallery
+        , ImageAndGallery
+        , ImageEssentials
+        , Position
+        , extractImage
+        , replaceComposition
+        )
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core as LCore exposing (Block, Composition, Step(..))
@@ -232,30 +239,6 @@ mapRouteToPage route =
 
 
 
--- IMAGE ESSENTIALS
-
-
-type alias ImageEssentials =
-    { composition : Composition
-    , turnAngle : Float
-    , backgroundColor : Color
-    , strokeColor : Color
-    , translate : Position
-    , scale : Float
-    }
-
-
-type alias Gallery =
-    List ImageEssentials
-
-
-type alias ImageAndGallery =
-    { image : ImageEssentials
-    , gallery : Gallery
-    }
-
-
-
 -- FLAGS
 
 
@@ -283,10 +266,6 @@ type Polygon
     | Hexagon
 
 
-type alias Position =
-    ( Float, Float )
-
-
 
 -- IMPLEMENTATION, LOGIC, FUNCTIONS
 -- MODEL
@@ -301,11 +280,6 @@ initialImage =
     , translate = ( 0, 0 )
     , scale = 1
     }
-
-
-replaceComposition : ImageEssentials -> Composition -> ImageEssentials
-replaceComposition image composition =
-    { image | composition = composition }
 
 
 initialModel : ImageEssentials -> Gallery -> Url.Url -> Nav.Key -> Model
@@ -352,17 +326,6 @@ initialModel image gallery url navKey =
 initialModelFromImageAndGallery : ImageAndGallery -> Url.Url -> Nav.Key -> Model
 initialModelFromImageAndGallery { image, gallery } url navKey =
     initialModel image gallery url navKey
-
-
-modelToImage : Model -> ImageEssentials
-modelToImage model =
-    { composition = model.composition
-    , turnAngle = model.turnAngle
-    , backgroundColor = model.backgroundColor
-    , strokeColor = model.strokeColor
-    , translate = model.translate
-    , scale = model.scale
-    }
 
 
 modelWithImage : ImageEssentials -> Model -> Model
@@ -456,7 +419,7 @@ init localStorage url navKey =
     ( model
     , Cmd.batch
         ([ getImgDivPosition
-         , saveStateToLocalStorage (encodeImageAndGallery (modelToImage model) model.gallery)
+         , saveStateToLocalStorage (encodeImageAndGallery (extractImage model) model.gallery)
          ]
             ++ updateUrl
         )
@@ -863,7 +826,7 @@ update msg model =
         updateAndSaveImageAndGallery newModel =
             let
                 newImage =
-                    modelToImage newModel
+                    extractImage newModel
             in
             ( newModel
             , Cmd.batch
@@ -1001,7 +964,7 @@ update msg model =
             ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )
 
         SavedToGallery ->
-            updateAndSaveImageAndGallery <| { model | gallery = modelToImage model :: model.gallery }
+            updateAndSaveImageAndGallery <| { model | gallery = extractImage model :: model.gallery }
 
         ViewingPage page ->
             ( { model | viewingPage = page }, Cmd.none )
@@ -1013,7 +976,7 @@ update msg model =
             let
                 image =
                     ListExtra.getAt index model.gallery
-                        |> Maybe.withDefault (modelToImage model)
+                        |> Maybe.withDefault (extractImage model)
 
                 newModel =
                     modelWithImage image model
@@ -1284,7 +1247,7 @@ fragmentToCompositionParser =
 encodeImageAndGallery : ImageEssentials -> List ImageEssentials -> Encode.Value
 encodeImageAndGallery image gallery =
     Encode.object
-        [ ( "image", encodeImage image ) --(modelToImage model) )
+        [ ( "image", encodeImage image ) --(extractImage model) )
         , ( "gallery", Encode.list encodeImage gallery )
         ]
 

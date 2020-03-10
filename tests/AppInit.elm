@@ -16,6 +16,7 @@ module AppInit exposing (suite)
 import Colors exposing (Color(..))
 import Expect
 import Fuzz exposing (Fuzzer)
+import ImageEssentials exposing (ImageEssentials, replaceComposition)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import LSystem.Core as LCore exposing (Composition, Step(..), encodeComposition)
