@@ -77,9 +77,6 @@ import ImageEssentials
         , encodeImageAndGallery
         , extractImage
         , imageAndGalleryDecoder
-        , imageToUrlString
-        , queryToImageParser
-        , replaceComposition
         , replaceImage
         )
 import Json.Decode as Decode exposing (Decoder)
@@ -100,9 +97,7 @@ import ListExtra exposing (pairExec, pairMap)
 import Task
 import Time
 import Url
-import Url.Builder
-import Url.Parser as Parser exposing ((</>), Parser, string)
-import Url.Parser.Query as Query
+import Url.Parser as Parser exposing (Parser, string)
 
 
 
@@ -221,12 +216,6 @@ type Route
     | NotFound
 
 
-type alias UrlDataVersions =
-    { v1_dataOnQueryParams : Maybe ImageEssentials
-    , v0_dataOnHash : Maybe Composition
-    }
-
-
 mapRouteToPage : Route -> Page
 mapRouteToPage route =
     -- TODO think about this flow that requires this function. It doesn't seem the best one.
@@ -338,19 +327,6 @@ modelWithEditIndexLast model =
     { model | editingIndex = LCore.length model.composition - 1 }
 
 
-urlDataVersionsToImage : UrlDataVersions -> Maybe ImageEssentials
-urlDataVersionsToImage dataVersions =
-    if isJust dataVersions.v1_dataOnQueryParams then
-        dataVersions.v1_dataOnQueryParams
-
-    else if isJust dataVersions.v0_dataOnHash then
-        -- Migrating from old URL format
-        Maybe.map (replaceComposition initialImage) dataVersions.v0_dataOnHash
-
-    else
-        Nothing
-
-
 
 -- MAIN
 
@@ -365,16 +341,6 @@ main =
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
-
-
-isJust : Maybe a -> Bool
-isJust maybe =
-    case maybe of
-        Just _ ->
-            True
-
-        Nothing ->
-            False
 
 
 
@@ -1165,12 +1131,7 @@ galleryParser =
 
 editorParser : Parser (Route -> a) a
 editorParser =
-    Parser.map Editor <|
-        Parser.map urlDataVersionsToImage <|
-            Parser.map
-                UrlDataVersions
-                -- Fragment is parsed for backward-compatibility only
-                (Parser.query queryToImageParser </> fragmentToCompositionParser)
+    Parser.map Editor ImageEssentials.urlParser
 
 
 {-| Current version of Url building and parsing
@@ -1184,19 +1145,8 @@ replaceUrl key image =
             URL based on scroll position.
 
             https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
-        --}
-    Nav.replaceUrl key (imageToUrlString image)
-
-
-{-| Backwards compatibility: Old version of Url building and parsing.
--}
-fragmentToCompositionParser : Parser (Maybe Composition -> a) a
-fragmentToCompositionParser =
-    Parser.fragment <|
-        Maybe.andThen
-            (Url.percentDecode
-                >> Maybe.andThen (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe)
-            )
+    --}
+    Nav.replaceUrl key (ImageEssentials.toUrlPathString image)
 
 
 

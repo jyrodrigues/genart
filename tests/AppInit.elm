@@ -23,7 +23,6 @@ import ImageEssentials
         , encodeImageAndGallery
         , imageAndGalleryDecoder
         , imageDecoder
-        , imageToUrlString
         , replaceComposition
         )
 import Json.Decode as Decode
@@ -115,6 +114,7 @@ galleryFuzzer =
 
 
 -- COMPOSITION TRANSFORMS
+-- TODO refactor those duplicated functions
 
 
 compositionToFragment : Composition -> String
@@ -203,7 +203,7 @@ suite =
                 --                      &scale=1.480000000000001
                 , fuzz imageEssentialsFuzzer "URL v2 - composition on query" <|
                     \fuzzyImage ->
-                        Maybe.withDefault emptyUrl (Url.fromString ("https://test.art" ++ imageToUrlString fuzzyImage))
+                        Maybe.withDefault emptyUrl (Url.fromString ("https://test.art" ++ ImageEssentials.toUrlPathString fuzzyImage))
                             |> parseUrl
                             |> Expect.equal (Editor (Just fuzzyImage))
                 , describe "Backwards compatibility"
@@ -241,8 +241,7 @@ suite =
                             Maybe.withDefault emptyUrl
                                 (Url.fromString
                                     ("https://test.art"
-                                        ++ imageToUrlString
-                                            fuzzyImage
+                                        ++ ImageEssentials.toUrlPathString fuzzyImage
                                         ++ "#"
                                         ++ compositionToFragment fuzzyComposition
                                     )
