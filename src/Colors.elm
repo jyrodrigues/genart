@@ -76,6 +76,7 @@ toHexString : Color -> String
 toHexString color =
     case color of
         Color r g b a ->
+            -- TODO implement this
             "#aabbcc"
 
         Hex str ->

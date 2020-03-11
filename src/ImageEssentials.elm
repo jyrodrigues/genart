@@ -3,18 +3,23 @@ module ImageEssentials exposing
     , ImageAndGallery
     , ImageEssentials
     , Position
+    , V2_Image
+    , V2_ImageAndGallery
     , encodeImage
     , encodeImageAndGallery
     , extractImage
     , imageAndGalleryDecoder
     , imageDecoder
-    , localStorageV2Decoder
-    , localStorageV2toGallery
+    , mergeV2toV3
     , queryToImageParser
     , replaceComposition
     , replaceImage
     , toUrlPathString
     , urlParser
+    , v2_encodeImage
+    , v2_encodeImageAndGallery
+    , v2_imageAndGalleryDecoder
+    , v2_imageDecoder
     )
 
 import Colors exposing (Color)
@@ -105,41 +110,12 @@ replaceComposition image composition =
 -- URL
 -- QUERY
 -- PARSER
--- TODO create a proper comment/documentation/test all-in-one
-{--
 
 
-key: "genart/v0.3/state"
-value: {
-        "image": {
-            "composition": [ "DLDLDLD", "D" ],
-            "turnAngle": 90,
-            "backgroundColor": "#333333",
-            "strokeColor": "#00b46e",
-            "translateX": 0,
-            "translateY": 0,
-            "scale": 1
-        },
-        "gallery": [
-            {
-            "composition": [ "DLDLDLD", "D" ],
-            "turnAngle": 90,
-            "backgroundColor": "#333333",
-            "strokeColor": "#00b46e",
-            "translateX": -856,
-            "translateY": 563,
-            "scale": 1
-            }
-        ]
-    }
-
---}
-
-
-encodeImageAndGallery : ImageEssentials -> List ImageEssentials -> Encode.Value
+encodeImageAndGallery : ImageEssentials -> Gallery -> Encode.Value
 encodeImageAndGallery image gallery =
     Encode.object
-        [ ( "image", encodeImage image ) --(extractImage model) )
+        [ ( "image", encodeImage image )
         , ( "gallery", Encode.list encodeImage gallery )
         ]
 
@@ -271,13 +247,14 @@ fragmentToCompositionParser =
 
 
 
+-- MIGRATE LOCAL STORAGE
 -- LOCAL STORAGE - VERSION 2
 -- TODO actually make this work, i.e. use these functions
 
 
-type alias LocalStorageV2 =
+type alias V2_ImageAndGallery =
     { composition : Composition
-    , gallery : List ImageV2
+    , gallery : List V2_Image
     , backgroundColor : Color
     , strokeColor : Color
     , turnAngle : Float
@@ -286,7 +263,7 @@ type alias LocalStorageV2 =
     }
 
 
-type alias ImageV2 =
+type alias V2_Image =
     { composition : Composition
     , turnAngle : Float
     , backgroundColor : Color
@@ -294,34 +271,23 @@ type alias ImageV2 =
     }
 
 
+mergeV2toV3 : V2_ImageAndGallery -> ImageAndGallery -> ImageAndGallery
+mergeV2toV3 v2_imageAndGallery imageAndGallery =
+    let
+        v2_mainImg =
+            extractImage v2_imageAndGallery
 
-{--
-
-key: "genart/v0.2/state"
-value:  { "state": ["DLDLD", "DDRDD"]
-        , "turnAngle":289
-        , "bgColor":"#333333"
-        , "strokeColor":"#00b46e"
-        , "gallery": [
-            { "composition": ["DDDL"]
-            , "turnAngle": 198
-            , "bgColor": "#333333"
-            , "strokeColor": "#00b46e"
-            }
-        , "scale":1
-        , "translateX":0
-        , "translateY":0
-        ]
-        }
-
---}
+        v2_gallery =
+            v2_mainImg :: List.map v2_imageToImageEssentials v2_imageAndGallery.gallery
+    in
+    { imageAndGallery | gallery = imageAndGallery.gallery ++ v2_gallery }
 
 
-localStorageV2Decoder : Decoder LocalStorageV2
-localStorageV2Decoder =
-    Decode.map7 LocalStorageV2
+v2_imageAndGalleryDecoder : Decoder V2_ImageAndGallery
+v2_imageAndGalleryDecoder =
+    Decode.map7 V2_ImageAndGallery
         (Decode.field "state" LCore.compositionDecoder)
-        (Decode.field "gallery" (Decode.list imageV2Decoder))
+        (Decode.field "gallery" (Decode.list v2_imageDecoder))
         (Decode.field "bgColor" Colors.decoder)
         (Decode.field "strokeColor" Colors.decoder)
         (Decode.field "turnAngle" Decode.float)
@@ -332,37 +298,50 @@ localStorageV2Decoder =
         )
 
 
-imageV2Decoder : Decoder ImageV2
-imageV2Decoder =
-    Decode.map4 ImageV2
+v2_imageDecoder : Decoder V2_Image
+v2_imageDecoder =
+    Decode.map4 V2_Image
         (Decode.field "composition" LCore.compositionDecoder)
         (Decode.field "turnAngle" Decode.float)
         (Decode.field "bgColor" Colors.decoder)
         (Decode.field "strokeColor" Colors.decoder)
 
 
-localStorageV2toGallery : LocalStorageV2 -> Gallery
-localStorageV2toGallery localStorageV2 =
-    localStorageV2.gallery
-        |> List.map imageV2toImageEssentials
-        |> (::) (extractImage localStorageV2)
-
-
-imageV2toImageEssentials : ImageV2 -> ImageEssentials
-imageV2toImageEssentials imageV2 =
-    { composition = imageV2.composition
-    , turnAngle = imageV2.turnAngle
-    , backgroundColor = imageV2.backgroundColor
-    , strokeColor = imageV2.strokeColor
+v2_imageToImageEssentials : V2_Image -> ImageEssentials
+v2_imageToImageEssentials { composition, turnAngle, backgroundColor, strokeColor } =
+    { composition = composition
+    , turnAngle = turnAngle
+    , backgroundColor = backgroundColor
+    , strokeColor = strokeColor
     , translate = ( 0, 0 )
     , scale = 1
     }
 
 
+v2_encodeImageAndGallery : V2_ImageAndGallery -> Encode.Value
+v2_encodeImageAndGallery { composition, gallery, backgroundColor, strokeColor, turnAngle, scale, translate } =
+    Encode.object
+        [ ( "state", LCore.encodeComposition composition )
+        , ( "gallery", Encode.list v2_encodeImage gallery )
+        , ( "bgColor", Colors.encode backgroundColor )
+        , ( "strokeColor", Colors.encode strokeColor )
+        , ( "turnAngle", Encode.float turnAngle )
+        , ( "scale", Encode.float scale )
+        , ( "translateX", Encode.float (Tuple.first translate) )
+        , ( "translateY", Encode.float (Tuple.second translate) )
+        ]
+
+
+v2_encodeImage : V2_Image -> Encode.Value
+v2_encodeImage { composition, turnAngle, backgroundColor, strokeColor } =
+    Encode.object
+        [ ( "composition", LCore.encodeComposition composition )
+        , ( "turnAngle", Encode.float turnAngle )
+        , ( "bgColor", Colors.encode backgroundColor )
+        , ( "strokeColor", Colors.encode strokeColor )
+        ]
+
+
 
 -- LOCAL STORAGE - VERSION 1
-{--
-
-TODO check on git "genart/v0.1/state" and create migrations
-
---}
+-- TODO Search git for "genart/v0.1/state" and create migrations
