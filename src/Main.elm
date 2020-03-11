@@ -5,17 +5,10 @@
 
 
 port module Main exposing
-    ( ImageEssentials
-    , Route(..)
-    , encodeImage
-    , encodeImageAndGallery
-    , imageAndGalleryDecoder
-    , imageDecoder
-    , imageToUrlString
+    ( Route(..)
     , initialImage
     , main
     , parseUrl
-    , replaceComposition
     )
 
 import Browser
@@ -75,6 +68,17 @@ import Html.Styled.Events
         )
 import Html.Styled.Lazy exposing (lazy6)
 import Icons exposing (withColor, withConditionalColor, withCss, withOnClick)
+import ImageEssentials
+    exposing
+        ( Gallery
+        , ImageAndGallery
+        , ImageEssentials
+        , Position
+        , encodeImageAndGallery
+        , extractImage
+        , imageAndGalleryDecoder
+        , replaceImage
+        )
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core as LCore exposing (Block, Composition, Step(..))
@@ -93,9 +97,7 @@ import ListExtra exposing (pairExec, pairMap)
 import Task
 import Time
 import Url
-import Url.Builder
-import Url.Parser as Parser exposing ((</>), Parser, string)
-import Url.Parser.Query as Query
+import Url.Parser as Parser exposing (Parser, string)
 
 
 
@@ -214,12 +216,6 @@ type Route
     | NotFound
 
 
-type alias UrlDataVersions =
-    { v1_dataOnQueryParams : Maybe ImageEssentials
-    , v0_dataOnHash : Maybe Composition
-    }
-
-
 mapRouteToPage : Route -> Page
 mapRouteToPage route =
     -- TODO think about this flow that requires this function. It doesn't seem the best one.
@@ -229,30 +225,6 @@ mapRouteToPage route =
 
         _ ->
             EditorPage
-
-
-
--- IMAGE ESSENTIALS
-
-
-type alias ImageEssentials =
-    { composition : Composition
-    , turnAngle : Float
-    , backgroundColor : Color
-    , strokeColor : Color
-    , translate : Position
-    , scale : Float
-    }
-
-
-type alias Gallery =
-    List ImageEssentials
-
-
-type alias ImageAndGallery =
-    { image : ImageEssentials
-    , gallery : Gallery
-    }
 
 
 
@@ -283,10 +255,6 @@ type Polygon
     | Hexagon
 
 
-type alias Position =
-    ( Float, Float )
-
-
 
 -- IMPLEMENTATION, LOGIC, FUNCTIONS
 -- MODEL
@@ -301,11 +269,6 @@ initialImage =
     , translate = ( 0, 0 )
     , scale = 1
     }
-
-
-replaceComposition : ImageEssentials -> Composition -> ImageEssentials
-replaceComposition image composition =
-    { image | composition = composition }
 
 
 initialModel : ImageEssentials -> Gallery -> Url.Url -> Nav.Key -> Model
@@ -354,27 +317,6 @@ initialModelFromImageAndGallery { image, gallery } url navKey =
     initialModel image gallery url navKey
 
 
-modelToImage : Model -> ImageEssentials
-modelToImage model =
-    { composition = model.composition
-    , turnAngle = model.turnAngle
-    , backgroundColor = model.backgroundColor
-    , strokeColor = model.strokeColor
-    , translate = model.translate
-    , scale = model.scale
-    }
-
-
-modelWithImage : ImageEssentials -> Model -> Model
-modelWithImage { composition, turnAngle, backgroundColor, strokeColor } model =
-    { model
-        | composition = composition
-        , turnAngle = turnAngle
-        , backgroundColor = backgroundColor
-        , strokeColor = strokeColor
-    }
-
-
 modelWithRoute : Route -> Model -> Model
 modelWithRoute route model =
     { model | viewingPage = mapRouteToPage route }
@@ -383,19 +325,6 @@ modelWithRoute route model =
 modelWithEditIndexLast : Model -> Model
 modelWithEditIndexLast model =
     { model | editingIndex = LCore.length model.composition - 1 }
-
-
-urlDataVersionsToImage : UrlDataVersions -> Maybe ImageEssentials
-urlDataVersionsToImage dataVersions =
-    if isJust dataVersions.v1_dataOnQueryParams then
-        dataVersions.v1_dataOnQueryParams
-
-    else if isJust dataVersions.v0_dataOnHash then
-        -- Migrating from old URL format
-        Maybe.map (replaceComposition initialImage) dataVersions.v0_dataOnHash
-
-    else
-        Nothing
 
 
 
@@ -412,16 +341,6 @@ main =
         , onUrlChange = UrlChanged
         , onUrlRequest = LinkClicked
         }
-
-
-isJust : Maybe a -> Bool
-isJust maybe =
-    case maybe of
-        Just _ ->
-            True
-
-        Nothing ->
-            False
 
 
 
@@ -456,7 +375,7 @@ init localStorage url navKey =
     ( model
     , Cmd.batch
         ([ getImgDivPosition
-         , saveStateToLocalStorage (encodeImageAndGallery (modelToImage model) model.gallery)
+         , saveStateToLocalStorage (encodeImageAndGallery (extractImage model) model.gallery)
          ]
             ++ updateUrl
         )
@@ -863,7 +782,7 @@ update msg model =
         updateAndSaveImageAndGallery newModel =
             let
                 newImage =
-                    modelToImage newModel
+                    extractImage newModel
             in
             ( newModel
             , Cmd.batch
@@ -1001,7 +920,7 @@ update msg model =
             ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )
 
         SavedToGallery ->
-            updateAndSaveImageAndGallery <| { model | gallery = modelToImage model :: model.gallery }
+            updateAndSaveImageAndGallery <| { model | gallery = extractImage model :: model.gallery }
 
         ViewingPage page ->
             ( { model | viewingPage = page }, Cmd.none )
@@ -1013,10 +932,10 @@ update msg model =
             let
                 image =
                     ListExtra.getAt index model.gallery
-                        |> Maybe.withDefault (modelToImage model)
+                        |> Maybe.withDefault (extractImage model)
 
                 newModel =
-                    modelWithImage image model
+                    replaceImage image model
             in
             updateAndSaveImageAndGallery <| { newModel | viewingPage = EditorPage }
 
@@ -1212,47 +1131,11 @@ galleryParser =
 
 editorParser : Parser (Route -> a) a
 editorParser =
-    Parser.map Editor <|
-        Parser.map urlDataVersionsToImage <|
-            Parser.map
-                UrlDataVersions
-                -- Fragment is parsed for backward-compatibility only
-                (Parser.query queryToImageParser </> fragmentToCompositionParser)
+    Parser.map Editor ImageEssentials.urlParser
 
 
 {-| Current version of Url building and parsing
 -}
-queryToImageParser : Query.Parser (Maybe ImageEssentials)
-queryToImageParser =
-    let
-        queryMapFromDecoder decoder =
-            Query.map (Maybe.andThen (Result.toMaybe << Decode.decodeString decoder))
-    in
-    Query.map6 (ListExtra.maybeMap6 ImageEssentials)
-        (Query.string keyFor.composition |> queryMapFromDecoder LCore.compositionDecoder)
-        (Query.string keyFor.turnAngle |> Query.map (Maybe.andThen String.toFloat))
-        (Query.string keyFor.backgroundColor |> queryMapFromDecoder Colors.decoder)
-        (Query.string keyFor.strokeColor |> queryMapFromDecoder Colors.decoder)
-        (Query.map2 (Maybe.map2 Tuple.pair)
-            (Query.string keyFor.translateX |> Query.map (Maybe.andThen String.toFloat))
-            (Query.string keyFor.translateY |> Query.map (Maybe.andThen String.toFloat))
-        )
-        (Query.string keyFor.scale |> Query.map (Maybe.andThen String.toFloat))
-
-
-imageToUrlString : ImageEssentials -> String
-imageToUrlString image =
-    Url.Builder.absolute []
-        [ Url.Builder.string keyFor.composition (image.composition |> LCore.encodeComposition |> Encode.encode 0)
-        , Url.Builder.string keyFor.turnAngle (String.fromFloat image.turnAngle)
-        , Url.Builder.string keyFor.backgroundColor (image.backgroundColor |> Colors.encode |> Encode.encode 0)
-        , Url.Builder.string keyFor.strokeColor (image.strokeColor |> Colors.encode |> Encode.encode 0)
-        , Url.Builder.string keyFor.translateX (Tuple.first image.translate |> Encode.float |> Encode.encode 0)
-        , Url.Builder.string keyFor.translateY (Tuple.second image.translate |> Encode.float |> Encode.encode 0)
-        , Url.Builder.string keyFor.scale (image.scale |> Encode.float |> Encode.encode 0)
-        ]
-
-
 replaceUrl : Nav.Key -> ImageEssentials -> Cmd msg
 replaceUrl key image =
     {--
@@ -1262,85 +1145,8 @@ replaceUrl key image =
             URL based on scroll position.
 
             https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
-        --}
-    Nav.replaceUrl key (imageToUrlString image)
-
-
-{-| Backwards compatibility: Old version of Url building and parsing.
--}
-fragmentToCompositionParser : Parser (Maybe Composition -> a) a
-fragmentToCompositionParser =
-    Parser.fragment <|
-        Maybe.andThen
-            (Url.percentDecode
-                >> Maybe.andThen (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe)
-            )
-
-
-
--- ENCODER AND DECODER: IMAGE AND GALLERY
-
-
-encodeImageAndGallery : ImageEssentials -> List ImageEssentials -> Encode.Value
-encodeImageAndGallery image gallery =
-    Encode.object
-        [ ( "image", encodeImage image ) --(modelToImage model) )
-        , ( "gallery", Encode.list encodeImage gallery )
-        ]
-
-
-imageAndGalleryDecoder : Decoder ImageAndGallery
-imageAndGalleryDecoder =
-    Decode.map2 ImageAndGallery
-        (Decode.field "image" imageDecoder)
-        (Decode.field "gallery" (Decode.list imageDecoder))
-
-
-keyFor :
-    { composition : String
-    , turnAngle : String
-    , backgroundColor : String
-    , strokeColor : String
-    , translateX : String
-    , translateY : String
-    , scale : String
-    }
-keyFor =
-    { composition = "composition"
-    , turnAngle = "turnAngle"
-    , backgroundColor = "backgroundColor"
-    , strokeColor = "strokeColor"
-    , translateX = "translateX"
-    , translateY = "translateY"
-    , scale = "scale"
-    }
-
-
-imageDecoder : Decoder ImageEssentials
-imageDecoder =
-    Decode.map6 ImageEssentials
-        (Decode.field keyFor.composition LCore.compositionDecoder)
-        (Decode.field keyFor.turnAngle Decode.float)
-        (Decode.field keyFor.backgroundColor Colors.decoder)
-        (Decode.field keyFor.strokeColor Colors.decoder)
-        (Decode.map2 Tuple.pair
-            (Decode.field keyFor.translateX Decode.float)
-            (Decode.field keyFor.translateY Decode.float)
-        )
-        (Decode.field keyFor.scale Decode.float)
-
-
-encodeImage : ImageEssentials -> Encode.Value
-encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
-    Encode.object
-        [ ( keyFor.composition, LCore.encodeComposition composition )
-        , ( keyFor.turnAngle, Encode.float turnAngle )
-        , ( keyFor.backgroundColor, Colors.encode backgroundColor )
-        , ( keyFor.strokeColor, Colors.encode strokeColor )
-        , ( keyFor.translateX, Encode.float (Tuple.first translate) )
-        , ( keyFor.translateY, Encode.float (Tuple.second translate) )
-        , ( keyFor.scale, Encode.float scale )
-        ]
+    --}
+    Nav.replaceUrl key (ImageEssentials.toUrlPathString image)
 
 
 
