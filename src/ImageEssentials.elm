@@ -112,8 +112,8 @@ replaceComposition image composition =
 -- PARSER
 
 
-encodeImageAndGallery : ImageEssentials -> Gallery -> Encode.Value
-encodeImageAndGallery image gallery =
+encodeImageAndGallery : ImageAndGallery -> Encode.Value
+encodeImageAndGallery { image, gallery } =
     Encode.object
         [ ( "image", encodeImage image )
         , ( "gallery", Encode.list encodeImage gallery )
@@ -125,6 +125,19 @@ imageAndGalleryDecoder =
     Decode.map2 ImageAndGallery
         (Decode.field "image" imageDecoder)
         (Decode.field "gallery" (Decode.list imageDecoder))
+
+
+encodeImage : ImageEssentials -> Encode.Value
+encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
+    Encode.object
+        [ ( keyFor.composition, LCore.encodeComposition composition )
+        , ( keyFor.turnAngle, Encode.float turnAngle )
+        , ( keyFor.backgroundColor, Colors.encode backgroundColor )
+        , ( keyFor.strokeColor, Colors.encode strokeColor )
+        , ( keyFor.translateX, Encode.float (Tuple.first translate) )
+        , ( keyFor.translateY, Encode.float (Tuple.second translate) )
+        , ( keyFor.scale, Encode.float scale )
+        ]
 
 
 imageDecoder : Decoder ImageEssentials
@@ -139,19 +152,6 @@ imageDecoder =
             (Decode.field keyFor.translateY Decode.float)
         )
         (Decode.field keyFor.scale Decode.float)
-
-
-encodeImage : ImageEssentials -> Encode.Value
-encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
-    Encode.object
-        [ ( keyFor.composition, LCore.encodeComposition composition )
-        , ( keyFor.turnAngle, Encode.float turnAngle )
-        , ( keyFor.backgroundColor, Colors.encode backgroundColor )
-        , ( keyFor.strokeColor, Colors.encode strokeColor )
-        , ( keyFor.translateX, Encode.float (Tuple.first translate) )
-        , ( keyFor.translateY, Encode.float (Tuple.second translate) )
-        , ( keyFor.scale, Encode.float scale )
-        ]
 
 
 urlParser : Parser (Maybe ImageEssentials -> a) a

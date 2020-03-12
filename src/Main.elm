@@ -375,7 +375,7 @@ init localStorage url navKey =
     ( model
     , Cmd.batch
         ([ getImgDivPosition
-         , saveStateToLocalStorage (encodeImageAndGallery (extractImage model) model.gallery)
+         , saveStateToLocalStorage (encodeImageAndGallery imageAndGallery)
          ]
             ++ updateUrl
         )
@@ -783,10 +783,13 @@ update msg model =
             let
                 newImage =
                     extractImage newModel
+
+                newImageAndGallery =
+                    ImageAndGallery newImage newModel.gallery
             in
             ( newModel
             , Cmd.batch
-                [ saveStateToLocalStorage (encodeImageAndGallery newImage newModel.gallery)
+                [ saveStateToLocalStorage (encodeImageAndGallery newImageAndGallery)
                 , replaceUrl newModel.navKey newImage
                 ]
             )

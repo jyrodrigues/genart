@@ -19,6 +19,7 @@ import Fuzz exposing (Fuzzer)
 import ImageEssentials
     exposing
         ( Gallery
+        , ImageAndGallery
         , ImageEssentials
         , V2_Image
         , V2_ImageAndGallery
@@ -26,6 +27,7 @@ import ImageEssentials
         , encodeImageAndGallery
         , imageAndGalleryDecoder
         , imageDecoder
+        , mergeV2toV3
         , replaceComposition
         , v2_encodeImage
         , v2_encodeImageAndGallery
@@ -116,9 +118,11 @@ imageEssentialsFuzzer =
         |> Fuzz.andMap Fuzz.float
 
 
-galleryFuzzer : Fuzzer Gallery
-galleryFuzzer =
-    Fuzz.list imageEssentialsFuzzer
+imageAndGalleryFuzzer : Fuzzer ImageAndGallery
+imageAndGalleryFuzzer =
+    Fuzz.map2 ImageAndGallery
+        imageEssentialsFuzzer
+        (Fuzz.list imageEssentialsFuzzer)
 
 
 
@@ -187,14 +191,19 @@ suite =
                             |> encodeImage
                             |> Decode.decodeValue imageDecoder
                             |> Expect.equal (Ok fuzzyImage)
-                , fuzz (Fuzz.tuple ( imageEssentialsFuzzer, galleryFuzzer )) "Image and Gallery" <|
-                    \( fuzzyImage, fuzzyGallery ) ->
-                        encodeImageAndGallery fuzzyImage fuzzyGallery
+                , fuzz imageAndGalleryFuzzer "Image and Gallery" <|
+                    \fuzzyImageAndGallery ->
+                        encodeImageAndGallery fuzzyImageAndGallery
                             |> Decode.decodeValue imageAndGalleryDecoder
-                            |> Expect.equal (Ok { image = fuzzyImage, gallery = fuzzyGallery })
+                            |> Expect.equal (Ok fuzzyImageAndGallery)
+                , fuzz v2_imageAndGalleryFuzzer "V2_ImageAndGallery Encode Decode" <|
+                    \fuzzyImageAndGallery ->
+                        fuzzyImageAndGallery
+                            |> v2_encodeImageAndGallery
+                            |> Decode.decodeValue v2_imageAndGalleryDecoder
+                            |> Expect.equal (Ok fuzzyImageAndGallery)
                 , test "Migrate localStorage v2 to v3" <|
                     \_ ->
-                        --{ emptyUrl | fragment = Just "[]" }
                         Expect.equal 1 1
                 ]
             , describe "parseUrl"
