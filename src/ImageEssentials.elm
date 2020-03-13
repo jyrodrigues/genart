@@ -20,6 +20,7 @@ module ImageEssentials exposing
     , v2_encodeImageAndGallery
     , v2_imageAndGalleryDecoder
     , v2_imageDecoder
+    , v2_imageToImageEssentials
     )
 
 import Colors exposing (Color)
@@ -278,9 +279,9 @@ mergeV2toV3 v2_imageAndGallery imageAndGallery =
             extractImage v2_imageAndGallery
 
         v2_gallery =
-            v2_mainImg :: List.map v2_imageToImageEssentials v2_imageAndGallery.gallery
+            List.map v2_imageToImageEssentials v2_imageAndGallery.gallery
     in
-    { imageAndGallery | gallery = imageAndGallery.gallery ++ v2_gallery }
+    { imageAndGallery | gallery = imageAndGallery.gallery ++ v2_mainImg :: v2_gallery }
 
 
 v2_imageAndGalleryDecoder : Decoder V2_ImageAndGallery

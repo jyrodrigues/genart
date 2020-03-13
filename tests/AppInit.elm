@@ -33,12 +33,13 @@ import ImageEssentials
         , v2_encodeImageAndGallery
         , v2_imageAndGalleryDecoder
         , v2_imageDecoder
+        , v2_imageToImageEssentials
         )
 import Json.Decode as Decode
 import Json.Encode as Encode
 import LSystem.Core as LCore exposing (Composition, Step(..), encodeComposition)
 import Main exposing (..)
-import Test exposing (Test, describe, fuzz, test, todo)
+import Test exposing (Test, describe, fuzz, fuzz2, test, todo)
 import Url exposing (Protocol(..), Url)
 
 
@@ -193,18 +194,20 @@ suite =
                             |> Expect.equal (Ok fuzzyImage)
                 , fuzz imageAndGalleryFuzzer "Image and Gallery" <|
                     \fuzzyImageAndGallery ->
-                        encodeImageAndGallery fuzzyImageAndGallery
+                        fuzzyImageAndGallery
+                            |> encodeImageAndGallery
                             |> Decode.decodeValue imageAndGalleryDecoder
                             |> Expect.equal (Ok fuzzyImageAndGallery)
-                , fuzz v2_imageAndGalleryFuzzer "V2_ImageAndGallery Encode Decode" <|
-                    \fuzzyImageAndGallery ->
-                        fuzzyImageAndGallery
-                            |> v2_encodeImageAndGallery
-                            |> Decode.decodeValue v2_imageAndGalleryDecoder
-                            |> Expect.equal (Ok fuzzyImageAndGallery)
-                , test "Migrate localStorage v2 to v3" <|
-                    \_ ->
-                        Expect.equal 1 1
+                , fuzz2 v2_imageAndGalleryFuzzer imageAndGalleryFuzzer "Migrate ImageAndGallery v2 to v3" <|
+                    \v2_fuzzyImageAndGallery fuzzyImageAndGallery ->
+                        mergeV2toV3 v2_fuzzyImageAndGallery fuzzyImageAndGallery
+                            |> Expect.equal
+                                { fuzzyImageAndGallery
+                                    | gallery =
+                                        fuzzyImageAndGallery.gallery
+                                            ++ ImageEssentials.extractImage v2_fuzzyImageAndGallery
+                                            :: List.map v2_imageToImageEssentials v2_fuzzyImageAndGallery.gallery
+                                }
                 ]
             , describe "parseUrl"
                 -- https://hybridcode.art/
@@ -258,8 +261,8 @@ suite =
                     --                      &translateY=-0.24000000000000055
                     --                      &scale=1.480000000000001
                     --                      #["DLRS","DLRS"]
-                    , fuzz (Fuzz.tuple ( compositionFuzzer, imageEssentialsFuzzer )) "URL v1 and v2 - composition on fragment && on query" <|
-                        \( fuzzyComposition, fuzzyImage ) ->
+                    , fuzz2 compositionFuzzer imageEssentialsFuzzer "URL v1 and v2 - composition on fragment && on query" <|
+                        \fuzzyComposition fuzzyImage ->
                             Maybe.withDefault emptyUrl
                                 (Url.fromString
                                     ("https://test.art"
@@ -327,10 +330,10 @@ backwardCompatibilitySuite =
                         |> Decode.decodeValue v2_imageDecoder
                         |> Expect.equal (Ok fuzzyImage)
             , fuzz v2_imageAndGalleryFuzzer "V2_ImageAndGallery Encode Decode" <|
-                \fuzzyImageAndGallery ->
-                    fuzzyImageAndGallery
+                \v2_fuzzyImageAndGallery ->
+                    v2_fuzzyImageAndGallery
                         |> v2_encodeImageAndGallery
                         |> Decode.decodeValue v2_imageAndGalleryDecoder
-                        |> Expect.equal (Ok fuzzyImageAndGallery)
+                        |> Expect.equal (Ok v2_fuzzyImageAndGallery)
             ]
         ]
