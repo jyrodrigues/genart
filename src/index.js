@@ -4,15 +4,21 @@
 import "./index.html";
 import { Elm } from "./Main.elm";
 
-var storageName = 'genart/v0.3/state';
+var storageLatestKey = 'genart/v0.3/state';
+
+var storage =
+    { v2: JSON.parse(localStorage.getItem('genart/v0.2/state'))
+    , latest: JSON.parse(localStorage.getItem(storageLatestKey))
+    }
+
 
 var app = Elm.Main.init({
     node: document.getElementById('elm'),
-    flags: JSON.parse(localStorage.getItem(storageName)) || []
+    flags: storage || {},
 });
 
-app.ports.saveStateToLocalStorage.subscribe(function(stateAsListOfStrings) {
-    localStorage.setItem(storageName, JSON.stringify(stateAsListOfStrings));
+app.ports.saveEncodedModelToLocalStorage.subscribe(function(encodedModel) {
+    localStorage.setItem(storageLatestKey, JSON.stringify(encodedModel));
 });
 
 // As per https://stackoverflow.com/a/46403589

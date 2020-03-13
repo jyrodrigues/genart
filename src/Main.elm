@@ -6,7 +6,6 @@
 
 port module Main exposing
     ( Route(..)
-    , initialImage
     , main
     , parseUrl
     )
@@ -73,10 +72,14 @@ import ImageEssentials
         ( Gallery
         , ImageAndGallery
         , ImageEssentials
+        , Polygon(..)
         , Position
+        , defaultImage
         , encodeImageAndGallery
         , extractImage
-        , imageAndGalleryDecoder
+        , mergeAllVersions_ImageAndGalleryDecoder
+        , polygonAngle
+        , polygonBlock
         , replaceImage
         )
 import Json.Decode as Decode exposing (Decoder)
@@ -104,7 +107,7 @@ import Url.Parser as Parser exposing (Parser, string)
 -- PORTS
 
 
-port saveStateToLocalStorage : Encode.Value -> Cmd msg
+port saveEncodedModelToLocalStorage : Encode.Value -> Cmd msg
 
 
 port downloadSvg : () -> Cmd msg
@@ -248,27 +251,9 @@ type Focus
     | TurnAngleInput
 
 
-type Polygon
-    = Triangle
-    | Square
-    | Pentagon
-    | Hexagon
-
-
 
 -- IMPLEMENTATION, LOGIC, FUNCTIONS
 -- MODEL
-
-
-initialImage : ImageEssentials
-initialImage =
-    { composition = LCore.fromList [ polygonBlock Square, [ D ] ]
-    , turnAngle = polygonAngle Square
-    , backgroundColor = Colors.darkGray
-    , strokeColor = Colors.defaultGreen
-    , translate = ( 0, 0 )
-    , scale = 1
-    }
 
 
 initialModel : ImageEssentials -> Gallery -> Url.Url -> Nav.Key -> Model
@@ -354,7 +339,7 @@ init localStorage url navKey =
             parseUrl url
 
         decodedLocalStorage =
-            Decode.decodeValue imageAndGalleryDecoder localStorage
+            Decode.decodeValue mergeAllVersions_ImageAndGalleryDecoder localStorage
 
         imageAndGallery =
             combineUrlAndStorage decodedLocalStorage route
@@ -375,11 +360,16 @@ init localStorage url navKey =
     ( model
     , Cmd.batch
         ([ getImgDivPosition
-         , saveStateToLocalStorage (encodeImageAndGallery imageAndGallery)
+         , saveEncodedModelToLocalStorage (encodeImageAndGallery imageAndGallery)
          ]
             ++ updateUrl
         )
     )
+
+
+
+-- TODO Check that new version of mergeToV3 (which returns a defaultImage sometimes)
+--      doesn't affect this function AND doesn't generate redudancy
 
 
 combineUrlAndStorage : Result Decode.Error ImageAndGallery -> Route -> ImageAndGallery
@@ -395,7 +385,7 @@ combineUrlAndStorage resultImageAndGalleryFromStorage route =
             storedImageAndGallery
 
         ( _, Err _ ) ->
-            { image = initialImage, gallery = [] }
+            { image = defaultImage, gallery = [] }
 
 
 
@@ -789,7 +779,7 @@ update msg model =
             in
             ( newModel
             , Cmd.batch
-                [ saveStateToLocalStorage (encodeImageAndGallery newImageAndGallery)
+                [ saveEncodedModelToLocalStorage (encodeImageAndGallery newImageAndGallery)
                 , replaceUrl newModel.navKey newImage
                 ]
             )
@@ -1028,42 +1018,6 @@ updateCompositionBaseAndAngle model polygon =
         | composition = LCore.changeBase (polygonBlock polygon) model.composition
         , turnAngle = polygonAngle polygon
     }
-
-
-
--- POLYGON
-
-
-polygonBlock : Polygon -> Block
-polygonBlock polygon =
-    case polygon of
-        Triangle ->
-            [ D, L, D, L, D ]
-
-        Square ->
-            [ D, L, D, L, D, L, D ]
-
-        Pentagon ->
-            [ D, L, D, L, D, L, D, L, D ]
-
-        Hexagon ->
-            [ D, L, D, L, D, L, D, L, D, L, D ]
-
-
-polygonAngle : Polygon -> Float
-polygonAngle polygon =
-    case polygon of
-        Triangle ->
-            120
-
-        Square ->
-            90
-
-        Pentagon ->
-            72
-
-        Hexagon ->
-            60
 
 
 

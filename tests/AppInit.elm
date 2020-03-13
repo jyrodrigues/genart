@@ -23,11 +23,12 @@ import ImageEssentials
         , ImageEssentials
         , V2_Image
         , V2_ImageAndGallery
+        , defaultImage
         , encodeImage
         , encodeImageAndGallery
         , imageAndGalleryDecoder
         , imageDecoder
-        , mergeV2toV3
+        , mergeToV3
         , replaceComposition
         , v2_encodeImage
         , v2_encodeImageAndGallery
@@ -148,7 +149,7 @@ compositionToUrlPercentEncodedOnFragment composition =
 
 compositionToRoute : Composition -> Route
 compositionToRoute composition =
-    Editor (Just (replaceComposition initialImage composition))
+    Editor (Just (replaceComposition defaultImage composition))
 
 
 
@@ -198,9 +199,9 @@ suite =
                             |> encodeImageAndGallery
                             |> Decode.decodeValue imageAndGalleryDecoder
                             |> Expect.equal (Ok fuzzyImageAndGallery)
-                , fuzz2 v2_imageAndGalleryFuzzer imageAndGalleryFuzzer "Migrate ImageAndGallery v2 to v3" <|
+                , fuzz2 v2_imageAndGalleryFuzzer imageAndGalleryFuzzer "Merge ImageAndGallery v2 to v3" <|
                     \v2_fuzzyImageAndGallery fuzzyImageAndGallery ->
-                        mergeV2toV3 v2_fuzzyImageAndGallery fuzzyImageAndGallery
+                        mergeToV3 (Just fuzzyImageAndGallery) (Just v2_fuzzyImageAndGallery)
                             |> Expect.equal
                                 { fuzzyImageAndGallery
                                     | gallery =
@@ -208,6 +209,9 @@ suite =
                                             ++ ImageEssentials.extractImage v2_fuzzyImageAndGallery
                                             :: List.map v2_imageToImageEssentials v2_fuzzyImageAndGallery.gallery
                                 }
+                , todo "Merge ImageAndGallery v2 when there's no v3"
+                , todo "Merge ImageAndGallery v3 only"
+                , todo "Merge ImageAndGallery empty"
                 ]
             , describe "parseUrl"
                 -- https://hybridcode.art/

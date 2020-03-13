@@ -2,15 +2,20 @@ module ImageEssentials exposing
     ( Gallery
     , ImageAndGallery
     , ImageEssentials
+    , Polygon(..)
     , Position
     , V2_Image
     , V2_ImageAndGallery
+    , defaultImage
     , encodeImage
     , encodeImageAndGallery
     , extractImage
     , imageAndGalleryDecoder
     , imageDecoder
-    , mergeV2toV3
+    , mergeAllVersions_ImageAndGalleryDecoder
+    , mergeToV3
+    , polygonAngle
+    , polygonBlock
     , queryToImageParser
     , replaceComposition
     , replaceImage
@@ -26,7 +31,7 @@ module ImageEssentials exposing
 import Colors exposing (Color)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import LSystem.Core as LCore exposing (Composition)
+import LSystem.Core as LCore exposing (Block, Composition, Step(..))
 import ListExtra
 import Url
 import Url.Builder
@@ -62,6 +67,13 @@ type alias Position =
     ( Float, Float )
 
 
+type Polygon
+    = Triangle
+    | Square
+    | Pentagon
+    | Hexagon
+
+
 type alias HasImageEssentials a =
     { a
         | composition : Composition
@@ -70,6 +82,21 @@ type alias HasImageEssentials a =
         , strokeColor : Color
         , translate : Position
         , scale : Float
+    }
+
+
+
+-- DEFAULT VALUES
+
+
+defaultImage : ImageEssentials
+defaultImage =
+    { composition = LCore.fromList [ polygonBlock Square, [ D ] ]
+    , turnAngle = polygonAngle Square
+    , backgroundColor = Colors.darkGray
+    , strokeColor = Colors.defaultGreen
+    , translate = ( 0, 0 )
+    , scale = 1
     }
 
 
@@ -103,6 +130,42 @@ replaceImage { composition, turnAngle, backgroundColor, strokeColor } something 
 replaceComposition : ImageEssentials -> Composition -> ImageEssentials
 replaceComposition image composition =
     { image | composition = composition }
+
+
+
+-- POLYGON
+
+
+polygonBlock : Polygon -> Block
+polygonBlock polygon =
+    case polygon of
+        Triangle ->
+            [ D, L, D, L, D ]
+
+        Square ->
+            [ D, L, D, L, D, L, D ]
+
+        Pentagon ->
+            [ D, L, D, L, D, L, D, L, D ]
+
+        Hexagon ->
+            [ D, L, D, L, D, L, D, L, D, L, D ]
+
+
+polygonAngle : Polygon -> Float
+polygonAngle polygon =
+    case polygon of
+        Triangle ->
+            120
+
+        Square ->
+            90
+
+        Pentagon ->
+            72
+
+        Hexagon ->
+            60
 
 
 
@@ -205,6 +268,50 @@ keyFor =
 
 
 
+-- DECODE LOCAL STORAGE (ALL VERSIONS) (FLAGS)
+
+
+mergeAllVersions_ImageAndGalleryDecoder : Decoder ImageAndGallery
+mergeAllVersions_ImageAndGalleryDecoder =
+    Decode.map2 mergeToV3
+        (Decode.field "latest" (Decode.maybe imageAndGalleryDecoder))
+        (Decode.field "v2" (Decode.maybe v2_imageAndGalleryDecoder))
+
+
+
+{--How we could do it with more than 2 versions:
+mergeAllVersions : V1_Image -> V2_ImageAndGallery -> ImageAndGallery -> ImageAndGallery
+mergeAllVersions v1 v2 latest =
+    v1
+        |> mergeToV2 v2
+        |> mergeToV3 latest
+--}
+
+
+mergeToV3 : Maybe ImageAndGallery -> Maybe V2_ImageAndGallery -> ImageAndGallery
+mergeToV3 maybeImageAndGallery maybeV2 =
+    case ( maybeImageAndGallery, maybeV2 ) of
+        ( Just imageAndGallery, Just v2_imageAndGallery ) ->
+            let
+                v2_mainImg =
+                    extractImage v2_imageAndGallery
+
+                v2_gallery =
+                    List.map v2_imageToImageEssentials v2_imageAndGallery.gallery
+            in
+            { imageAndGallery | gallery = imageAndGallery.gallery ++ v2_mainImg :: v2_gallery }
+
+        ( Just imageAndGallery, Nothing ) ->
+            imageAndGallery
+
+        ( Nothing, Just v2_imageAndGallery ) ->
+            { image = extractImage v2_imageAndGallery, gallery = List.map v2_imageToImageEssentials v2_imageAndGallery.gallery }
+
+        ( Nothing, Nothing ) ->
+            { image = defaultImage, gallery = [] }
+
+
+
 -- BACKWARD COMPATIBILITY
 -- 1. MIGRATE FROM OLD VERSIONS
 -- 2. MERGE WITH NEW VERSION
@@ -270,18 +377,6 @@ type alias V2_Image =
     , backgroundColor : Color
     , strokeColor : Color
     }
-
-
-mergeV2toV3 : V2_ImageAndGallery -> ImageAndGallery -> ImageAndGallery
-mergeV2toV3 v2_imageAndGallery imageAndGallery =
-    let
-        v2_mainImg =
-            extractImage v2_imageAndGallery
-
-        v2_gallery =
-            List.map v2_imageToImageEssentials v2_imageAndGallery.gallery
-    in
-    { imageAndGallery | gallery = imageAndGallery.gallery ++ v2_mainImg :: v2_gallery }
 
 
 v2_imageAndGalleryDecoder : Decoder V2_ImageAndGallery
