@@ -7,11 +7,19 @@ import { Elm } from "./Main.elm";
 var storageKeys =
     { v2: 'genart/v0.2/state'
     , latest: 'genart/v0.3/state'
-    }
+    };
 
 var storage = mapValue(storageKeys, function(key) {
-    return JSON.parse(localStorage.getItem(key));
-})
+    var parsedItem = "";
+
+    try {
+        parsedItem = JSON.parse(localStorage.getItem(key));
+    } catch (e) {
+        console.log("Error while parsing localStorage[" + key + "]", e);;
+    }
+
+    return parsedItem;
+});
 
 var elmApp = Elm.Main.init({
     node: document.getElementById('elm'),
@@ -78,7 +86,8 @@ function mapValue(object, fn) {
   Object.keys(object).forEach(function(key) {
     result[key] = fn(object[key], key, object);
   })
-  return result
+
+  return result;
 }
 
 /**
