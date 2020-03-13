@@ -4,21 +4,30 @@
 import "./index.html";
 import { Elm } from "./Main.elm";
 
-var storageLatestKey = 'genart/v0.3/state';
-
-var storage =
-    { v2: JSON.parse(localStorage.getItem('genart/v0.2/state'))
-    , latest: JSON.parse(localStorage.getItem(storageLatestKey))
+var storageKeys =
+    { v2: 'genart/v0.2/state'
+    , latest: 'genart/v0.3/state'
     }
 
+var storage = mapValue(storageKeys, function(key) {
+    return JSON.parse(localStorage.getItem(key));
+})
 
-var app = Elm.Main.init({
+var elmApp = Elm.Main.init({
     node: document.getElementById('elm'),
     flags: storage || {},
 });
 
-app.ports.saveEncodedModelToLocalStorage.subscribe(function(encodedModel) {
-    localStorage.setItem(storageLatestKey, JSON.stringify(encodedModel));
+elmApp.ports.saveEncodedModelToLocalStorage.subscribe(function(encodedModel) {
+    localStorage.setItem(storageKeys.latest, JSON.stringify(encodedModel));
+});
+
+// This is used only once!
+elmApp.ports.saveMergedModelsVersionsAndDeleteOldOnes.subscribe(function(encodedMergedModel) {
+    localStorage.setItem(storageKeys.latest, JSON.stringify(encodedMergedModel));
+
+    //localStorage.removeItem(storageKeys.v1)
+    localStorage.removeItem(storageKeys.v2)
 });
 
 // As per https://stackoverflow.com/a/46403589
@@ -36,7 +45,7 @@ function saveSvg(svgEl, name) {
     document.body.removeChild(downloadLink);
 }
 
-app.ports.downloadSvg.subscribe(function() {
+elmApp.ports.downloadSvg.subscribe(function() {
     saveSvg(document.getElementById("MainSVG"), "hybridcode.svg");
 });
 
@@ -54,4 +63,20 @@ document.onkeydown = (e) => {
     if (e.key === "Backspace" && document.activeElement !== turnAngleInput) {
         e.preventDefault();
     }
+}
+
+/**
+ * Helper Funcions
+ *
+ * Copied from Lodash.js: https://github.com/lodash/lodash/blob/d5ef31929a1262abbc75b8dadc0b6ae6e9558b5f/mapValue.js
+ */
+
+function mapValue(object, fn) {
+  object = Object(object);
+  var result = {};
+
+  Object.keys(object).forEach(function(key) {
+    result[key] = fn(object[key], key, object);
+  })
+  return result
 }

@@ -110,6 +110,9 @@ import Url.Parser as Parser exposing (Parser, string)
 port saveEncodedModelToLocalStorage : Encode.Value -> Cmd msg
 
 
+port saveMergedModelsVersionsAndDeleteOldOnes : Encode.Value -> Cmd msg
+
+
 port downloadSvg : () -> Cmd msg
 
 
@@ -360,7 +363,7 @@ init localStorage url navKey =
     ( model
     , Cmd.batch
         ([ getImgDivPosition
-         , saveEncodedModelToLocalStorage (encodeImageAndGallery imageAndGallery)
+         , saveMergedModelsVersionsAndDeleteOldOnes (encodeImageAndGallery imageAndGallery)
          ]
             ++ updateUrl
         )
