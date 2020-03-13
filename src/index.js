@@ -10,12 +10,13 @@ var storageKeys =
     };
 
 var storage = mapValue(storageKeys, function(key) {
+    var item = localStorage.getItem(key);
     var parsedItem = "";
 
     try {
-        parsedItem = JSON.parse(localStorage.getItem(key));
+        parsedItem = JSON.parse(item);
     } catch (e) {
-        console.log("Error while parsing localStorage[" + key + "]", e);;
+        console.log("Error while parsing localStorage[" + key + "] = " + item, e);
     }
 
     return parsedItem;
@@ -119,15 +120,15 @@ function v3() {
     );
 }
 
-function both() {
-    v2();
-    v3();
+function rubbish() {
+  localStorage.setItem(storageKeys.v2, "a");
+  localStorage.setItem(storageKeys.latest, "a");
 }
 
 none();
 v2();
 v3();
-both();
+rubbish();
 
 
  *
