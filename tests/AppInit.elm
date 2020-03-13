@@ -1,4 +1,4 @@
-module AppInit exposing (suite)
+module AppInit exposing (backwardCompatibilitySuite, suite)
 
 {--
     Note that Main.init cannot be tested directly because Navigation.Key can't be mocked.
@@ -18,18 +18,28 @@ import Expect
 import Fuzz exposing (Fuzzer)
 import ImageEssentials
     exposing
-        ( ImageEssentials
+        ( ImageAndGallery
+        , ImageEssentials
+        , V2_Image
+        , V2_ImageAndGallery
+        , defaultImage
         , encodeImage
         , encodeImageAndGallery
         , imageAndGalleryDecoder
         , imageDecoder
+        , mergeToV3
         , replaceComposition
+        , v2_encodeImage
+        , v2_encodeImageAndGallery
+        , v2_imageAndGalleryDecoder
+        , v2_imageDecoder
+        , v2_imageToImageEssentials
         )
 import Json.Decode as Decode
 import Json.Encode as Encode
 import LSystem.Core as LCore exposing (Composition, Step(..), encodeComposition)
-import Main exposing (..)
-import Test exposing (Test, describe, fuzz, test, todo)
+import Main exposing (Route(..), parseUrl)
+import Test exposing (Test, describe, fuzz, fuzz2, test, todo)
 import Url exposing (Protocol(..), Url)
 
 
@@ -49,19 +59,6 @@ emptyUrl =
 
 
 
--- This helps preventing a bug: `Expect.equal` an empty composition
-
-
-notEmptyComposition : Composition -> Composition
-notEmptyComposition composition =
-    if LCore.length composition == 0 then
-        LCore.fromList [ [ D ] ]
-
-    else
-        composition
-
-
-
 -- FUZZERS
 
 
@@ -75,16 +72,31 @@ compositionFuzzer =
         -- To list of Blocks, i.e. almost a Composition
         |> Fuzz.list
         |> Fuzz.map LCore.fromList
+        |> Fuzz.map nonEmptyComposition
+
+
+{-| This helps preventing a bug: `Expect.equal` an empty composition
+-}
+nonEmptyComposition : Composition -> Composition
+nonEmptyComposition composition =
+    if LCore.length composition == 0 then
+        LCore.fromList [ [ D ] ]
+
+    else
+        composition
 
 
 colorFuzzer : Fuzzer Color
 colorFuzzer =
-    Fuzz.map4
-        (\r g b a -> Color r g b a)
-        (Fuzz.intRange 0 255)
-        (Fuzz.intRange 0 255)
-        (Fuzz.intRange 0 255)
-        Fuzz.float
+    -- Forcing Color internal representation as hex since our URL scheme uses this representation.
+    -- TODO change this when implementing Colors.toString always as hex (essentially it would be the same as encode?)
+    Fuzz.map (Colors.toHexString >> Colors.fromHexString) <|
+        Fuzz.map4
+            (\r g b a -> Color r g b a)
+            (Fuzz.intRange 0 255)
+            (Fuzz.intRange 0 255)
+            (Fuzz.intRange 0 255)
+            Fuzz.float
 
 
 imageEssentialsFuzzer : Fuzzer ImageEssentials
@@ -93,8 +105,8 @@ imageEssentialsFuzzer =
         (\c ta bg st tr s ->
             { composition = c
             , turnAngle = ta
-            , backgroundColor = Colors.fromHexString <| Colors.toHexString bg
-            , strokeColor = Colors.fromHexString <| Colors.toHexString st
+            , backgroundColor = bg
+            , strokeColor = st
             , translate = tr
             , scale = s
             }
@@ -107,9 +119,11 @@ imageEssentialsFuzzer =
         |> Fuzz.andMap Fuzz.float
 
 
-galleryFuzzer : Fuzzer (List ImageEssentials)
-galleryFuzzer =
-    Fuzz.list imageEssentialsFuzzer
+imageAndGalleryFuzzer : Fuzzer ImageAndGallery
+imageAndGalleryFuzzer =
+    Fuzz.map2 ImageAndGallery
+        imageEssentialsFuzzer
+        (Fuzz.list imageEssentialsFuzzer)
 
 
 
@@ -119,7 +133,7 @@ galleryFuzzer =
 
 compositionToFragment : Composition -> String
 compositionToFragment composition =
-    Encode.encode 0 (encodeComposition (notEmptyComposition composition))
+    Encode.encode 0 (encodeComposition composition)
 
 
 compositionToUrlOnFragment : Composition -> Url
@@ -134,7 +148,7 @@ compositionToUrlPercentEncodedOnFragment composition =
 
 compositionToRoute : Composition -> Route
 compositionToRoute composition =
-    Editor (Just (replaceComposition initialImage (notEmptyComposition composition)))
+    Editor (Just (replaceComposition defaultImage composition))
 
 
 
@@ -178,11 +192,28 @@ suite =
                             |> encodeImage
                             |> Decode.decodeValue imageDecoder
                             |> Expect.equal (Ok fuzzyImage)
-                , fuzz (Fuzz.tuple ( imageEssentialsFuzzer, galleryFuzzer )) "Image and Gallery" <|
-                    \( fuzzyImage, fuzzyGallery ) ->
-                        encodeImageAndGallery fuzzyImage fuzzyGallery
+                , fuzz imageAndGalleryFuzzer "Image and Gallery" <|
+                    \fuzzyImageAndGallery ->
+                        fuzzyImageAndGallery
+                            |> encodeImageAndGallery
                             |> Decode.decodeValue imageAndGalleryDecoder
-                            |> Expect.equal (Ok { image = fuzzyImage, gallery = fuzzyGallery })
+                            |> Expect.equal (Ok fuzzyImageAndGallery)
+                , fuzz2 v2_imageAndGalleryFuzzer imageAndGalleryFuzzer "Merge ImageAndGallery v2 to v3" <|
+                    \v2_fuzzyImageAndGallery fuzzyImageAndGallery ->
+                        mergeToV3 (Just fuzzyImageAndGallery) (Just v2_fuzzyImageAndGallery)
+                            |> Expect.equal
+                                { fuzzyImageAndGallery
+                                    | gallery =
+                                        fuzzyImageAndGallery.gallery
+                                            ++ ImageEssentials.extractImage v2_fuzzyImageAndGallery
+                                            :: List.map v2_imageToImageEssentials v2_fuzzyImageAndGallery.gallery
+                                }
+
+                {--
+                , todo "Merge ImageAndGallery v2 when there's no v3"
+                , todo "Merge ImageAndGallery v3 only"
+                , todo "Merge ImageAndGallery empty"
+                --}
                 ]
             , describe "parseUrl"
                 -- https://hybridcode.art/
@@ -236,8 +267,8 @@ suite =
                     --                      &translateY=-0.24000000000000055
                     --                      &scale=1.480000000000001
                     --                      #["DLRS","DLRS"]
-                    , fuzz (Fuzz.tuple ( compositionFuzzer, imageEssentialsFuzzer )) "URL v1 and v2 - composition on fragment && on query" <|
-                        \( fuzzyComposition, fuzzyImage ) ->
+                    , fuzz2 compositionFuzzer imageEssentialsFuzzer "URL v1 and v2 - composition on fragment && on query" <|
+                        \fuzzyComposition fuzzyImage ->
                             Maybe.withDefault emptyUrl
                                 (Url.fromString
                                     ("https://test.art"
@@ -260,5 +291,55 @@ suite =
                 , todo "Missing scale"
                 --}
                 ]
+            ]
+        ]
+
+
+
+-- BACKWARD COMPATIBILITY STUFF
+-- FUZZERS
+
+
+v2_imageAndGalleryFuzzer : Fuzzer V2_ImageAndGallery
+v2_imageAndGalleryFuzzer =
+    Fuzz.map5 V2_ImageAndGallery
+        compositionFuzzer
+        (Fuzz.list v2_imageFuzzer)
+        colorFuzzer
+        colorFuzzer
+        Fuzz.float
+        |> Fuzz.andMap Fuzz.float
+        |> Fuzz.andMap (Fuzz.tuple ( Fuzz.float, Fuzz.float ))
+
+
+v2_imageFuzzer : Fuzzer V2_Image
+v2_imageFuzzer =
+    Fuzz.map4 V2_Image
+        compositionFuzzer
+        Fuzz.float
+        colorFuzzer
+        colorFuzzer
+
+
+
+-- TESTS
+
+
+backwardCompatibilitySuite : Test
+backwardCompatibilitySuite =
+    describe "Backwards compatibility"
+        [ describe "ImageEssentials Data Structure"
+            [ fuzz v2_imageFuzzer "V2_Image Encode Decode" <|
+                \fuzzyImage ->
+                    fuzzyImage
+                        |> v2_encodeImage
+                        |> Decode.decodeValue v2_imageDecoder
+                        |> Expect.equal (Ok fuzzyImage)
+            , fuzz v2_imageAndGalleryFuzzer "V2_ImageAndGallery Encode Decode" <|
+                \v2_fuzzyImageAndGallery ->
+                    v2_fuzzyImageAndGallery
+                        |> v2_encodeImageAndGallery
+                        |> Decode.decodeValue v2_imageAndGalleryDecoder
+                        |> Expect.equal (Ok v2_fuzzyImageAndGallery)
             ]
         ]
