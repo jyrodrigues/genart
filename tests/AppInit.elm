@@ -209,9 +209,12 @@ suite =
                                             ++ ImageEssentials.extractImage v2_fuzzyImageAndGallery
                                             :: List.map v2_imageToImageEssentials v2_fuzzyImageAndGallery.gallery
                                 }
+
+                {--
                 , todo "Merge ImageAndGallery v2 when there's no v3"
                 , todo "Merge ImageAndGallery v3 only"
                 , todo "Merge ImageAndGallery empty"
+                --}
                 ]
             , describe "parseUrl"
                 -- https://hybridcode.art/
