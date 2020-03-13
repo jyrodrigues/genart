@@ -80,3 +80,47 @@ function mapValue(object, fn) {
   })
   return result
 }
+
+/**
+ * Copy and paste on browser to
+ *
+ *
+
+var storageKeys =
+    { v2: 'genart/v0.2/state'
+    , latest: 'genart/v0.3/state'
+    };
+
+function none() {
+    localStorage.removeItem(storageKeys.v2);
+    localStorage.removeItem(storageKeys.latest);
+}
+
+function v2() {
+    localStorage.setItem(
+        storageKeys.v2,
+        "{\"state\":[\"LLDRDRDLDLD\"],\"gallery\":[{\"composition\":[\"LLDRDRDLDLD\",\"LLDRDRDLDLD\"],\"turnAngle\":90,\"bgColor\":\"#666666\",\"strokeColor\":\"#00b46e\"}],\"bgColor\":\"#333333\",\"strokeColor\":\"#00b46e\",\"turnAngle\":90,\"scale\":1,\"translateX\":0,\"translateY\":0}"
+    );
+}
+
+function v3() {
+    localStorage.setItem(
+        storageKeys.latest,
+        "{\"image\":{\"composition\":[\"DLDLDRRDLDLD\",\"D\"],\"turnAngle\":90,\"backgroundColor\":\"#333333\",\"strokeColor\":\"#00b46e\",\"translateX\":-108.83347826086958,\"translateY\":-338.8206521739131,\"scale\":0.3699999999999997},\"gallery\":[{\"composition\":[\"DLDLDRRDLDLD\",\"DLDLDRRDLDLD\"],\"turnAngle\":90,\"backgroundColor\":\"#333333\",\"strokeColor\":\"#26b460\",\"translateX\":46.26324691231233,\"translateY\":-65.65293135386595,\"scale\":0.1}]}"
+    );
+}
+
+function both() {
+    v2();
+    v3();
+}
+
+none();
+v2();
+v3();
+both();
+
+
+ *
+ *
+ */

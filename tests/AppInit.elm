@@ -18,8 +18,7 @@ import Expect
 import Fuzz exposing (Fuzzer)
 import ImageEssentials
     exposing
-        ( Gallery
-        , ImageAndGallery
+        ( ImageAndGallery
         , ImageEssentials
         , V2_Image
         , V2_ImageAndGallery
@@ -39,7 +38,7 @@ import ImageEssentials
 import Json.Decode as Decode
 import Json.Encode as Encode
 import LSystem.Core as LCore exposing (Composition, Step(..), encodeComposition)
-import Main exposing (..)
+import Main exposing (Route(..), parseUrl)
 import Test exposing (Test, describe, fuzz, fuzz2, test, todo)
 import Url exposing (Protocol(..), Url)
 
