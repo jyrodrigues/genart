@@ -48,7 +48,6 @@ import Css
         , margin
         , margin2
         , margin3
-        , maxHeight
         , minWidth
         , none
         , overflow
@@ -82,8 +81,8 @@ import Html.Styled.Events
         , onMouseUp
         , preventDefaultOn
         )
-import Html.Styled.Lazy exposing (lazy6)
-import Icons exposing (withColor, withConditionalColor, withCss, withOnClick)
+import Html.Styled.Lazy exposing (lazy7)
+import Icons exposing (withColor, withCss, withOnClick)
 import ImageEssentials
     exposing
         ( Gallery
@@ -105,12 +104,10 @@ import LSystem.Core as LCore exposing (Block, Composition, Step(..))
 import LSystem.Draw as LDraw
     exposing
         ( drawImage
+        , drawImageEssentials
         , image
         , withBackgroundColor
-        , withId
-        , withScale
         , withStrokeColor
-        , withTranslation
         , withTurnAngle
         )
 import ListExtra exposing (pairExec, pairMap)
@@ -167,6 +164,8 @@ type Msg
     | SetStrokeColor Color
       -- Angle
     | SetTurnAngle Float
+      -- Stroke width
+    | SetStrokeWidth Float
       -- Download
     | DownloadSvg
       -- Focus
@@ -176,8 +175,7 @@ type Msg
     | LinkClicked Browser.UrlRequest
       -- Video
     | TogglePlayingVideo
-    | VideoSpeedFaster
-    | VideoSpeedSlower
+    | SetVideoAngleChangeRate Float
     | ReverseAngleChangeDirection
 
 
@@ -210,6 +208,9 @@ type alias Model =
 
     -- Angle
     , turnAngle : Float
+
+    -- Stroke Width
+    , strokeWidth : Float
 
     -- Browser Focus
     , focus : Focus
@@ -303,6 +304,9 @@ initialModel image gallery url navKey =
 
     -- Angle
     , turnAngle = image.turnAngle
+
+    -- Stroke Width
+    , strokeWidth = 1
 
     -- Browser Focus
     , focus = KeyboardEditing
@@ -494,7 +498,7 @@ imageBox index image =
 editorView : Model -> Browser.Document Msg
 editorView model =
     let
-        { composition, turnAngle, strokeColor, scale, translate } =
+        { composition, turnAngle, strokeColor, strokeWidth, scale, translate } =
             model
 
         backgroundColor_ =
@@ -505,7 +509,7 @@ editorView model =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
             [ compositionBlocksList model
-            , lazy6 mainImg composition turnAngle scale translate strokeColor backgroundColor_
+            , lazy7 mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth
             , controlPanel model
             ]
             |> toUnstyled
@@ -530,8 +534,9 @@ controlPanel model =
         ]
         [ infoAndBasicControls model
         , colorControls model.backgroundColor model.strokeColor
-        , videoControls model.playingVideo
+        , videoControls model.videoAngleChangeRate model.playingVideo
         , turnAngleControl model.turnAngle
+        , strokeWidthControl model.strokeWidth
         , curatedSettings
         , controlsList
         ]
@@ -586,22 +591,21 @@ colorControls backgroundColor strokeColor =
         ]
 
 
-videoControls : Bool -> Html Msg
-videoControls playingVideo =
-    controlBlock
-        [ span [ css [ display block ] ] [ text "Video Playback" ]
-        , button [ onClick TogglePlayingVideo ]
-            [ text
-                (if playingVideo then
-                    "Stop"
+videoControls : Float -> Bool -> Html Msg
+videoControls angleChangeRate playingVideo =
+    let
+        playPauseText =
+            if playingVideo then
+                "Stop"
 
-                 else
-                    "Play"
-                )
-            ]
-        , button [ onClick VideoSpeedFaster ] [ text "Faster" ]
-        , button [ onClick VideoSpeedSlower ] [ text "Slower" ]
+            else
+                "Play"
+    in
+    controlBlock
+        [ span [ css [ display block ] ] [ text ("Video Playback:" ++ String.fromFloat (angleChangeRate * 20) ++ "x") ]
+        , button [ onClick TogglePlayingVideo ] [ text playPauseText ]
         , button [ onClick ReverseAngleChangeDirection ] [ text "Reverse" ]
+        , sliderInput SetVideoAngleChangeRate angleChangeRate 0.0001 0.0501 0.0005
         ]
 
 
@@ -633,6 +637,38 @@ turnAngleControl turnAngle =
             ]
             []
         ]
+
+
+strokeWidthControl : Float -> Html Msg
+strokeWidthControl width =
+    controlBlock
+        [ text ("Line width: " ++ String.fromFloat width)
+        , sliderInput SetStrokeWidth width 0.001 2.001 0.005
+        , button [ onClick (SetStrokeWidth 1) ] [ text "Reset" ]
+        ]
+
+
+sliderInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Html msg
+sliderInput msg oldValue min_ max_ step_ =
+    let
+        onInputCallback stringValue =
+            case String.toFloat stringValue of
+                Just newValue ->
+                    msg newValue
+
+                Nothing ->
+                    msg oldValue
+    in
+    input
+        [ type_ "range"
+        , Html.Styled.Attributes.min (String.fromFloat min_)
+        , Html.Styled.Attributes.max (String.fromFloat max_)
+        , Html.Styled.Attributes.step (String.fromFloat step_)
+        , value <| String.fromFloat oldValue
+        , onInput onInputCallback
+        , css [ display block, Css.width (pct 100) ]
+        ]
+        []
 
 
 curatedSettings : Html Msg
@@ -809,8 +845,11 @@ blockBox editingIndex turnAngle strokeColor backgroundColor index transform =
         ]
 
 
-mainImg : Composition -> Float -> Float -> Position -> Color -> Color -> Html Msg
-mainImg composition turnAngle scale translate strokeColor backgroundColor_ =
+{-| N.B. This function has 7 arguments because otherwise it wouldn't be lazily evaluated since `lazy*` woks via
+reference equality and not deep equality.
+-}
+mainImg : Composition -> Float -> Float -> Position -> Color -> Color -> Float -> Html Msg
+mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth =
     fixedDiv
         [ css
             [ backgroundColor (toCssColor backgroundColor_)
@@ -824,14 +863,19 @@ mainImg composition turnAngle scale translate strokeColor backgroundColor_ =
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ image composition
-            |> withTurnAngle turnAngle
-            |> withStrokeColor strokeColor
-            |> withBackgroundColor backgroundColor_
-            |> withScale scale
-            |> withTranslation translate
-            |> withId "MainSVG"
-            |> drawImage
+        [ drawImageEssentials
+            (ImageEssentials
+                composition
+                turnAngle
+                backgroundColor_
+                strokeColor
+                strokeWidth
+                translate
+                scale
+            )
+            (Just "MainSVG")
+            Nothing
+            False
         ]
 
 
@@ -952,6 +996,9 @@ update msg model =
             else
                 updateAndSaveImageAndGallery newModel
 
+        SetStrokeWidth width ->
+            updateAndSaveImageAndGallery <| { model | strokeWidth = width }
+
         PanStarted pos ->
             ( { model | panStarted = True, lastPos = pos }, Cmd.none )
 
@@ -1001,11 +1048,8 @@ update msg model =
             else
                 ( newModel, Cmd.none )
 
-        VideoSpeedFaster ->
-            ( { model | videoAngleChangeRate = min 1 (model.videoAngleChangeRate * 1.4) }, Cmd.none )
-
-        VideoSpeedSlower ->
-            ( { model | videoAngleChangeRate = max 0.001 (model.videoAngleChangeRate / 1.4) }, Cmd.none )
+        SetVideoAngleChangeRate rate ->
+            ( { model | videoAngleChangeRate = rate }, Cmd.none )
 
         ReverseAngleChangeDirection ->
             ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )
