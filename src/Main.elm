@@ -499,9 +499,9 @@ editorView model =
     , body =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
-            [ controlPanel model
-            , compositionBlocksList model
+            [ compositionBlocksList model
             , lazy6 mainImg composition turnAngle scale translate strokeColor backgroundColor_
+            , controlPanel model
             ]
             |> toUnstyled
         ]
@@ -683,16 +683,10 @@ compositionBlocksList model =
                         model.backgroundColor
                     )
                 |> List.reverse
-
-        lightGray =
-            toCssColor Colors.lightGray
-
-        darkGray =
-            toCssColor Colors.darkGray
     in
     fixedDiv
         [ css
-            [ backgroundColor (toCssColor model.backgroundColor)
+            [ backgroundColor (toCssColor Colors.darkGray)
             , height (pct 100)
             , width (pct layout.transformsList)
             , overflow scroll
@@ -700,38 +694,48 @@ compositionBlocksList model =
             , borderRight3 (px 1) solid (toCssColor Colors.black)
             ]
         ]
-        (button
-            [ css
-                [ color lightGray
-                , backgroundColor transparent
-                , border3 (px 2) solid lightGray
-                , borderRadius (px 3)
-                , height (px 32)
-                , width (pct 50)
-                , minWidth (px 150)
-                , margin2 (px 17) auto
-                , display block
-                , cursor pointer
+        (primaryButton AddSimpleBlock "Add new block" :: compositionBlocks)
 
-                -- TODO add font files and @font-face:
-                -- https://stackoverflow.com/questions/107936/how-to-add-some-non-standard-font-to-a-website
-                -- https://fonts.google.com/specimen/Roboto?selection.family=Roboto
-                -- Research best fallback option
-                --, fontFamilies [ "Roboto" ]
-                , fontFamily sansSerif
-                , fontSize (px 16)
-                , hover
-                    [ border Css.unset
-                    , backgroundColor lightGray
-                    , color darkGray
-                    , active [ boxShadow6 inset zero zero (px 2) (px 1) darkGray ]
-                    ]
+
+primaryButton : Msg -> String -> Html Msg
+primaryButton msg btnText =
+    let
+        lightGray =
+            toCssColor Colors.lightGray
+
+        darkGray =
+            toCssColor Colors.darkGray
+    in
+    button
+        [ css
+            [ color lightGray
+            , backgroundColor transparent
+            , border3 (px 2) solid lightGray
+            , borderRadius (px 3)
+            , height (px 32)
+            , width (pct 50)
+            , minWidth (px 150)
+            , margin2 (px 17) auto
+            , display block
+            , cursor pointer
+
+            -- TODO add font files and @font-face:
+            -- https://stackoverflow.com/questions/107936/how-to-add-some-non-standard-font-to-a-website
+            -- https://fonts.google.com/specimen/Roboto?selection.family=Roboto
+            -- Research best fallback option
+            --, fontFamilies [ "Roboto" ]
+            , fontFamily sansSerif
+            , fontSize (px 16)
+            , hover
+                [ border Css.unset
+                , backgroundColor lightGray
+                , color darkGray
+                , active [ boxShadow6 inset zero zero (px 2) (px 1) darkGray ]
                 ]
-            , onClick AddSimpleBlock
             ]
-            [ text "Add new block" ]
-            :: compositionBlocks
-        )
+        , onClick msg
+        ]
+        [ text btnText ]
 
 
 transformBox : Int -> Float -> Color -> Color -> Int -> Block -> Html Msg
