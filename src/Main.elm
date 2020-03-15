@@ -33,6 +33,7 @@ import Css
         , boxShadow6
         , boxSizing
         , color
+        , contentBox
         , cursor
         , display
         , fixed
@@ -46,6 +47,8 @@ import Css
         , left
         , margin
         , margin2
+        , margin3
+        , maxHeight
         , minWidth
         , none
         , overflow
@@ -62,9 +65,11 @@ import Css
         , scroll
         , solid
         , transparent
+        , vw
         , width
         , zero
         )
+import Css.Media as Media exposing (withMedia)
 import Html.Styled exposing (Html, br, button, div, h2, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
 import Html.Styled.Events
@@ -676,7 +681,7 @@ compositionBlocksList model =
             model.composition
                 |> LCore.toList
                 |> List.indexedMap
-                    (transformBox
+                    (blockBox
                         model.editingIndex
                         model.turnAngle
                         model.strokeColor
@@ -715,6 +720,14 @@ primaryButton msg btnText =
             , height (px 32)
             , width (pct 50)
             , minWidth (px 150)
+            , withMedia [ Media.all [ Media.maxWidth (px 1160), Media.minWidth (px 650) ] ]
+                [ minWidth (px 85)
+                , height (px 60)
+                ]
+            , withMedia [ Media.all [ Media.maxWidth (px 650) ] ]
+                [ minWidth (px 55)
+                , height (px 70)
+                ]
             , margin2 (px 17) auto
             , display block
             , cursor pointer
@@ -738,14 +751,42 @@ primaryButton msg btnText =
         [ text btnText ]
 
 
-transformBox : Int -> Float -> Color -> Color -> Int -> Block -> Html Msg
-transformBox editingIndex turnAngle strokeColor backgroundColor index transform =
+blockBox : Int -> Float -> Color -> Color -> Int -> Block -> Html Msg
+blockBox editingIndex turnAngle strokeColor backgroundColor index transform =
+    let
+        borderOnSelected =
+            if editingIndex == index then
+                [ border3 (px 3) solid (toCssColor strokeColor)
+                , boxSizing borderBox
+                ]
+
+            else
+                []
+    in
     div
         [ css
-            [ height (px 200)
-            , width (pct 100)
-            , borderBottom3 (px 1) solid (toCssColor Colors.black)
-            ]
+            ([ height (vw 8)
+             , width (pct 85)
+             , margin3 zero auto (px 20)
+             , cursor pointer
+             , borderRadius (px 3)
+             , hover
+                [ border3 (px 5) solid (toCssColor strokeColor)
+
+                -- Changing the border style for aesthetic reasons.
+                -- This rule is more specific so it overrides `borderOnSelected`.
+                , boxSizing contentBox
+
+                -- Compensate top and bottom borders.
+                , margin3 (px -5) auto (px 15)
+                ]
+
+             -- Making position relative to allow for Icon placement to the right.
+             , position relative
+             ]
+                ++ borderOnSelected
+            )
+        , onClick (SetEditingIndex index)
         ]
         [ image (LCore.fromList [ transform ])
             |> withTurnAngle turnAngle
@@ -756,9 +797,14 @@ transformBox editingIndex turnAngle strokeColor backgroundColor index transform 
             |> withColor Colors.red_
             |> withOnClick (DropFromState index)
             |> Icons.toSvg
-        , Icons.pen
-            |> withConditionalColor (index == editingIndex) Colors.green_
-            |> withOnClick (SetEditingIndex index)
+        , Icons.duplicate
+            |> withColor strokeColor
+            |> withOnClick (DuplicateAndAppendBlock index)
+            |> withCss
+                [ position absolute
+                , right (px 5)
+                , bottom (px 2)
+                ]
             |> Icons.toSvg
         ]
 
