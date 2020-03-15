@@ -15,7 +15,17 @@ import Colors exposing (Color)
 import ImageEssentials exposing (ImageEssentials)
 import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
-import Svg.Styled exposing (Svg, circle, defs, line, polyline, radialGradient, stop, svg)
+import Svg.Styled
+    exposing
+        ( Svg
+        , circle
+        , defs
+        , line
+        , polyline
+        , radialGradient
+        , stop
+        , svg
+        )
 import Svg.Styled.Attributes
     exposing
         ( cx
@@ -133,7 +143,7 @@ drawImage (Image composition turnAngle strokeColor backgroundColor scale (Transl
             , scale = scale
             }
     in
-    drawImageEssentials imageEssentials maybeId maybeMsg True
+    drawImageEssentials imageEssentials maybeId maybeMsg True 0
 
 
 {-| About vecTranslateOriginToDrawingCenter:
@@ -146,9 +156,10 @@ center for x-axis is the same as the middle point of the image
 but is inverted for y-axis.
 
 -}
-drawImageEssentials : ImageEssentials -> Maybe Id -> Maybe msg -> Bool -> Svg msg
-drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
-    -- TODO remove this last Bool (at least use a custom type).
+drawImageEssentials : ImageEssentials -> Maybe Id -> Maybe msg -> Bool -> Float -> Svg msg
+drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep displacement =
+    -- TODO remove this one before last Bool (at least use a custom type).
+    -- TODO remove this last float put displacement inside ImageEssentials
     let
         { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
             essentials
@@ -205,6 +216,12 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
             --}
             transformToSvgPath (digestComposition composition) 0 0 turnAngle
 
+        drawingDisplaced1 =
+            transformToSvgPath (digestComposition composition) displacement displacement turnAngle
+
+        drawingDisplaced2 =
+            transformToSvgPath (digestComposition composition) -displacement -displacement turnAngle
+
         maybeIdAttr =
             case maybeId of
                 Just id_ ->
@@ -235,8 +252,8 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
             floatsToSpacedString
                 [ Tuple.first vecTranslate
                 , Tuple.second vecTranslate
-                , Tuple.first scaledSize
-                , Tuple.second scaledSize
+                , Tuple.first scaledSize + displacement
+                , Tuple.second scaledSize + displacement
                 ]
          , style <|
             "display: block; "
@@ -262,19 +279,29 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
             ++ maybeIdAttr
             ++ maybeOnClick
         )
-        (polyline
-            [ points <| .path <| drawing
-            , stroke (Colors.toString strokeColor)
-            , strokeWidth (String.fromFloat essentials.strokeWidth ++ "px")
-            , fill "none"
-
-            --, stroke "url(#RadialGradient1)"
-            --, fill "url(#RadialGradient2)"
-            ]
-            []
-            --, gradients color backgroundColor
-            :: originAndNextStep
+        ((drawPolyline drawing strokeColor essentials.strokeWidth 0 :: originAndNextStep)
+            ++ (drawPolyline drawingDisplaced1 strokeColor essentials.strokeWidth 0 :: originAndNextStep)
+            ++ (drawPolyline drawingDisplaced2 strokeColor essentials.strokeWidth 0 :: originAndNextStep)
         )
+
+
+
+--, gradients color bgColor
+
+
+drawPolyline : Drawing -> Color -> Float -> Float -> Svg msg
+drawPolyline { path } strokeColor strokeWidth_ hueRotate =
+    polyline
+        [ points <| path
+        , stroke (Colors.toString strokeColor)
+        , strokeWidth (String.fromFloat strokeWidth_ ++ "px")
+        , fill "none"
+        , style <| "filter: hue-rotate(" ++ String.fromFloat hueRotate ++ "deg)"
+
+        --, stroke "url(#RadialGradient1)"
+        --, fill "url(#RadialGradient2)"
+        ]
+        []
 
 
 
@@ -343,7 +370,7 @@ positionToString pos =
 
 
 transformToSvgPath : Block -> Float -> Float -> Float -> Drawing
-transformToSvgPath transform x0 y0 turn =
+transformToSvgPath block x0 y0 turn =
     let
         initialPos =
             Position x0 y0
@@ -351,7 +378,7 @@ transformToSvgPath transform x0 y0 turn =
     List.foldl
         (addStepToDrawing turn)
         (Drawing (positionToString initialPos) initialPos 0)
-        transform
+        block
 
 
 

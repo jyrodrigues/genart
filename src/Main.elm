@@ -166,6 +166,8 @@ type Msg
     | SetTurnAngle Float
       -- Stroke width
     | SetStrokeWidth Float
+      -- Duplicates Displacement
+    | SetDisplacement Float
       -- Download
     | DownloadSvg
       -- Focus
@@ -205,6 +207,7 @@ type alias Model =
     -- Color
     , backgroundColor : Color
     , strokeColor : Color
+    , displacement : Float
 
     -- Angle
     , turnAngle : Float
@@ -301,6 +304,7 @@ initialModel image gallery url navKey =
     -- Color
     , backgroundColor = image.backgroundColor
     , strokeColor = image.strokeColor
+    , displacement = 0
 
     -- Angle
     , turnAngle = image.turnAngle
@@ -453,15 +457,15 @@ galleryView model =
                     , overflow scroll
                     ]
                 ]
-                (List.indexedMap imageBox model.gallery)
+                (List.indexedMap (imageBox model.displacement) model.gallery)
             ]
             |> toUnstyled
         ]
     }
 
 
-imageBox : Int -> ImageEssentials -> Html Msg
-imageBox index image =
+imageBox : Float -> Int -> ImageEssentials -> Html Msg
+imageBox displacement index image =
     div
         [ css
             [ width (pct 40)
@@ -498,7 +502,7 @@ imageBox index image =
 editorView : Model -> Browser.Document Msg
 editorView model =
     let
-        { composition, turnAngle, strokeColor, strokeWidth, scale, translate } =
+        { composition, turnAngle, strokeColor, strokeWidth, scale, translate, displacement } =
             model
 
         backgroundColor_ =
@@ -509,7 +513,7 @@ editorView model =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
             [ compositionBlocksList model
-            , lazy7 mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth
+            , lazy7 (lazyMainImgHelper displacement) composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth
             , controlPanel model
             ]
             |> toUnstyled
@@ -537,6 +541,7 @@ controlPanel model =
         , videoControls model.videoAngleChangeRate model.playingVideo
         , turnAngleControl model.turnAngle
         , strokeWidthControl model.strokeWidth
+        , displacementControl model.displacement
         , curatedSettings
         , controlsList
         ]
@@ -671,6 +676,36 @@ sliderInput msg oldValue min_ max_ step_ =
         []
 
 
+displacementControl : Float -> Html Msg
+displacementControl displacement =
+    let
+        onInputCallback stringValue =
+            if stringValue == "" then
+                SetTurnAngle 0
+
+            else
+                case String.toFloat stringValue of
+                    Just degrees ->
+                        SetDisplacement degrees
+
+                    Nothing ->
+                        SetDisplacement displacement
+    in
+    controlBlock
+        [ label [ for "DisplacementControl" ] [ text "Change displacement" ]
+        , input
+            [ id "DisplacementControl" -- See index.js, `id` only exists for use in there.
+            , type_ "number"
+            , value (String.fromFloat displacement)
+            , css [ display block, width (px 50) ]
+            , onInput onInputCallback
+            , onFocus (SetFocus TurnAngleInput)
+            , onBlur (SetFocus KeyboardEditing)
+            ]
+            []
+        ]
+
+
 curatedSettings : Html Msg
 curatedSettings =
     controlBlock
@@ -722,6 +757,7 @@ compositionBlocksList model =
                         model.turnAngle
                         model.strokeColor
                         model.backgroundColor
+                        model.displacement
                     )
                 |> List.reverse
     in
@@ -787,8 +823,8 @@ primaryButton msg btnText =
         [ text btnText ]
 
 
-blockBox : Int -> Float -> Color -> Color -> Int -> Block -> Html Msg
-blockBox editingIndex turnAngle strokeColor backgroundColor index transform =
+blockBox : Int -> Float -> Color -> Color -> Float -> Int -> Block -> Html Msg
+blockBox editingIndex turnAngle strokeColor backgroundColor displacement index transform =
     let
         borderOnSelected =
             if editingIndex == index then
@@ -845,11 +881,16 @@ blockBox editingIndex turnAngle strokeColor backgroundColor index transform =
         ]
 
 
+lazyMainImgHelper : Float -> Composition -> Float -> Float -> Position -> Color -> Color -> Float -> Html Msg
+lazyMainImgHelper displacement composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth =
+    mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth displacement
+
+
 {-| N.B. This function has 7 arguments because otherwise it wouldn't be lazily evaluated since `lazy*` woks via
 reference equality and not deep equality.
 -}
-mainImg : Composition -> Float -> Float -> Position -> Color -> Color -> Float -> Html Msg
-mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth =
+mainImg : Composition -> Float -> Float -> Position -> Color -> Color -> Float -> Float -> Html Msg
+mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth displacement =
     fixedDiv
         [ css
             [ backgroundColor (toCssColor backgroundColor_)
@@ -876,6 +917,7 @@ mainImg composition turnAngle scale translate strokeColor backgroundColor_ strok
             (Just "MainSVG")
             Nothing
             False
+            displacement
         ]
 
 
@@ -983,6 +1025,9 @@ update msg model =
 
         SetStrokeColor color ->
             updateAndSaveImageAndGallery <| { model | strokeColor = color }
+
+        SetDisplacement displacement ->
+            ( { model | displacement = displacement }, Cmd.none )
 
         SetTurnAngle turn ->
             let
