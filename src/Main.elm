@@ -648,9 +648,9 @@ controlsList =
         , controlText "Arrow Up" "Draw"
         , controlText "Arrow Left/Right" "Turn"
         , controlText "Backspace" "Undo last 'Arrow' move on selected image block"
-        , controlText "i" "Undo last 'Arrow' move on selected image block"
-        , controlText "d" "Delete first image block"
-        , controlText "Space" "Center the image again"
+        , controlText "i" "Duplicate selected image block"
+        , controlText "d" "Delete top image block"
+        , controlText "Space" "Center the image"
         , br [] []
         , p [] [ text "You can also pan and zoom by dragging and scrolling the image" ]
         ]
@@ -877,8 +877,8 @@ update msg model =
                 { model
                     | composition = LCore.dropBlockAtIndex index model.composition
                     , editingIndex =
-                        if model.editingIndex >= index then
-                            model.editingIndex - 1
+                        if index <= model.editingIndex then
+                            max 0 (model.editingIndex - 1)
 
                         else
                             model.editingIndex
@@ -1045,7 +1045,7 @@ dropLastBlock model =
     in
     { model
         | composition = updatedComposition
-        , editingIndex = min model.editingIndex (LCore.length updatedComposition - 1)
+        , editingIndex = Debug.log "new editing index" (min model.editingIndex (LCore.length updatedComposition - 1))
     }
 
 
