@@ -48,6 +48,7 @@ type alias ImageEssentials =
     , turnAngle : Float
     , backgroundColor : Color
     , strokeColor : Color
+    , strokeWidth : Float
     , translate : Position
     , scale : Float
     }
@@ -95,6 +96,7 @@ defaultImage =
     , turnAngle = polygonAngle Square
     , backgroundColor = Colors.darkGray
     , strokeColor = Colors.defaultGreen
+    , strokeWidth = 1
     , translate = ( 0, 0 )
     , scale = 1
     }
@@ -107,13 +109,14 @@ defaultImage =
 
 
 extractImage : HasImageEssentials a -> ImageEssentials
-extractImage something =
-    { composition = something.composition
-    , turnAngle = something.turnAngle
-    , backgroundColor = something.backgroundColor
-    , strokeColor = something.strokeColor
-    , translate = something.translate
-    , scale = something.scale
+extractImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
+    { composition = composition
+    , turnAngle = turnAngle
+    , backgroundColor = backgroundColor
+    , strokeColor = strokeColor
+    , strokeWidth = 1
+    , translate = translate
+    , scale = scale
     }
 
 
@@ -206,11 +209,12 @@ encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, s
 
 imageDecoder : Decoder ImageEssentials
 imageDecoder =
-    Decode.map6 ImageEssentials
+    Decode.map7 ImageEssentials
         (Decode.field keyFor.composition LCore.compositionDecoder)
         (Decode.field keyFor.turnAngle Decode.float)
         (Decode.field keyFor.backgroundColor Colors.decoder)
         (Decode.field keyFor.strokeColor Colors.decoder)
+        (Decode.succeed 1)
         (Decode.map2 Tuple.pair
             (Decode.field keyFor.translateX Decode.float)
             (Decode.field keyFor.translateY Decode.float)
@@ -230,8 +234,12 @@ queryToImageParser =
     let
         queryMapFromDecoder decoder =
             Query.map (Maybe.andThen (Result.toMaybe << Decode.decodeString decoder))
+
+        imageEssentials a b c d e f =
+            -- TODO remove this, only here while strokeWidth doesn't make into the URL
+            ImageEssentials a b c d 1 e f
     in
-    Query.map6 (ListExtra.maybeMap6 ImageEssentials)
+    Query.map6 (ListExtra.maybeMap6 imageEssentials)
         (Query.string keyFor.composition |> queryMapFromDecoder LCore.compositionDecoder)
         (Query.string keyFor.turnAngle |> Query.map (Maybe.andThen String.toFloat))
         (Query.string keyFor.backgroundColor |> queryMapFromDecoder Colors.decoder)
@@ -337,6 +345,7 @@ mergeUrlV1andV2 v2_dataOnQueryParams v1_dataOnHash =
                 , turnAngle = 90
                 , backgroundColor = Colors.darkGray
                 , strokeColor = Colors.defaultGreen
+                , strokeWidth = 1
                 , translate = ( 0, 0 )
                 , scale = 1
                 }
@@ -403,12 +412,15 @@ v2_imageDecoder =
         (Decode.field "strokeColor" Colors.decoder)
 
 
+{-| TODO make this dependable on defaultImage
+-}
 v2_imageToImageEssentials : V2_Image -> ImageEssentials
 v2_imageToImageEssentials { composition, turnAngle, backgroundColor, strokeColor } =
     { composition = composition
     , turnAngle = turnAngle
     , backgroundColor = backgroundColor
     , strokeColor = strokeColor
+    , strokeWidth = 1
     , translate = ( 0, 0 )
     , scale = 1
     }

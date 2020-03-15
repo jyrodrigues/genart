@@ -1,5 +1,6 @@
 module LSystem.Draw exposing
     ( drawImage
+    , drawImageEssentials
     , image
     , withBackgroundColor
     , withId
@@ -11,6 +12,7 @@ module LSystem.Draw exposing
     )
 
 import Colors exposing (Color)
+import ImageEssentials exposing (ImageEssentials)
 import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
 import Svg.Styled exposing (Svg, circle, defs, line, polyline, radialGradient, stop, svg)
@@ -26,6 +28,7 @@ import Svg.Styled.Attributes
         , stopColor
         , stroke
         , strokeDasharray
+        , strokeWidth
         , style
         , viewBox
         , x1
@@ -114,6 +117,25 @@ withOnClick msg (Image t a sc bc s xy id _) =
     Image t a sc bc s xy id (Just msg)
 
 
+{-| TODO remove this function after refactor this module to be based on ImageEssentials
+there will be only `drawImage`
+-}
+drawImage : Image msg -> Svg msg
+drawImage (Image composition turnAngle strokeColor backgroundColor scale (Translation x y) maybeId maybeMsg) =
+    let
+        imageEssentials =
+            { composition = composition
+            , turnAngle = turnAngle
+            , backgroundColor = backgroundColor
+            , strokeColor = strokeColor
+            , strokeWidth = 1
+            , translate = ( x, y )
+            , scale = scale
+            }
+    in
+    drawImageEssentials imageEssentials maybeId maybeMsg
+
+
 {-| About vecTranslateOriginToDrawingCenter:
 
 The drawing's math coordinate system is UPxRIGHT while
@@ -124,9 +146,15 @@ center for x-axis is the same as the middle point of the image
 but is inverted for y-axis.
 
 -}
-drawImage : Image msg -> Svg msg
-drawImage (Image composition angle color bgColor scale (Translation x y) maybeId maybeMsg) =
+drawImageEssentials : ImageEssentials -> Maybe Id -> Maybe msg -> Svg msg
+drawImageEssentials essentials maybeId maybeMsg =
     let
+        { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
+            essentials
+
+        ( x, y ) =
+            translate
+
         { topRight, bottomLeft } =
             {--This function call takes a lot of time/resources/cpu and it's one of the main
                 reasons for frame drops (low FPS) when composition is too large.
@@ -135,7 +163,7 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
 
                 TODO Memoize this function
             --}
-            imageBoundaries angle composition
+            imageBoundaries turnAngle composition
 
         vecTranslateOriginToDrawingCenter =
             topRight
@@ -174,7 +202,7 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
 
                 TODO Memoize this function
             --}
-            transformToSvgPath (digestComposition composition) 0 0 angle
+            transformToSvgPath (digestComposition composition) 0 0 turnAngle
 
         maybeIdAttr =
             case maybeId of
@@ -205,7 +233,7 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
                 ++ "height: 100%; "
                 ++ "width: 100%; "
                 ++ "background-color: "
-                ++ Colors.toString bgColor
+                ++ Colors.toString backgroundColor
                 ++ "; "
                 ++ "transform: "
                 -- As stated here (https://stackoverflow.com/a/10765771),
@@ -228,7 +256,8 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
         , nextLine drawing
         , polyline
             [ points <| .path <| drawing
-            , stroke (Colors.toString color)
+            , stroke (Colors.toString strokeColor)
+            , strokeWidth (String.fromFloat essentials.strokeWidth ++ "px")
             , fill "none"
 
             --, stroke "url(#RadialGradient1)"
@@ -236,7 +265,7 @@ drawImage (Image composition angle color bgColor scale (Translation x y) maybeId
             ]
             []
 
-        --, gradients color bgColor
+        --, gradients color backgroundColor
         ]
 
 

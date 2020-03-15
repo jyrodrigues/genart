@@ -82,7 +82,7 @@ import Html.Styled.Events
         , onMouseUp
         , preventDefaultOn
         )
-import Html.Styled.Lazy exposing (lazy6)
+import Html.Styled.Lazy exposing (lazy6, lazy7)
 import Icons exposing (withColor, withConditionalColor, withCss, withOnClick)
 import ImageEssentials
     exposing
@@ -105,6 +105,7 @@ import LSystem.Core as LCore exposing (Block, Composition, Step(..))
 import LSystem.Draw as LDraw
     exposing
         ( drawImage
+        , drawImageEssentials
         , image
         , withBackgroundColor
         , withId
@@ -167,6 +168,8 @@ type Msg
     | SetStrokeColor Color
       -- Angle
     | SetTurnAngle Float
+      -- Stroke width
+    | SetStrokeWidth Float
       -- Download
     | DownloadSvg
       -- Focus
@@ -210,6 +213,9 @@ type alias Model =
 
     -- Angle
     , turnAngle : Float
+
+    -- Stroke Width
+    , strokeWidth : Float
 
     -- Browser Focus
     , focus : Focus
@@ -303,6 +309,9 @@ initialModel image gallery url navKey =
 
     -- Angle
     , turnAngle = image.turnAngle
+
+    -- Stroke Width
+    , strokeWidth = 1
 
     -- Browser Focus
     , focus = KeyboardEditing
@@ -494,7 +503,7 @@ imageBox index image =
 editorView : Model -> Browser.Document Msg
 editorView model =
     let
-        { composition, turnAngle, strokeColor, scale, translate } =
+        { composition, turnAngle, strokeColor, strokeWidth, scale, translate } =
             model
 
         backgroundColor_ =
@@ -505,7 +514,7 @@ editorView model =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
             [ compositionBlocksList model
-            , lazy6 mainImg composition turnAngle scale translate strokeColor backgroundColor_
+            , lazy7 mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth
             , controlPanel model
             ]
             |> toUnstyled
@@ -532,6 +541,7 @@ controlPanel model =
         , colorControls model.backgroundColor model.strokeColor
         , videoControls model.playingVideo
         , turnAngleControl model.turnAngle
+        , strokeWidthControl model.strokeWidth
         , curatedSettings
         , controlsList
         ]
@@ -633,6 +643,39 @@ turnAngleControl turnAngle =
             ]
             []
         ]
+
+
+strokeWidthControl : Float -> Html Msg
+strokeWidthControl width =
+    controlBlock
+        [ label [ for "StrokeWidth" ] [ text ("Line width: " ++ String.fromFloat width) ]
+        , sliderInput SetStrokeWidth width
+        , button [ onClick (SetStrokeWidth 1) ] [ text "Reset" ]
+        ]
+
+
+sliderInput : (Float -> msg) -> Float -> Html msg
+sliderInput msg oldValue =
+    let
+        onInputCallback stringValue =
+            case String.toFloat stringValue of
+                Just newValue ->
+                    msg newValue
+
+                Nothing ->
+                    msg oldValue
+    in
+    input
+        [ id "StrokeWidth"
+        , type_ "range"
+        , Html.Styled.Attributes.min "0.001"
+        , Html.Styled.Attributes.max "2"
+        , Html.Styled.Attributes.step "0.005"
+        , value <| String.fromFloat oldValue
+        , onInput onInputCallback
+        , css [ display block, Css.width (pct 100) ]
+        ]
+        []
 
 
 curatedSettings : Html Msg
@@ -809,8 +852,11 @@ blockBox editingIndex turnAngle strokeColor backgroundColor index transform =
         ]
 
 
-mainImg : Composition -> Float -> Float -> Position -> Color -> Color -> Html Msg
-mainImg composition turnAngle scale translate strokeColor backgroundColor_ =
+{-| N.B. This function has 7 arguments because otherwise it wouldn't be lazily evaluated since `lazy*` woks via
+reference equality and not deep equality.
+-}
+mainImg : Composition -> Float -> Float -> Position -> Color -> Color -> Float -> Html Msg
+mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth =
     fixedDiv
         [ css
             [ backgroundColor (toCssColor backgroundColor_)
@@ -824,14 +870,18 @@ mainImg composition turnAngle scale translate strokeColor backgroundColor_ =
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ image composition
-            |> withTurnAngle turnAngle
-            |> withStrokeColor strokeColor
-            |> withBackgroundColor backgroundColor_
-            |> withScale scale
-            |> withTranslation translate
-            |> withId "MainSVG"
-            |> drawImage
+        [ drawImageEssentials
+            (ImageEssentials
+                composition
+                turnAngle
+                backgroundColor_
+                strokeColor
+                strokeWidth
+                translate
+                scale
+            )
+            (Just "MainSVG")
+            Nothing
         ]
 
 
@@ -951,6 +1001,9 @@ update msg model =
 
             else
                 updateAndSaveImageAndGallery newModel
+
+        SetStrokeWidth width ->
+            updateAndSaveImageAndGallery <| { model | strokeWidth = width }
 
         PanStarted pos ->
             ( { model | panStarted = True, lastPos = pos }, Cmd.none )
