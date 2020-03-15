@@ -33,6 +33,7 @@ import Css
         , boxShadow6
         , boxSizing
         , color
+        , contentBox
         , cursor
         , display
         , fixed
@@ -46,6 +47,8 @@ import Css
         , left
         , margin
         , margin2
+        , margin3
+        , maxHeight
         , minWidth
         , none
         , overflow
@@ -62,9 +65,11 @@ import Css
         , scroll
         , solid
         , transparent
+        , vw
         , width
         , zero
         )
+import Css.Media as Media exposing (withMedia)
 import Html.Styled exposing (Html, br, button, div, h2, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
 import Html.Styled.Events
@@ -499,9 +504,9 @@ editorView model =
     , body =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
-            [ controlPanel model
-            , compositionBlocksList model
+            [ compositionBlocksList model
             , lazy6 mainImg composition turnAngle scale translate strokeColor backgroundColor_
+            , controlPanel model
             ]
             |> toUnstyled
         ]
@@ -676,23 +681,17 @@ compositionBlocksList model =
             model.composition
                 |> LCore.toList
                 |> List.indexedMap
-                    (transformBox
+                    (blockBox
                         model.editingIndex
                         model.turnAngle
                         model.strokeColor
                         model.backgroundColor
                     )
                 |> List.reverse
-
-        lightGray =
-            toCssColor Colors.lightGray
-
-        darkGray =
-            toCssColor Colors.darkGray
     in
     fixedDiv
         [ css
-            [ backgroundColor (toCssColor model.backgroundColor)
+            [ backgroundColor (toCssColor Colors.darkGray)
             , height (pct 100)
             , width (pct layout.transformsList)
             , overflow scroll
@@ -700,48 +699,94 @@ compositionBlocksList model =
             , borderRight3 (px 1) solid (toCssColor Colors.black)
             ]
         ]
-        (button
-            [ css
-                [ color lightGray
-                , backgroundColor transparent
-                , border3 (px 2) solid lightGray
-                , borderRadius (px 3)
-                , height (px 32)
-                , width (pct 50)
-                , minWidth (px 150)
-                , margin2 (px 17) auto
-                , display block
-                , cursor pointer
+        (primaryButton AddSimpleBlock "Add new block" :: compositionBlocks)
 
-                -- TODO add font files and @font-face:
-                -- https://stackoverflow.com/questions/107936/how-to-add-some-non-standard-font-to-a-website
-                -- https://fonts.google.com/specimen/Roboto?selection.family=Roboto
-                -- Research best fallback option
-                --, fontFamilies [ "Roboto" ]
-                , fontFamily sansSerif
-                , fontSize (px 16)
-                , hover
-                    [ border Css.unset
-                    , backgroundColor lightGray
-                    , color darkGray
-                    , active [ boxShadow6 inset zero zero (px 2) (px 1) darkGray ]
-                    ]
+
+primaryButton : Msg -> String -> Html Msg
+primaryButton msg btnText =
+    let
+        lightGray =
+            toCssColor Colors.lightGray
+
+        darkGray =
+            toCssColor Colors.darkGray
+    in
+    button
+        [ css
+            [ color lightGray
+            , backgroundColor transparent
+            , border3 (px 2) solid lightGray
+            , borderRadius (px 3)
+            , height (px 32)
+            , width (pct 50)
+            , minWidth (px 150)
+            , withMedia [ Media.all [ Media.maxWidth (px 1160), Media.minWidth (px 650) ] ]
+                [ minWidth (px 85)
+                , height (px 60)
                 ]
-            , onClick AddSimpleBlock
+            , withMedia [ Media.all [ Media.maxWidth (px 650) ] ]
+                [ minWidth (px 55)
+                , height (px 70)
+                ]
+            , margin2 (px 17) auto
+            , display block
+            , cursor pointer
+
+            -- TODO add font files and @font-face:
+            -- https://stackoverflow.com/questions/107936/how-to-add-some-non-standard-font-to-a-website
+            -- https://fonts.google.com/specimen/Roboto?selection.family=Roboto
+            -- Research best fallback option
+            --, fontFamilies [ "Roboto" ]
+            , fontFamily sansSerif
+            , fontSize (px 16)
+            , hover
+                [ border Css.unset
+                , backgroundColor lightGray
+                , color darkGray
+                , active [ boxShadow6 inset zero zero (px 2) (px 1) darkGray ]
+                ]
             ]
-            [ text "Add new block" ]
-            :: compositionBlocks
-        )
+        , onClick msg
+        ]
+        [ text btnText ]
 
 
-transformBox : Int -> Float -> Color -> Color -> Int -> Block -> Html Msg
-transformBox editingIndex turnAngle strokeColor backgroundColor index transform =
+blockBox : Int -> Float -> Color -> Color -> Int -> Block -> Html Msg
+blockBox editingIndex turnAngle strokeColor backgroundColor index transform =
+    let
+        borderOnSelected =
+            if editingIndex == index then
+                [ border3 (px 3) solid (toCssColor strokeColor)
+                , boxSizing borderBox
+                ]
+
+            else
+                []
+    in
     div
         [ css
-            [ height (px 200)
-            , width (pct 100)
-            , borderBottom3 (px 1) solid (toCssColor Colors.black)
-            ]
+            ([ height (vw 8)
+             , width (pct 85)
+             , margin3 zero auto (px 20)
+             , cursor pointer
+             , borderRadius (px 3)
+             , hover
+                [ border3 (px 5) solid (toCssColor strokeColor)
+
+                -- Changing the border style for aesthetic reasons.
+                -- This rule is more specific so it overrides `borderOnSelected`.
+                , boxSizing contentBox
+
+                -- Compensate top and bottom borders.
+                , margin3 (px -5) auto (px 15)
+                ]
+
+             -- Making position relative to allow for Icon placement to the right.
+             , position relative
+             ]
+                ++ borderOnSelected
+            )
+        , onClick (SetEditingIndex index)
         ]
         [ image (LCore.fromList [ transform ])
             |> withTurnAngle turnAngle
@@ -752,9 +797,14 @@ transformBox editingIndex turnAngle strokeColor backgroundColor index transform 
             |> withColor Colors.red_
             |> withOnClick (DropFromState index)
             |> Icons.toSvg
-        , Icons.pen
-            |> withConditionalColor (index == editingIndex) Colors.green_
-            |> withOnClick (SetEditingIndex index)
+        , Icons.duplicate
+            |> withColor strokeColor
+            |> withOnClick (DuplicateAndAppendBlock index)
+            |> withCss
+                [ position absolute
+                , right (px 5)
+                , bottom (px 2)
+                ]
             |> Icons.toSvg
         ]
 

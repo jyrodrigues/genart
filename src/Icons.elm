@@ -15,9 +15,10 @@ import Colors exposing (Color, toString)
 import Css exposing (bottom, display, inlineBlock, position, px, relative)
 import Html.Styled exposing (div)
 import Html.Styled.Attributes exposing (css)
+import Html.Styled.Events exposing (stopPropagationOn)
+import Json.Decode as Decode
 import Svg.Styled exposing (Svg, path, svg)
 import Svg.Styled.Attributes exposing (d, fill, height, viewBox, width)
-import Svg.Styled.Events exposing (onClick)
 
 
 type alias Drawing =
@@ -38,7 +39,7 @@ toSvg (Icon drawing size color maybeMsg maybeCss) =
         maybeOnClick =
             case maybeMsg of
                 Just msg ->
-                    [ onClick msg ]
+                    [ stopPropagationOn "click" (Decode.map alwaysStopPropagation (Decode.succeed msg)) ]
 
                 Nothing ->
                     []
@@ -63,6 +64,11 @@ toSvg (Icon drawing size color maybeMsg maybeCss) =
                 []
             ]
         ]
+
+
+alwaysStopPropagation : msg -> ( msg, Bool )
+alwaysStopPropagation msg =
+    ( msg, True )
 
 
 standard : String -> Icon msg
