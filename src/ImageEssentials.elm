@@ -366,7 +366,6 @@ fragmentToCompositionParser =
 
 -- MIGRATE LOCAL STORAGE
 -- LOCAL STORAGE - VERSION 2
--- TODO actually make this work, i.e. use these functions
 
 
 type alias V2_ImageAndGallery =

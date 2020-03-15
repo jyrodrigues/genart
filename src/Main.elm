@@ -48,7 +48,6 @@ import Css
         , margin
         , margin2
         , margin3
-        , maxHeight
         , minWidth
         , none
         , overflow
@@ -82,8 +81,8 @@ import Html.Styled.Events
         , onMouseUp
         , preventDefaultOn
         )
-import Html.Styled.Lazy exposing (lazy6, lazy7)
-import Icons exposing (withColor, withConditionalColor, withCss, withOnClick)
+import Html.Styled.Lazy exposing (lazy7)
+import Icons exposing (withColor, withCss, withOnClick)
 import ImageEssentials
     exposing
         ( Gallery
@@ -108,10 +107,7 @@ import LSystem.Draw as LDraw
         , drawImageEssentials
         , image
         , withBackgroundColor
-        , withId
-        , withScale
         , withStrokeColor
-        , withTranslation
         , withTurnAngle
         )
 import ListExtra exposing (pairExec, pairMap)
@@ -179,8 +175,7 @@ type Msg
     | LinkClicked Browser.UrlRequest
       -- Video
     | TogglePlayingVideo
-    | VideoSpeedFaster
-    | VideoSpeedSlower
+    | SetVideoAngleChangeRate Float
     | ReverseAngleChangeDirection
 
 
@@ -539,7 +534,7 @@ controlPanel model =
         ]
         [ infoAndBasicControls model
         , colorControls model.backgroundColor model.strokeColor
-        , videoControls model.playingVideo
+        , videoControls model.videoAngleChangeRate model.playingVideo
         , turnAngleControl model.turnAngle
         , strokeWidthControl model.strokeWidth
         , curatedSettings
@@ -596,22 +591,21 @@ colorControls backgroundColor strokeColor =
         ]
 
 
-videoControls : Bool -> Html Msg
-videoControls playingVideo =
-    controlBlock
-        [ span [ css [ display block ] ] [ text "Video Playback" ]
-        , button [ onClick TogglePlayingVideo ]
-            [ text
-                (if playingVideo then
-                    "Stop"
+videoControls : Float -> Bool -> Html Msg
+videoControls angleChangeRate playingVideo =
+    let
+        playPauseText =
+            if playingVideo then
+                "Stop"
 
-                 else
-                    "Play"
-                )
-            ]
-        , button [ onClick VideoSpeedFaster ] [ text "Faster" ]
-        , button [ onClick VideoSpeedSlower ] [ text "Slower" ]
+            else
+                "Play"
+    in
+    controlBlock
+        [ span [ css [ display block ] ] [ text ("Video Playback:" ++ String.fromFloat (angleChangeRate * 20) ++ "x") ]
+        , button [ onClick TogglePlayingVideo ] [ text playPauseText ]
         , button [ onClick ReverseAngleChangeDirection ] [ text "Reverse" ]
+        , sliderInput SetVideoAngleChangeRate angleChangeRate 0.0001 0.0501 0.0005
         ]
 
 
@@ -648,14 +642,14 @@ turnAngleControl turnAngle =
 strokeWidthControl : Float -> Html Msg
 strokeWidthControl width =
     controlBlock
-        [ label [ for "StrokeWidth" ] [ text ("Line width: " ++ String.fromFloat width) ]
-        , sliderInput SetStrokeWidth width
+        [ text ("Line width: " ++ String.fromFloat width)
+        , sliderInput SetStrokeWidth width 0.001 2.001 0.005
         , button [ onClick (SetStrokeWidth 1) ] [ text "Reset" ]
         ]
 
 
-sliderInput : (Float -> msg) -> Float -> Html msg
-sliderInput msg oldValue =
+sliderInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Html msg
+sliderInput msg oldValue min_ max_ step_ =
     let
         onInputCallback stringValue =
             case String.toFloat stringValue of
@@ -666,11 +660,10 @@ sliderInput msg oldValue =
                     msg oldValue
     in
     input
-        [ id "StrokeWidth"
-        , type_ "range"
-        , Html.Styled.Attributes.min "0.001"
-        , Html.Styled.Attributes.max "2"
-        , Html.Styled.Attributes.step "0.005"
+        [ type_ "range"
+        , Html.Styled.Attributes.min (String.fromFloat min_)
+        , Html.Styled.Attributes.max (String.fromFloat max_)
+        , Html.Styled.Attributes.step (String.fromFloat step_)
         , value <| String.fromFloat oldValue
         , onInput onInputCallback
         , css [ display block, Css.width (pct 100) ]
@@ -882,6 +875,7 @@ mainImg composition turnAngle scale translate strokeColor backgroundColor_ strok
             )
             (Just "MainSVG")
             Nothing
+            False
         ]
 
 
@@ -1054,11 +1048,8 @@ update msg model =
             else
                 ( newModel, Cmd.none )
 
-        VideoSpeedFaster ->
-            ( { model | videoAngleChangeRate = min 1 (model.videoAngleChangeRate * 1.4) }, Cmd.none )
-
-        VideoSpeedSlower ->
-            ( { model | videoAngleChangeRate = max 0.001 (model.videoAngleChangeRate / 1.4) }, Cmd.none )
+        SetVideoAngleChangeRate rate ->
+            ( { model | videoAngleChangeRate = rate }, Cmd.none )
 
         ReverseAngleChangeDirection ->
             ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )

@@ -133,7 +133,7 @@ drawImage (Image composition turnAngle strokeColor backgroundColor scale (Transl
             , scale = scale
             }
     in
-    drawImageEssentials imageEssentials maybeId maybeMsg
+    drawImageEssentials imageEssentials maybeId maybeMsg True
 
 
 {-| About vecTranslateOriginToDrawingCenter:
@@ -146,8 +146,9 @@ center for x-axis is the same as the middle point of the image
 but is inverted for y-axis.
 
 -}
-drawImageEssentials : ImageEssentials -> Maybe Id -> Maybe msg -> Svg msg
-drawImageEssentials essentials maybeId maybeMsg =
+drawImageEssentials : ImageEssentials -> Maybe Id -> Maybe msg -> Bool -> Svg msg
+drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
+    -- TODO remove this last Bool (at least use a custom type).
     let
         { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
             essentials
@@ -219,6 +220,15 @@ drawImageEssentials essentials maybeId maybeMsg =
 
                 Nothing ->
                     []
+
+        originAndNextStep =
+            if drawOriginAndNextStep then
+                [ originPoint 0 0
+                , nextLine drawing
+                ]
+
+            else
+                []
     in
     svg
         ([ viewBox <|
@@ -252,9 +262,7 @@ drawImageEssentials essentials maybeId maybeMsg =
             ++ maybeIdAttr
             ++ maybeOnClick
         )
-        [ originPoint 0 0
-        , nextLine drawing
-        , polyline
+        (polyline
             [ points <| .path <| drawing
             , stroke (Colors.toString strokeColor)
             , strokeWidth (String.fromFloat essentials.strokeWidth ++ "px")
@@ -264,9 +272,9 @@ drawImageEssentials essentials maybeId maybeMsg =
             --, fill "url(#RadialGradient2)"
             ]
             []
-
-        --, gradients color backgroundColor
-        ]
+            --, gradients color backgroundColor
+            :: originAndNextStep
+        )
 
 
 

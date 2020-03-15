@@ -197,14 +197,8 @@ toList (Composition base_ blocks_) =
     base_ :: blocks_
 
 
-
-{--N.B. An empty list does *not* yield an empty Composition
-
-    TODO change this behavior, allow for empty composition, since this can already be achieved
-         via `backspace` input, deleting every Step of a block
---}
-
-
+{-| N.B. An empty list does _not_ yield an empty Composition
+-}
 fromList : List Block -> Composition
 fromList blocks_ =
     case blocks_ of
