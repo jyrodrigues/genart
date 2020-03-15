@@ -279,9 +279,9 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep displaceme
             ++ maybeIdAttr
             ++ maybeOnClick
         )
-        ((drawPolyline drawing strokeColor essentials.strokeWidth 0 :: originAndNextStep)
-            ++ (drawPolyline drawingDisplaced1 strokeColor essentials.strokeWidth 0 :: originAndNextStep)
-            ++ (drawPolyline drawingDisplaced2 strokeColor essentials.strokeWidth 0 :: originAndNextStep)
+        ((drawPolyline drawingDisplaced1 strokeColor essentials.strokeWidth -180 :: originAndNextStep)
+            ++ (drawPolyline drawingDisplaced2 strokeColor essentials.strokeWidth 60 :: originAndNextStep)
+            ++ (drawPolyline drawing strokeColor essentials.strokeWidth 0 :: originAndNextStep)
         )
 
 
