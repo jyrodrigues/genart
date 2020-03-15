@@ -1018,8 +1018,17 @@ processKey model keyPressed =
 
 duplicateAndAppendBlock : Model -> Int -> Model
 duplicateAndAppendBlock model editingIndex =
-    { model | composition = LCore.duplicateBlockAndAppendAsLast editingIndex model.composition }
-        |> modelWithEditIndexLast
+    let
+        maybeDuplicatedBlock =
+            LCore.getBlockAtIndex editingIndex model.composition
+    in
+    case maybeDuplicatedBlock of
+        Just newBlock ->
+            { model | composition = LCore.appendBlock newBlock model.composition }
+                |> modelWithEditIndexLast
+
+        Nothing ->
+            model
 
 
 appendBlock : Block -> Model -> Model

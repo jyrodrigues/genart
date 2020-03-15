@@ -14,7 +14,6 @@ module LSystem.Core exposing
     , dropBlockAtIndex
     , dropLastBlock
     , dropLastStepAtIndex
-    , duplicateBlockAndAppendAsLast
     , encodeComposition
     , fromList
     , getBlockAtIndex
@@ -187,22 +186,6 @@ dropAllBlocksButBase (Composition base_ _) =
 appendBlock : Block -> Composition -> Composition
 appendBlock block (Composition base_ blocks_) =
     Composition base_ (ListExtra.pushLast block blocks_)
-
-
-{-| Formerly known as `iterate`
--}
-duplicateBlockAndAppendAsLast : Int -> Composition -> Composition
-duplicateBlockAndAppendAsLast blockIndex composition =
-    let
-        maybeDuplicatedBlock =
-            getBlockAtIndex blockIndex composition
-    in
-    case maybeDuplicatedBlock of
-        Nothing ->
-            composition
-
-        Just newBlock ->
-            appendBlock newBlock composition
 
 
 
