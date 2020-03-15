@@ -18,14 +18,19 @@ import Colors exposing (Color, offWhite, toCssColor)
 import Css
     exposing
         ( absolute
+        , active
+        , auto
         , backgroundColor
         , block
+        , border
         , border3
         , borderBottom3
         , borderBox
         , borderLeft3
+        , borderRadius
         , borderRight3
         , bottom
+        , boxShadow6
         , boxSizing
         , color
         , cursor
@@ -35,9 +40,14 @@ import Css
         , fontSize
         , height
         , hidden
+        , hover
         , inlineBlock
+        , inset
         , left
         , margin
+        , margin2
+        , minWidth
+        , none
         , overflow
         , overflowX
         , overflowY
@@ -48,8 +58,10 @@ import Css
         , px
         , relative
         , right
+        , sansSerif
         , scroll
         , solid
+        , transparent
         , width
         , zero
         )
@@ -128,10 +140,11 @@ type Msg
       -- Global keyboard listener
     | KeyPress String
       -- Main commands
+    | AddSimpleBlock
     | ResetDrawing
     | BasePolygonChanged Polygon
-    | Iterate Int
-    | Deiterate
+    | DuplicateAndAppendBlock Int
+    | DropLastBlock
     | SetEditingIndex Int
     | DropFromState Int
       -- Storage
@@ -487,7 +500,7 @@ editorView model =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
             [ controlPanel model
-            , transformsList model
+            , compositionBlocksList model
             , lazy6 mainImg composition turnAngle scale translate strokeColor backgroundColor_
             ]
             |> toUnstyled
@@ -536,8 +549,8 @@ infoAndBasicControls model =
     controlBlock
         [ button [ onClick (ViewingPage GalleryPage) ] [ text "Go to Gallery" ]
         , button [ onClick ResetDrawing ] [ text "ResetDrawing" ]
-        , button [ onClick (Iterate model.editingIndex) ] [ text "Iterate" ]
-        , button [ onClick Deiterate ] [ text "Deiterate" ]
+        , button [ onClick (DuplicateAndAppendBlock model.editingIndex) ] [ text "Duplicate selected block" ]
+        , button [ onClick DropLastBlock ] [ text "Delete top block" ]
         , p [] [ text stateLengthString ]
         , p [] [ text editingTransformBlueprint ]
         , button [ onClick DownloadSvg ] [ text "Download Image" ]
@@ -656,10 +669,10 @@ controlBlock =
     div [ css [ padding (px 10), borderBottom3 (px 1) solid (toCssColor Colors.black), fontFamily Css.monospace ] ]
 
 
-transformsList : Model -> Html Msg
-transformsList model =
+compositionBlocksList : Model -> Html Msg
+compositionBlocksList model =
     let
-        transforms =
+        compositionBlocks =
             model.composition
                 |> LCore.toList
                 |> List.indexedMap
@@ -670,6 +683,12 @@ transformsList model =
                         model.backgroundColor
                     )
                 |> List.reverse
+
+        lightGray =
+            toCssColor Colors.lightGray
+
+        darkGray =
+            toCssColor Colors.darkGray
     in
     fixedDiv
         [ css
@@ -681,14 +700,37 @@ transformsList model =
             , borderRight3 (px 1) solid (toCssColor Colors.black)
             ]
         ]
-        (h2
+        (button
             [ css
-                [ color (toCssColor Colors.offWhite)
-                , fontFamily Css.monospace
+                [ color lightGray
+                , backgroundColor transparent
+                , border3 (px 2) solid lightGray
+                , borderRadius (px 3)
+                , height (px 32)
+                , width (pct 50)
+                , minWidth (px 150)
+                , margin2 (px 17) auto
+                , display block
+                , cursor pointer
+
+                -- TODO add font files and @font-face:
+                -- https://stackoverflow.com/questions/107936/how-to-add-some-non-standard-font-to-a-website
+                -- https://fonts.google.com/specimen/Roboto?selection.family=Roboto
+                -- Research best fallback option
+                --, fontFamilies [ "Roboto" ]
+                , fontFamily sansSerif
+                , fontSize (px 16)
+                , hover
+                    [ border Css.unset
+                    , backgroundColor lightGray
+                    , color darkGray
+                    , active [ boxShadow6 inset zero zero (px 2) (px 1) darkGray ]
+                    ]
                 ]
+            , onClick AddSimpleBlock
             ]
-            [ text "Image Blocks" ]
-            :: transforms
+            [ text "Add new block" ]
+            :: compositionBlocks
         )
 
 
@@ -810,11 +852,14 @@ update msg model =
                     , editingIndex = 1
                 }
 
-        Iterate editingIndex ->
-            updateAndSaveImageAndGallery <| iterate model editingIndex
+        AddSimpleBlock ->
+            updateAndSaveImageAndGallery <| appendBlock [ D ] model
 
-        Deiterate ->
-            updateAndSaveImageAndGallery <| deiterate model
+        DuplicateAndAppendBlock editingIndex ->
+            updateAndSaveImageAndGallery <| duplicateAndAppendBlock model editingIndex
+
+        DropLastBlock ->
+            updateAndSaveImageAndGallery <| dropLastBlock model
 
         KeyPress keyString ->
             updateAndSaveImageAndGallery <| processKey model keyString
@@ -962,29 +1007,29 @@ processKey model keyPressed =
             { model | composition = LCore.dropLastStepAtIndex model.editingIndex model.composition }
 
         "i" ->
-            iterate model model.editingIndex
+            duplicateAndAppendBlock model model.editingIndex
 
         "d" ->
-            deiterate model
+            dropLastBlock model
 
         _ ->
             model
 
 
-iterate : Model -> Int -> Model
-iterate model editingIndex =
-    let
-        updatedComposition =
-            LCore.duplicateBlockAndAppendAsLast editingIndex model.composition
-    in
-    { model
-        | composition = updatedComposition
-        , editingIndex = LCore.length updatedComposition - 1
-    }
+duplicateAndAppendBlock : Model -> Int -> Model
+duplicateAndAppendBlock model editingIndex =
+    { model | composition = LCore.duplicateBlockAndAppendAsLast editingIndex model.composition }
+        |> modelWithEditIndexLast
 
 
-deiterate : Model -> Model
-deiterate model =
+appendBlock : Block -> Model -> Model
+appendBlock block model =
+    { model | composition = LCore.appendBlock block model.composition }
+        |> modelWithEditIndexLast
+
+
+dropLastBlock : Model -> Model
+dropLastBlock model =
     let
         updatedComposition =
             LCore.dropLastBlock model.composition

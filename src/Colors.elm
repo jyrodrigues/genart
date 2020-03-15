@@ -11,6 +11,7 @@ module Colors exposing
     , gray
     , green_
     , lightBlue
+    , lightGray
     , offWhite
     , red_
     , toCssColor
@@ -119,6 +120,11 @@ lightBlue =
 darkBlue : Color
 darkBlue =
     Color 15 15 60 0.95
+
+
+lightGray : Color
+lightGray =
+    Hex "#ABAAAA"
 
 
 darkGray : Color
