@@ -102,11 +102,12 @@ colorFuzzer =
 imageEssentialsFuzzer : Fuzzer ImageEssentials
 imageEssentialsFuzzer =
     Fuzz.map5
-        (\c ta bg st tr s ->
+        (\c ta bg st sw tr s ->
             { composition = c
             , turnAngle = ta
             , backgroundColor = bg
             , strokeColor = st
+            , strokeWidth = sw
             , translate = tr
             , scale = s
             }
@@ -115,7 +116,9 @@ imageEssentialsFuzzer =
         Fuzz.float
         colorFuzzer
         colorFuzzer
-        (Fuzz.tuple ( Fuzz.float, Fuzz.float ))
+        -- TODO after implementing decoder and versioning, uptade this fuzzer.
+        (Fuzz.constant 1)
+        |> Fuzz.andMap (Fuzz.tuple ( Fuzz.float, Fuzz.float ))
         |> Fuzz.andMap Fuzz.float
 
 
