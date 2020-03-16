@@ -350,14 +350,14 @@ imageBoundaries degrees composition =
                 D ->
                     computeDStep boundariesAndPosition
 
+                S ->
+                    computeDStep boundariesAndPosition
+
                 L ->
                     turnLeft (round degrees) boundariesAndPosition
 
                 R ->
                     turnRight (round degrees) boundariesAndPosition
-
-                _ ->
-                    boundariesAndPosition
     in
     composition
         |> digestComposition

@@ -13,43 +13,27 @@ module LSystem.Draw exposing
 
 import Colors exposing (Color)
 import ImageEssentials exposing (ImageEssentials)
-import LSystem.Core exposing (Block, Composition, Step(..), digestComposition, imageBoundaries)
+import LSystem.Core as Core exposing (Composition, Step(..), digestComposition, imageBoundaries)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
-import Svg.Styled exposing (Svg, circle, defs, line, polyline, radialGradient, stop, svg)
+import Svg.Styled exposing (Svg, circle, defs, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
     exposing
         ( cx
         , cy
+        , d
         , fill
         , id
         , offset
-        , points
         , r
         , stopColor
         , stroke
         , strokeDasharray
+        , strokeLinecap
         , strokeWidth
         , style
         , viewBox
-        , x1
-        , x2
-        , y1
-        , y2
         )
 import Svg.Styled.Events exposing (onClick)
-
-
-type alias Position =
-    { x : Float
-    , y : Float
-    }
-
-
-type alias Drawing =
-    { path : String
-    , pos : Position
-    , deg : Float
-    }
 
 
 type alias Angle =
@@ -195,16 +179,6 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
         vecTranslate =
             vecTranslateOriginToDrawingCenter |> pairExec (+) vecTranslateOriginToViewportCenter
 
-        drawing =
-            {--This function call takes a lot of time/resources/cpu and it's one of the main
-                reasons for frame drops (low FPS) when composition is too large.
-
-                What does it means to be too large?
-
-                TODO Memoize this function
-            --}
-            transformToSvgPath (digestComposition composition) 0 0 turnAngle
-
         maybeIdAttr =
             case maybeId of
                 Just id_ ->
@@ -221,10 +195,13 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
                 Nothing ->
                     []
 
+        ( mainPathString, nextStepPathString ) =
+            imageToSvgPathString essentials
+
         originAndNextStep =
             if drawOriginAndNextStep then
                 [ originPoint 0 0
-                , nextLine drawing
+                , path [ d nextStepPathString, stroke (Colors.toString Colors.red_), strokeDasharray "1" ] []
                 ]
 
             else
@@ -262,17 +239,17 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
             ++ maybeIdAttr
             ++ maybeOnClick
         )
-        (polyline
-            [ points <| .path <| drawing
+        (path
+            [ d mainPathString
             , stroke (Colors.toString strokeColor)
             , strokeWidth (String.fromFloat essentials.strokeWidth ++ "px")
+            , strokeLinecap "square"
             , fill "none"
 
             --, stroke "url(#RadialGradient1)"
             --, fill "url(#RadialGradient2)"
             ]
             []
-            --, gradients color backgroundColor
             :: originAndNextStep
         )
 
@@ -303,7 +280,173 @@ gradients strokeColor backgroundColor =
 
 
 
--- TODO Refactor this tail of functions
+-- SVG
+-- PATH
+{--This function call takes a lot of time/resources/cpu and it's one of the main
+    reasons for frame drops (low FPS) when composition is too large.
+
+    What does it means to be too large?
+
+    TODO Memoize this function
+--}
+
+
+imageToSvgPathString : ImageEssentials -> ( String, String )
+imageToSvgPathString { composition, turnAngle } =
+    let
+        ( finalAngle, pathString, ( lastX, lastY ) ) =
+            digestComposition composition
+                |> List.foldl (accumulateStepsIntoSegments turnAngle) ( 0, "", ( 0, 0 ) )
+    in
+    -- Main path
+    ( "M 0 0 " ++ pathString
+      -- Next step path
+    , "M "
+        ++ String.fromFloat lastX
+        ++ " "
+        ++ String.fromFloat lastY
+        ++ " "
+        ++ segmentToString (L (nextPositionDelta finalAngle))
+    )
+
+
+{-|
+
+    For performance reasons we have to iterate over the digested composition
+    as few times as possible, ideally just one. That's why we aren't breaking
+    up this function (as it once was: one step to get a list of PathSegments
+    and another to create a string from those)
+
+-}
+accumulateStepsIntoSegments : Float -> Step -> ( Float, String, Position ) -> ( Float, String, Position )
+accumulateStepsIntoSegments turnAngleSize step ( angle, pathString, position ) =
+    let
+        nextPosition =
+            nextPositionDelta angle
+    in
+    case step of
+        Core.D ->
+            ( angle
+            , pathString ++ " " ++ segmentToString (L nextPosition)
+            , pairExec (+) nextPosition position
+            )
+
+        Core.L ->
+            ( angle - turnAngleSize
+            , pathString
+            , position
+            )
+
+        Core.R ->
+            ( angle + turnAngleSize
+            , pathString
+            , position
+            )
+
+        Core.S ->
+            ( angle
+            , pathString ++ " " ++ segmentToString (M nextPosition)
+            , pairExec (+) nextPosition position
+            )
+
+
+{-| TODO This `10` value here is scaling the drawing. It's probably related to the viewbox size. Extract it.
+-}
+nextPositionDelta : Float -> Position
+nextPositionDelta angle =
+    ( cos (degrees angle) * 10, sin (degrees angle) * 10 )
+
+
+{-| <https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths>
+
+    Important:
+
+    Using uppercase letters only because Elm forces us when creating types,
+    *BUT* every case (but `M`) represents lowercase counterparts from the
+    SVG specification!
+
+
+    Also check:
+    - v1: https://www.w3.org/TR/SVG11/paths.html#PathElement
+    - v2: https://svgwg.org/svg2-draft/paths.html#PathElement
+    - Working draft: https://svgwg.org/specs/paths/#PathElement
+
+-}
+type
+    PathSegment
+    -- Move to
+    -- m dx dy
+    = M Position
+      -- Line to
+      -- l dx dy
+    | L Position
+      -- Horizontal line to
+      -- h dx
+    | H Float
+      -- Vertical line to
+      -- v dy
+    | V Float
+      -- Close path ("from A to Z")
+      -- z
+    | Z
+      -- Cubic bezier curve: `C controlPoint1 controlPoint2 destination`
+      -- c dx1 dy1, dx2 dy2, dx dy
+    | C Position Position Position
+      -- Cubic bezier curve reflecting last curve's last control point
+      -- s dx2 dy2, dx dy
+    | S Position Position
+      -- Quadratic bezier curve: `Q controlPoint destination`
+      -- q dx1 dy1, dx dy
+    | Q Position Position
+      -- Quadratic bezier curve reflecting last curve's last control point
+      -- t dx dy
+    | T Position
+      -- Arc curve
+      -- a rx ry x-axis-rotation large-arc-flag sweep-flag dx dy
+    | A Position Float Bool Bool Position
+
+
+type alias PathSegmentString =
+    String
+
+
+type alias Position =
+    ( Float, Float )
+
+
+segmentToString : PathSegment -> PathSegmentString
+segmentToString segment =
+    case segment of
+        M ( dx, dy ) ->
+            "m " ++ String.fromFloat dx ++ " " ++ String.fromFloat dy
+
+        L ( dx, dy ) ->
+            "l " ++ String.fromFloat dx ++ " " ++ String.fromFloat dy
+
+        -- TODO \/
+        H dx ->
+            ""
+
+        V dy ->
+            ""
+
+        Z ->
+            ""
+
+        C ( dx1, dy1 ) ( dx2, dy2 ) ( dx, dy ) ->
+            ""
+
+        S ( dx2, dy2 ) ( dx, dy ) ->
+            ""
+
+        Q ( dx1, dy1 ) ( dx, dy ) ->
+            ""
+
+        T ( dx, dy ) ->
+            ""
+
+        A ( rx, ry ) xAxisRotation largeArcFlag sweepFlag ( x, y ) ->
+            ""
 
 
 originPoint : Float -> Float -> Svg msg
@@ -312,77 +455,6 @@ originPoint x y =
         [ cx <| String.fromFloat x
         , cy <| String.fromFloat y
         , r "1"
-        , fill "white"
+        , fill (Colors.toString Colors.offWhite)
         ]
         []
-
-
-nextLine : Drawing -> Svg msg
-nextLine drawing =
-    let
-        { pos, deg } =
-            drawing
-
-        newPos =
-            movePoint pos (degrees deg)
-    in
-    line
-        [ x1 <| String.fromFloat pos.x
-        , y1 <| String.fromFloat pos.y
-        , x2 <| String.fromFloat newPos.x
-        , y2 <| String.fromFloat newPos.y
-        , stroke "rgba(255, 0, 0, 0.5)"
-        , strokeDasharray "1"
-        ]
-        []
-
-
-positionToString : Position -> String
-positionToString pos =
-    String.fromFloat pos.x ++ " " ++ String.fromFloat pos.y
-
-
-transformToSvgPath : Block -> Float -> Float -> Float -> Drawing
-transformToSvgPath transform x0 y0 turn =
-    let
-        initialPos =
-            Position x0 y0
-    in
-    List.foldl
-        (addStepToDrawing turn)
-        (Drawing (positionToString initialPos) initialPos 0)
-        transform
-
-
-
-{--This `10` value here is scaling the drawing. It's probable related to the viewbox size.
-    TODO Should extract it.
---}
-
-
-movePoint : Position -> Float -> Position
-movePoint pos rad =
-    Position (pos.x + cos rad * 10) (pos.y + sin rad * 10)
-
-
-addStepToDrawing : Float -> Step -> Drawing -> Drawing
-addStepToDrawing turn step drawing =
-    let
-        newPos =
-            movePoint drawing.pos (degrees drawing.deg)
-
-        newPath =
-            drawing.path ++ ", " ++ positionToString newPos
-    in
-    case step of
-        L ->
-            { drawing | deg = drawing.deg - turn }
-
-        R ->
-            { drawing | deg = drawing.deg + turn }
-
-        D ->
-            Drawing newPath newPos drawing.deg
-
-        _ ->
-            drawing

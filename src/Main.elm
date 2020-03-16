@@ -509,6 +509,9 @@ editorView model =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
             [ compositionBlocksList model
+
+            -- TODO BUG this probably doesn't work. To get around it we should have a nested record for ImageEssentials
+            --      inside the model :(
             , lazy7 mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth
             , controlPanel model
             ]
