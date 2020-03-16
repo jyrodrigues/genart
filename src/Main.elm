@@ -548,8 +548,11 @@ controlPanel model =
 infoAndBasicControls : Model -> Html Msg
 infoAndBasicControls model =
     let
+        ( countD, countOthers ) =
+            LCore.stepsLength model.composition
+
         stateLengthString =
-            Debug.toString (LCore.stepsLength model.composition)
+            String.fromInt countD ++ ", " ++ String.fromInt countOthers
 
         editingTransformBlueprint =
             case LCore.getBlockAtIndex model.editingIndex model.composition of
@@ -1150,7 +1153,7 @@ dropLastBlock model =
     in
     { model
         | composition = updatedComposition
-        , editingIndex = Debug.log "new editing index" (min model.editingIndex (LCore.length updatedComposition - 1))
+        , editingIndex = min model.editingIndex (LCore.length updatedComposition - 1)
     }
 
 
