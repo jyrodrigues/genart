@@ -509,6 +509,9 @@ editorView model =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
             [ compositionBlocksList model
+
+            -- TODO BUG this probably doesn't work. To get around it we should have a nested record for ImageEssentials
+            --      inside the model :(
             , lazy7 mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth
             , controlPanel model
             ]
@@ -956,7 +959,15 @@ update msg model =
             updateAndSaveImageAndGallery <| dropLastBlock model
 
         KeyPress keyString ->
-            updateAndSaveImageAndGallery <| processKey model keyString
+            let
+                ( newModel, shouldUpdate ) =
+                    processKey model keyString
+            in
+            if shouldUpdate then
+                updateAndSaveImageAndGallery newModel
+
+            else
+                ( model, Cmd.none )
 
         -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
         -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
@@ -1075,7 +1086,7 @@ update msg model =
             updateAndSaveImageAndGallery <| { newModel | viewingPage = EditorPage }
 
 
-processKey : Model -> String -> Model
+processKey : Model -> String -> ( Model, Bool )
 processKey model keyPressed =
     let
         appendStep step =
@@ -1083,31 +1094,31 @@ processKey model keyPressed =
     in
     case keyPressed of
         "ArrowLeft" ->
-            appendStep L
+            ( appendStep L, True )
 
         "ArrowRight" ->
-            appendStep R
+            ( appendStep R, True )
 
         "ArrowUp" ->
-            appendStep D
+            ( appendStep D, True )
 
         "ArrowDown" ->
-            appendStep S
+            ( appendStep S, True )
 
         " " ->
-            { model | scale = 1, translate = ( 0, 0 ) }
+            ( { model | scale = 1, translate = ( 0, 0 ) }, True )
 
         "Backspace" ->
-            { model | composition = LCore.dropLastStepAtIndex model.editingIndex model.composition }
+            ( { model | composition = LCore.dropLastStepAtIndex model.editingIndex model.composition }, True )
 
         "i" ->
-            duplicateAndAppendBlock model model.editingIndex
+            ( duplicateAndAppendBlock model model.editingIndex, True )
 
         "d" ->
-            dropLastBlock model
+            ( dropLastBlock model, True )
 
         _ ->
-            model
+            ( model, False )
 
 
 duplicateAndAppendBlock : Model -> Int -> Model
