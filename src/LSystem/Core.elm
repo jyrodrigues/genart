@@ -17,7 +17,6 @@ module LSystem.Core exposing
     , encodeComposition
     , fromList
     , getBlockAtIndex
-    , imageBoundaries
     , length
     , stepsLength
     , toList
@@ -25,7 +24,7 @@ module LSystem.Core exposing
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import ListExtra exposing (pairExec)
+import ListExtra
 
 
 
@@ -142,13 +141,6 @@ getBlockAtIndex blockIndex composition =
 editBlockAtIndex : (Block -> Block) -> Int -> Composition -> Composition
 editBlockAtIndex editFn blockIndex composition =
     let
-        _ =
-            if blockIndex >= List.length (toList composition) then
-                Debug.log "editBlockAtIndex - NoOp, index out of bounds" blockIndex
-
-            else
-                -1
-
         editAtIndex currentBlockIndex block =
             if currentBlockIndex == blockIndex then
                 editFn block
@@ -159,8 +151,6 @@ editBlockAtIndex editFn blockIndex composition =
     fromList (List.indexedMap editAtIndex (toList composition))
 
 
-{-| Formerly known as `deiterate`
--}
 dropLastBlock : Composition -> Composition
 dropLastBlock (Composition base_ blocks_) =
     Composition base_ (ListExtra.dropLast blocks_)
@@ -169,10 +159,12 @@ dropLastBlock (Composition base_ blocks_) =
 dropBlockAtIndex : Int -> Composition -> Composition
 dropBlockAtIndex blockIndex composition =
     if length composition == 1 then
-        Debug.log "dropEntireBlockAtIndex - NoOp, composition has only one block" composition
+        -- NoOp, composition has only one block
+        composition
 
     else if blockIndex >= length composition then
-        Debug.log "dropEntireBlockAtIndex - NoOp, index out of bounds" composition
+        -- NoOp, index out of bounds
+        composition
 
     else
         fromList (ListExtra.dropIndex blockIndex (toList composition))
@@ -283,88 +275,3 @@ encodeBlock block =
 blockDecoder : Decoder Block
 blockDecoder =
     Decode.map (String.toList >> List.map charToStep) Decode.string
-
-
-
--- MEASURING
-
-
-type alias Boundaries =
-    { topRight : ( Float, Float )
-    , bottomLeft : ( Float, Float )
-    }
-
-
-type alias Position =
-    ( Float, Float, Int )
-
-
-computeDStep : ( Boundaries, Position ) -> ( Boundaries, Position )
-computeDStep ( boundaries, ( x, y, angle ) ) =
-    let
-        --_ =
-        --Debug.log "Before computeDStep" ( boundaries, ( x, y, angle ) )
-        stepVector =
-            fromPolar ( 1, degrees (toFloat angle) )
-
-        newXY =
-            ( x, y ) |> pairExec (+) stepVector
-
-        newPosition =
-            ( Tuple.first newXY
-            , Tuple.second newXY
-            , angle
-            )
-
-        newBoundaries =
-            { topRight = newXY |> pairExec max boundaries.topRight
-            , bottomLeft = newXY |> pairExec min boundaries.bottomLeft
-            }
-    in
-    --Debug.log "After  computeDStep" ( newBoundaries, newPosition )
-    ( newBoundaries, newPosition )
-
-
-turnLeft : Int -> ( Boundaries, Position ) -> ( Boundaries, Position )
-turnLeft degrees ( boundaries, ( x, y, angle ) ) =
-    --Debug.log "turnLeft" ( boundaries, ( x, y, modBy 360 (angle + degrees) ) )
-    ( boundaries, ( x, y, modBy 360 (angle + degrees) ) )
-
-
-turnRight : Int -> ( Boundaries, Position ) -> ( Boundaries, Position )
-turnRight degrees ( boundaries, ( x, y, angle ) ) =
-    ( boundaries, ( x, y, modBy 360 (angle - degrees) ) )
-
-
-{-| OK
--}
-imageBoundaries : Float -> Composition -> Boundaries
-imageBoundaries degrees composition =
-    let
-        updateBoundaries step boundariesAndPosition =
-            --let
-            --_ =
-            --Debug.log "updateBoundaries" ( step, boundariesAndPosition )
-            --in
-            case step of
-                D ->
-                    computeDStep boundariesAndPosition
-
-                S ->
-                    computeDStep boundariesAndPosition
-
-                L ->
-                    turnLeft (round degrees) boundariesAndPosition
-
-                R ->
-                    turnRight (round degrees) boundariesAndPosition
-    in
-    composition
-        |> digestComposition
-        --|> Debug.log "Flat list?"
-        |> List.foldl updateBoundaries
-            ( Boundaries ( 0, 0 ) ( 0, 0 )
-            , ( 0, 0, 0 )
-            )
-        --|> Debug.log "Final Boundaries"
-        |> Tuple.first

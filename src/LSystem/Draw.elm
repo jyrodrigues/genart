@@ -13,7 +13,7 @@ module LSystem.Draw exposing
 
 import Colors exposing (Color)
 import ImageEssentials exposing (ImageEssentials)
-import LSystem.Core as Core exposing (Composition, Step(..), digestComposition, imageBoundaries)
+import LSystem.Core as Core exposing (Composition, Step(..), digestComposition)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
 import Svg.Styled exposing (Svg, circle, defs, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
@@ -120,16 +120,6 @@ drawImage (Image composition turnAngle strokeColor backgroundColor scale (Transl
     drawImageEssentials imageEssentials maybeId maybeMsg True
 
 
-{-| About vecTranslateOriginToDrawingCenter:
-
-The drawing's math coordinate system is UPxRIGHT while
-SVG viewbox coordinate system is DOWNxRIGHT.
-
-So the vector to translate viewboxe's (0,0) into image's
-center for x-axis is the same as the middle point of the image
-but is inverted for y-axis.
-
--}
 drawImageEssentials : ImageEssentials -> Maybe Id -> Maybe msg -> Bool -> Svg msg
 drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
     -- TODO remove this last Bool (at least use a custom type).
@@ -140,44 +130,12 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
         ( x, y ) =
             translate
 
-        { topRight, bottomLeft } =
-            {--This function call takes a lot of time/resources/cpu and it's one of the main
-                reasons for frame drops (low FPS) when composition is too large.
+        -- TODO call processImage here and pass computed strings to make svg path
+        ( mainPathString, nextStepPathString, boundaries ) =
+            imageToSvgPathString essentials
 
-                What does it means to be too large?
-
-                TODO Memoize this function
-            --}
-            imageBoundaries turnAngle composition
-
-        vecTranslateOriginToDrawingCenter =
-            topRight
-                -- Sum boundaries and get the mean for both axis
-                |> pairExec (+) bottomLeft
-                |> pairMap (\value -> value / 2)
-                -- Scale both by a factor of 10 (this value is arbitrary, probably should live in a variable)
-                |> pairMap ((*) 10)
-                -- Check the comment above to understand why we invert only the y-axis
-                |> pairExec (*) ( 1, -1 )
-
-        scaledSize =
-            topRight
-                -- Get width and height
-                |> pairExec (-) bottomLeft
-                -- Make sure both are at least `2`
-                |> pairMap (max 2)
-                -- Scale both by a factor of 10 (this value is arbitrary, probably should live in a variable)
-                |> pairMap ((*) 10)
-                -- Scale with 50% of margin (somehow this is a magic number, I think we should be able to change this
-                -- value without moving the image from the center
-                |> pairMap ((*) 1.6)
-
-        vecTranslateOriginToViewportCenter =
-            -- Move origin by half the viewport size in the oposite direction, centralizing the drawing.
-            scaledSize |> pairMap ((*) (-1 / 2))
-
-        vecTranslate =
-            vecTranslateOriginToDrawingCenter |> pairExec (+) vecTranslateOriginToViewportCenter
+        ( ( viewBoxMinX, viewBoxMinY ), ( viewBoxWidth, viewBoxHeight ) ) =
+            calculateViewBox boundaries
 
         maybeIdAttr =
             case maybeId of
@@ -195,9 +153,6 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
                 Nothing ->
                     []
 
-        ( mainPathString, nextStepPathString ) =
-            imageToSvgPathString essentials
-
         originAndNextStep =
             if drawOriginAndNextStep then
                 [ originPoint 0 0
@@ -210,10 +165,11 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
     svg
         ([ viewBox <|
             floatsToSpacedString
-                [ Tuple.first vecTranslate
-                , Tuple.second vecTranslate
-                , Tuple.first scaledSize
-                , Tuple.second scaledSize
+                -- https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/viewBox
+                [ viewBoxMinX
+                , viewBoxMinY
+                , viewBoxWidth
+                , viewBoxHeight
                 ]
          , style <|
             "display: block; "
@@ -279,6 +235,39 @@ gradients strokeColor backgroundColor =
         ]
 
 
+calculateViewBox : Boundaries -> ( Position, Position )
+calculateViewBox { leftTop, rightBottom } =
+    let
+        vecTranslateOriginToDrawingCenter =
+            rightBottom
+                -- Sum boundaries and get the mean for both axis.
+                -- Essentially this compensates positive/negative values
+                -- since leftTop <= 0 and rightBottom >= 0, and thus
+                -- it gives us the vector from the origin to the drawing center.
+                |> pairExec (+) leftTop
+                |> pairMap (\value -> value / 2)
+
+        -- This will be the viewport size (its width and height)
+        scaledSize =
+            rightBottom
+                -- Get drawing width and height
+                |> pairExec (-) leftTop
+                -- Make sure both are at least `20` (this factor comes from `nextPositionDelta` (2 * 10))
+                |> pairMap (max 20)
+                -- Scale with 50% of margin (somehow this is a magic number, I think we should be able to change this
+                -- value without moving the image from the center
+                |> pairMap ((*) 1.6)
+
+        vecTranslateOriginToViewportCenter =
+            -- Move origin by half the viewport size in the oposite direction, centralizing the drawing.
+            scaledSize |> pairMap ((*) (-1 / 2))
+
+        vecTranslate =
+            vecTranslateOriginToDrawingCenter |> pairExec (+) vecTranslateOriginToViewportCenter
+    in
+    ( vecTranslate, scaledSize )
+
+
 
 -- SVG
 -- PATH
@@ -287,26 +276,31 @@ gradients strokeColor backgroundColor =
 
     What does it means to be too large?
 
-    TODO Memoize this function
+    Memoize this function!
 --}
 
 
-imageToSvgPathString : ImageEssentials -> ( String, String )
+imageToSvgPathString : ImageEssentials -> ( String, String, Boundaries )
 imageToSvgPathString { composition, turnAngle } =
     let
-        ( finalAngle, pathString, ( lastX, lastY ) ) =
+        finalEverything =
             digestComposition composition
-                |> List.foldl (accumulateStepsIntoSegments turnAngle) ( 0, "", ( 0, 0 ) )
+                |> List.foldl (processCompositionStep turnAngle) baseEverything
+
+        ( lastX, lastY ) =
+            finalEverything.position
     in
     -- Main path
-    ( "M 0 0 " ++ pathString
+    ( "M 0 0 " ++ finalEverything.pathString
       -- Next step path
     , "M "
         ++ String.fromFloat lastX
         ++ " "
         ++ String.fromFloat lastY
         ++ " "
-        ++ segmentToString (L (nextPositionDelta finalAngle))
+        ++ segmentToString (L (nextPositionDelta finalEverything.angle))
+      -- TopRight and BottomLeft extremes of final image
+    , finalEverything.boundaries
     )
 
 
@@ -318,43 +312,89 @@ imageToSvgPathString { composition, turnAngle } =
     and another to create a string from those)
 
 -}
-accumulateStepsIntoSegments : Float -> Step -> ( Float, String, Position ) -> ( Float, String, Position )
-accumulateStepsIntoSegments turnAngleSize step ( angle, pathString, position ) =
+processCompositionStep : Float -> Step -> EverythingInOnePass -> EverythingInOnePass
+processCompositionStep turnAngleSize step { pathString, angle, position, boundaries } =
     let
-        nextPosition =
+        nextPositionDelta_ =
             nextPositionDelta angle
+
+        nextPosition =
+            pairExec (+) nextPositionDelta_ position
+
+        updatedBoundaries =
+            { leftTop = pairExec min boundaries.leftTop nextPosition
+            , rightBottom = pairExec max boundaries.rightBottom nextPosition
+            }
     in
     case step of
         Core.D ->
-            ( angle
-            , pathString ++ " " ++ segmentToString (L nextPosition)
-            , pairExec (+) nextPosition position
-            )
-
-        Core.L ->
-            ( angle - turnAngleSize
-            , pathString
-            , position
-            )
-
-        Core.R ->
-            ( angle + turnAngleSize
-            , pathString
-            , position
-            )
+            EverythingInOnePass
+                (pathString ++ " " ++ segmentToString (L nextPositionDelta_))
+                angle
+                nextPosition
+                updatedBoundaries
 
         Core.S ->
-            ( angle
-            , pathString ++ " " ++ segmentToString (M nextPosition)
-            , pairExec (+) nextPosition position
-            )
+            EverythingInOnePass
+                (pathString ++ " " ++ segmentToString (M nextPositionDelta_))
+                angle
+                nextPosition
+                updatedBoundaries
+
+        Core.L ->
+            EverythingInOnePass
+                pathString
+                (modBy360 (angle + turnAngleSize))
+                position
+                boundaries
+
+        Core.R ->
+            EverythingInOnePass
+                pathString
+                (modBy360 (angle - turnAngleSize))
+                position
+                boundaries
 
 
 {-| TODO This `10` value here is scaling the drawing. It's probably related to the viewbox size. Extract it.
 -}
 nextPositionDelta : Float -> Position
 nextPositionDelta angle =
-    ( cos (degrees angle) * 10, sin (degrees angle) * 10 )
+    fromPolar ( 1, degrees angle )
+        |> pairMap ((*) 10)
+        |> adjustForViewportAxisOrientation
+
+
+adjustForViewportAxisOrientation : Position -> Position
+adjustForViewportAxisOrientation ( x, y ) =
+    ( x, -y )
+
+
+
+-- TYPES
+
+
+type alias Boundaries =
+    { leftTop : Position
+    , rightBottom : Position
+    }
+
+
+type alias EverythingInOnePass =
+    { pathString : String
+    , angle : Float
+    , position : Position
+    , boundaries : Boundaries
+    }
+
+
+baseEverything : EverythingInOnePass
+baseEverything =
+    EverythingInOnePass
+        ""
+        0
+        ( 0, 0 )
+        (Boundaries ( 0, 0 ) ( 0, 0 ))
 
 
 {-| <https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths>
@@ -423,7 +463,6 @@ segmentToString segment =
         L ( dx, dy ) ->
             "l " ++ String.fromFloat dx ++ " " ++ String.fromFloat dy
 
-        -- TODO \/
         H dx ->
             ""
 
@@ -458,3 +497,15 @@ originPoint x y =
         , fill (Colors.toString Colors.offWhite)
         ]
         []
+
+
+modBy360 : Float -> Float
+modBy360 angle =
+    if angle > 360 then
+        angle - 360
+
+    else if angle < -360 then
+        angle + 360
+
+    else
+        angle
