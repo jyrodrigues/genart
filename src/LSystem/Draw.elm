@@ -15,7 +15,20 @@ import Colors exposing (Color)
 import ImageEssentials exposing (ImageEssentials)
 import LSystem.Core as Core exposing (Composition, Step(..), digestComposition)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
-import Svg.Styled exposing (Svg, circle, defs, path, radialGradient, stop, svg)
+import Svg.Styled
+    exposing
+        ( Svg
+        , circle
+        , defs
+        , feGaussianBlur
+        , feMerge
+        , feMergeNode
+        , filter
+        , path
+        , radialGradient
+        , stop
+        , svg
+        )
 import Svg.Styled.Attributes
     exposing
         ( cx
@@ -23,8 +36,11 @@ import Svg.Styled.Attributes
         , d
         , fill
         , id
+        , in_
         , offset
         , r
+        , result
+        , stdDeviation
         , stopColor
         , stroke
         , strokeDasharray
@@ -200,12 +216,17 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep =
             , stroke (Colors.toString strokeColor)
             , strokeWidth (String.fromFloat essentials.strokeWidth ++ "px")
             , strokeLinecap "square"
+
+            --, fill "url(#RadialGradient1)"
             , fill "none"
+            , Svg.Styled.Attributes.filter "url(#FilterBlur)"
 
             --, stroke "url(#RadialGradient1)"
             --, fill "url(#RadialGradient2)"
             ]
             []
+            :: glow
+            :: gradients strokeColor backgroundColor
             :: originAndNextStep
         )
 
@@ -231,6 +252,19 @@ gradients strokeColor backgroundColor =
         , radialGradient [ id "RadialGradient2" ]
             [ stop [ offset "0%", stopColor (Colors.toString strokeColor) ] []
             , stop [ offset "100%", stopColor (Colors.toString backgroundColor) ] []
+            ]
+        ]
+
+
+glow : Svg msg
+glow =
+    defs []
+        [ filter [ id "FilterBlur" ]
+            [ feGaussianBlur [ stdDeviation "3.5", result "coloredBlur" ] []
+            , feMerge []
+                [ feMergeNode [ in_ "coloredBlur" ] []
+                , feMergeNode [ in_ "SourceGraphic" ] []
+                ]
             ]
         ]
 
