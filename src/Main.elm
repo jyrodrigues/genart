@@ -1213,7 +1213,7 @@ subscriptions model =
 
         keyPressSub =
             if model.focus == KeyboardEditing then
-                Browser.Events.onKeyUp keyPressDecoder
+                Browser.Events.onKeyDown keyPressDecoder
 
             else
                 Sub.none
