@@ -1,7 +1,7 @@
-module ImageEssentials exposing
+module Image exposing
     ( Gallery
+    , Image
     , ImageAndGallery
-    , ImageEssentials
     , Polygon(..)
     , Position
     , V2_Image
@@ -25,7 +25,7 @@ module ImageEssentials exposing
     , v2_encodeImageAndGallery
     , v2_imageAndGalleryDecoder
     , v2_imageDecoder
-    , v2_imageToImageEssentials
+    , v2_imageToImage
     )
 
 import Colors exposing (Color)
@@ -39,33 +39,20 @@ import Url.Parser as Parser exposing ((</>), Parser)
 import Url.Parser.Query as Query
 
 
-
--- TYPES
-
-
-type alias ImageEssentials =
-    { composition : Composition
-    , turnAngle : Float
-    , backgroundColor : Color
-    , strokeColor : Color
-    , strokeWidth : Float
-    , translate : Position
-    , scale : Float
-    }
-
-
-type alias Gallery =
-    List ImageEssentials
-
-
-type alias ImageAndGallery =
-    { image : ImageEssentials
-    , gallery : Gallery
-    }
-
-
 type alias Position =
     ( Float, Float )
+
+
+type alias Angle =
+    Float
+
+
+type alias Scale =
+    Float
+
+
+type alias Width =
+    Float
 
 
 type Polygon
@@ -75,24 +62,20 @@ type Polygon
     | Hexagon
 
 
-type alias HasImageEssentials a =
-    { a
-        | composition : Composition
-        , turnAngle : Float
-        , backgroundColor : Color
-        , strokeColor : Color
-        , translate : Position
-        , scale : Float
+type alias Image =
+    { composition : Composition
+    , turnAngle : Angle
+    , backgroundColor : Color
+    , strokeColor : Color
+    , strokeWidth : Width
+    , translate : Position
+    , scale : Scale
     }
 
 
-
--- DEFAULT VALUES
-
-
-defaultImage : ImageEssentials
+defaultImage : Image
 defaultImage =
-    { composition = LCore.fromList [ polygonBlock Square, [ D ] ]
+    { composition = Core.fromList [ polygonBlock Square, [ D ] ]
     , turnAngle = polygonAngle Square
     , backgroundColor = Colors.darkGray
     , strokeColor = Colors.defaultGreen
@@ -100,39 +83,6 @@ defaultImage =
     , translate = ( 0, 0 )
     , scale = 1
     }
-
-
-
--- HELPERS
--- FUNCTIONS
--- TRANSFORMERS
-
-
-extractImage : HasImageEssentials a -> ImageEssentials
-extractImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
-    { composition = composition
-    , turnAngle = turnAngle
-    , backgroundColor = backgroundColor
-    , strokeColor = strokeColor
-    , strokeWidth = 1
-    , translate = translate
-    , scale = scale
-    }
-
-
-replaceImage : ImageEssentials -> HasImageEssentials a -> HasImageEssentials a
-replaceImage { composition, turnAngle, backgroundColor, strokeColor } something =
-    { something
-        | composition = composition
-        , turnAngle = turnAngle
-        , backgroundColor = backgroundColor
-        , strokeColor = strokeColor
-    }
-
-
-replaceComposition : ImageEssentials -> Composition -> ImageEssentials
-replaceComposition image composition =
-    { image | composition = composition }
 
 
 
@@ -174,27 +124,9 @@ polygonAngle polygon =
 
 -- ENCODER
 -- DECODER
--- URL
--- QUERY
--- PARSER
 
 
-encodeImageAndGallery : ImageAndGallery -> Encode.Value
-encodeImageAndGallery { image, gallery } =
-    Encode.object
-        [ ( "image", encodeImage image )
-        , ( "gallery", Encode.list encodeImage gallery )
-        ]
-
-
-imageAndGalleryDecoder : Decoder ImageAndGallery
-imageAndGalleryDecoder =
-    Decode.map2 ImageAndGallery
-        (Decode.field "image" imageDecoder)
-        (Decode.field "gallery" (Decode.list imageDecoder))
-
-
-encodeImage : ImageEssentials -> Encode.Value
+encodeImage : Image -> Encode.Value
 encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
     Encode.object
         [ ( keyFor.composition, LCore.encodeComposition composition )
@@ -207,9 +139,9 @@ encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, s
         ]
 
 
-imageDecoder : Decoder ImageEssentials
+imageDecoder : Decoder Image
 imageDecoder =
-    Decode.map7 ImageEssentials
+    Decode.map7 Image
         (Decode.field keyFor.composition LCore.compositionDecoder)
         (Decode.field keyFor.turnAngle Decode.float)
         (Decode.field keyFor.backgroundColor Colors.decoder)
@@ -222,24 +154,30 @@ imageDecoder =
         (Decode.field keyFor.scale Decode.float)
 
 
-urlParser : Parser (Maybe ImageEssentials -> a) a
+
+-- URL
+-- QUERY
+-- PARSER
+
+
+urlParser : Parser (Maybe Image -> a) a
 urlParser =
     Parser.map
         mergeUrlV1andV2
         (Parser.query queryToImageParser </> fragmentToCompositionParser)
 
 
-queryToImageParser : Query.Parser (Maybe ImageEssentials)
+queryToImageParser : Query.Parser (Maybe Image)
 queryToImageParser =
     let
         queryMapFromDecoder decoder =
             Query.map (Maybe.andThen (Result.toMaybe << Decode.decodeString decoder))
 
-        imageEssentials a b c d e f =
+        image a b c d e f =
             -- TODO remove this, only here while strokeWidth doesn't make into the URL
-            ImageEssentials a b c d 1 e f
+            Image a b c d 1 e f
     in
-    Query.map6 (ListExtra.maybeMap6 imageEssentials)
+    Query.map6 (ListExtra.maybeMap6 image)
         (Query.string keyFor.composition |> queryMapFromDecoder LCore.compositionDecoder)
         (Query.string keyFor.turnAngle |> Query.map (Maybe.andThen String.toFloat))
         (Query.string keyFor.backgroundColor |> queryMapFromDecoder Colors.decoder)
@@ -251,7 +189,7 @@ queryToImageParser =
         (Query.string keyFor.scale |> Query.map (Maybe.andThen String.toFloat))
 
 
-toUrlPathString : ImageEssentials -> String
+toUrlPathString : Image -> String
 toUrlPathString image =
     Url.Builder.absolute []
         [ Url.Builder.string keyFor.composition (image.composition |> LCore.encodeComposition |> Encode.encode 0)
@@ -305,7 +243,7 @@ mergeToV3 maybeImageAndGallery maybeV2 =
                     extractImage v2_imageAndGallery
 
                 v2_gallery =
-                    List.map v2_imageToImageEssentials v2_imageAndGallery.gallery
+                    List.map v2_imageToImage v2_imageAndGallery.gallery
             in
             { imageAndGallery | gallery = imageAndGallery.gallery ++ v2_mainImg :: v2_gallery }
 
@@ -313,7 +251,7 @@ mergeToV3 maybeImageAndGallery maybeV2 =
             imageAndGallery
 
         ( Nothing, Just v2_imageAndGallery ) ->
-            { image = extractImage v2_imageAndGallery, gallery = List.map v2_imageToImageEssentials v2_imageAndGallery.gallery }
+            { image = extractImage v2_imageAndGallery, gallery = List.map v2_imageToImage v2_imageAndGallery.gallery }
 
         ( Nothing, Nothing ) ->
             { image = defaultImage, gallery = [] }
@@ -331,12 +269,12 @@ mergeToV3 maybeImageAndGallery maybeV2 =
 -- URL - VERSION 1
 
 
-mergeUrlV1andV2 : Maybe ImageEssentials -> Maybe Composition -> Maybe ImageEssentials
+mergeUrlV1andV2 : Maybe Image -> Maybe Composition -> Maybe Image
 mergeUrlV1andV2 v2_dataOnQueryParams v1_dataOnHash =
     case ( v2_dataOnQueryParams, v1_dataOnHash ) of
         -- If there is an image on query parameters, we ignore the hash.
-        ( Just imageEssentials, _ ) ->
-            Just imageEssentials
+        ( Just image, _ ) ->
+            Just image
 
         ( Nothing, Just composition ) ->
             Just
@@ -413,8 +351,8 @@ v2_imageDecoder =
 
 {-| TODO make this dependable on defaultImage
 -}
-v2_imageToImageEssentials : V2_Image -> ImageEssentials
-v2_imageToImageEssentials { composition, turnAngle, backgroundColor, strokeColor } =
+v2_imageToImage : V2_Image -> Image
+v2_imageToImage { composition, turnAngle, backgroundColor, strokeColor } =
     { composition = composition
     , turnAngle = turnAngle
     , backgroundColor = backgroundColor
@@ -452,3 +390,104 @@ v2_encodeImage { composition, turnAngle, backgroundColor, strokeColor } =
 
 -- LOCAL STORAGE - VERSION 1
 -- TODO Search git for "genart/v0.1/state" and create migrations
+{--
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- OLD STUFF
+
+
+
+
+
+--}
+-- IMAGE AND GALLERY
+-- Should it be here or on Main.elm?
+
+
+type alias Gallery =
+    List Image
+
+
+type alias ImageAndGallery =
+    { image : Image
+    , gallery : Gallery
+    }
+
+
+type alias HasImage a =
+    { a
+        | composition : Composition
+        , turnAngle : Float
+        , backgroundColor : Color
+        , strokeColor : Color
+        , translate : Position
+        , scale : Float
+    }
+
+
+encodeImageAndGallery : ImageAndGallery -> Encode.Value
+encodeImageAndGallery { image, gallery } =
+    Encode.object
+        [ ( "image", encodeImage image )
+        , ( "gallery", Encode.list encodeImage gallery )
+        ]
+
+
+imageAndGalleryDecoder : Decoder ImageAndGallery
+imageAndGalleryDecoder =
+    Decode.map2 ImageAndGallery
+        (Decode.field "image" imageDecoder)
+        (Decode.field "gallery" (Decode.list imageDecoder))
+
+
+
+-- Should we delete this function? This would imply adding a lot of other functions
+-- to deal with composition transformation/replacement
+
+
+replaceComposition : Image -> Composition -> Image
+replaceComposition image composition =
+    { image | composition = composition }
+
+
+
+-- DELETE THIS FUNCTIONS
+
+
+extractImage : HasImage a -> Image
+extractImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
+    { composition = composition
+    , turnAngle = turnAngle
+    , backgroundColor = backgroundColor
+    , strokeColor = strokeColor
+    , strokeWidth = 1
+    , translate = translate
+    , scale = scale
+    }
+
+
+replaceImage : Image -> HasImage a -> HasImage a
+replaceImage { composition, turnAngle, backgroundColor, strokeColor } something =
+    { something
+        | composition = composition
+        , turnAngle = turnAngle
+        , backgroundColor = backgroundColor
+        , strokeColor = strokeColor
+    }
