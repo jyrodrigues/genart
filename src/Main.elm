@@ -119,6 +119,9 @@ port saveMergedModelsVersionsAndDeleteOldOnes : Encode.Value -> Cmd msg
 port downloadSvg : () -> Cmd msg
 
 
+port midiEvent : (Encode.Value -> msg) -> Sub msg
+
+
 
 -- TYPES
 -- MSG
@@ -166,6 +169,8 @@ type Msg
     | TogglePlayingVideo
     | SetVideoAngleChangeRate Float
     | ReverseAngleChangeDirection
+      -- MIDI
+    | GotMidiEvent Encode.Value
 
 
 
@@ -526,6 +531,7 @@ colorControls backgroundColor strokeColor =
                     , value (Colors.toHexString color)
                     ]
                     []
+                , text (Colors.toString color)
                 ]
     in
     controlBlock
@@ -996,6 +1002,119 @@ update msg model =
                     , image = image
                 }
 
+        GotMidiEvent value ->
+            if model.viewingPage == GalleryPage then
+                ( model, Cmd.none )
+
+            else
+                -- TODO add throttle and then add updateAndSaveImageAndGallery
+                ( processMidi value model, Cmd.none )
+
+
+processMidi : Encode.Value -> Model -> Model
+processMidi value model =
+    let
+        midiDecoded =
+            -- Use .andThen to process if successful
+            Decode.decodeValue midiEventDecoder value
+    in
+    case midiDecoded of
+        Ok { command, noteMap, velocityPosition } ->
+            if command == 176 && noteMap == 114 then
+                -- Turn Angle
+                { model
+                    | image =
+                        model.image
+                            -- Magic numbers, after testing with Arturia MiniLab mk2
+                            |> Image.withTurnAngle
+                                (model.image.turnAngle
+                                    + (velocityPosition - 64)
+                                    * model.videoAngleChangeRate
+                                )
+                }
+
+            else if command == 176 && noteMap == 115 && velocityPosition == 0 then
+                { model | image = Image.centralize model.image }
+
+            else if command == 176 && noteMap == 112 then
+                -- Angle Change Rate
+                { model
+                    | videoAngleChangeRate =
+                        max (model.videoAngleChangeRate + (velocityPosition - 64) * 0.000501)
+                            0.0001
+                }
+
+            else if command == 176 && noteMap == 113 && velocityPosition == 0 then
+                { model | videoAngleChangeRate = 0.01 }
+
+            else if command == 153 && noteMap == 37 then
+                -- Reverse angle change direction
+                { model | videoAngleChangeDirection = -model.videoAngleChangeDirection }
+
+            else if command == 153 && noteMap == 36 then
+                -- Play / pause video
+                { model | playingVideo = not model.playingVideo }
+
+            else if command == 176 && noteMap == 18 then
+                -- Stroke Width
+                { model
+                    | image =
+                        model.image
+                            -- Magic numbers, after testing with Arturia MiniLab mk2
+                            |> Image.withStrokeWidth ((velocityPosition / 127) * 2)
+                }
+                -- Background Color RGBA: (R, 93) (G, 73) (B, 75)
+
+            else if command == 176 && noteMap == 93 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withBackgroundColor (Colors.updateRed (velocityPosition * 2) model.image.backgroundColor)
+                }
+
+            else if command == 176 && noteMap == 73 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withBackgroundColor (Colors.updateGreen (velocityPosition * 2) model.image.backgroundColor)
+                }
+
+            else if command == 176 && noteMap == 75 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withBackgroundColor (Colors.updateBlue (velocityPosition * 2) model.image.backgroundColor)
+                }
+                -- Stroke Color RGBA: (R, 91) (G, 79) (B, 72)
+
+            else if command == 176 && noteMap == 91 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withStrokeColor (Colors.updateRed (velocityPosition * 2) model.image.strokeColor)
+                }
+
+            else if command == 176 && noteMap == 79 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withStrokeColor (Colors.updateGreen (velocityPosition * 2) model.image.strokeColor)
+                }
+
+            else if command == 176 && noteMap == 72 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withStrokeColor (Colors.updateBlue (velocityPosition * 2) model.image.strokeColor)
+                }
+
+            else
+                -- Else
+                model
+
+        _ ->
+            model
+
 
 processKey : Model -> String -> ( Model, Bool )
 processKey model keyPressed =
@@ -1100,7 +1219,7 @@ subscriptions model =
             else
                 Sub.none
     in
-    Sub.batch [ keyPressSub, panSubs, playingVideoSub ]
+    Sub.batch [ keyPressSub, panSubs, playingVideoSub, midiEvent GotMidiEvent ]
 
 
 
@@ -1189,3 +1308,20 @@ wheelDecoder =
             (Decode.field "clientX" Decode.float)
             (Decode.field "clientY" Decode.float)
         )
+
+
+type alias MidiEvent =
+    { command : Float
+    , noteMap : Float
+    , velocityPosition : Float
+    }
+
+
+{--}
+midiEventDecoder : Decoder MidiEvent
+midiEventDecoder =
+    Decode.map3 MidiEvent
+        (Decode.at [ "data", "0" ] Decode.float)
+        (Decode.at [ "data", "1" ] Decode.float)
+        (Decode.at [ "data", "2" ] Decode.float)
+--}
