@@ -6,20 +6,32 @@ module LSystem.Image exposing
     , Position
     , V2_Image
     , V2_ImageAndGallery
+    , appendSimpleBlock
+    , appendStepAtIndex
+    , blockBlueprintString
     , blocksToImages
+    , centralize
     , defaultImage
+    , dropBlockAtIndex
+    , dropLastBlock
+    , dropLastStepAtIndex
+    , duplicateBlock
     , encodeImage
     , encodeImageAndGallery
     , extractImage
     , imageAndGalleryDecoder
     , imageDecoder
+    , imageStepsLenthString
+    , length
     , mergeAllVersions_ImageAndGalleryDecoder
     , mergeToV3
+    , move
     , polygonAngle
     , polygonBlock
     , queryToImageParser
     , replaceComposition
-    , replaceImage
+    , resetBaseTo
+    , resetImageComposition
     , toUrlPathString
     , urlParser
     , v2_encodeImage
@@ -27,6 +39,12 @@ module LSystem.Image exposing
     , v2_imageAndGalleryDecoder
     , v2_imageDecoder
     , v2_imageToImage
+    , withBackgroundColor
+    , withStrokeColor
+    , withStrokeWidth
+    , withTranslate
+    , withTurnAngle
+    , zoom
     )
 
 import Colors exposing (Color)
@@ -86,6 +104,10 @@ defaultImage =
     }
 
 
+
+-- UTILITIES
+
+
 blocksToImages : Image -> List Image
 blocksToImages image =
     image.composition
@@ -96,8 +118,171 @@ blocksToImages image =
                     | composition = Core.fromList [ block ]
                     , scale = 1
                     , translate = ( 0, 0 )
+                    , strokeWidth = 1
                 }
             )
+
+
+
+-- ACTIONS
+
+
+appendStepAtIndex : Step -> Int -> Image -> Image
+appendStepAtIndex step index image =
+    { image | composition = Core.appendStepAtIndex step index image.composition }
+
+
+appendBlock : Block -> Image -> Image
+appendBlock block image =
+    { image | composition = Core.appendBlock block image.composition }
+
+
+appendSimpleBlock : Image -> Image
+appendSimpleBlock image =
+    appendBlock [ D ] image
+
+
+duplicateBlock : Int -> Image -> Image
+duplicateBlock index image =
+    let
+        maybeDuplicatedBlock =
+            Core.getBlockAtIndex index image.composition
+    in
+    case maybeDuplicatedBlock of
+        Just newBlock ->
+            { image | composition = Core.appendBlock newBlock image.composition }
+
+        Nothing ->
+            image
+
+
+dropLastStepAtIndex : Int -> Image -> Image
+dropLastStepAtIndex index image =
+    { image | composition = Core.dropLastStepAtIndex index image.composition }
+
+
+dropLastBlock : Image -> Image
+dropLastBlock image =
+    { image | composition = Core.dropLastBlock image.composition }
+
+
+dropBlockAtIndex : Int -> Image -> Image
+dropBlockAtIndex index image =
+    { image | composition = Core.dropBlockAtIndex index image.composition }
+
+
+resetBaseTo : Polygon -> Image -> Image
+resetBaseTo polygon image =
+    { image
+        | composition = Core.changeBase (polygonBlock polygon) image.composition
+        , turnAngle = polygonAngle polygon
+    }
+
+
+resetImageComposition : Image -> Image
+resetImageComposition image =
+    { image
+        | composition = image.composition |> Core.dropAllBlocksButBase |> Core.appendBlock [ D ]
+    }
+
+
+
+-- MOVEMENT
+
+
+centralize : Image -> Image
+centralize image =
+    { image
+        | scale = 1
+        , translate = ( 0, 0 )
+    }
+
+
+zoom : Float -> Position -> Position -> Image -> Image
+zoom scaleDelta zoomFocus imageDivCenter image =
+    let
+        scale =
+            max (image.scale - 0.01 * scaleDelta) 0.1
+
+        vecMouseToImgDivCenter =
+            imageDivCenter
+                |> ListExtra.pairExec (-) zoomFocus
+    in
+    { image
+        | scale = scale
+        , translate =
+            vecMouseToImgDivCenter
+                |> ListExtra.pairExec (+) image.translate
+                |> ListExtra.pairMap (\value -> value * scale / image.scale)
+                |> ListExtra.pairExec (-) vecMouseToImgDivCenter
+    }
+
+
+move : Position -> Position -> Image -> Image
+move lastPosition newPosition image =
+    image
+        |> withTranslate
+            (newPosition
+                |> ListExtra.pairExec (-) lastPosition
+                |> ListExtra.pairExec (+) image.translate
+            )
+
+
+
+-- GET INFO
+
+
+length : Image -> Int
+length image =
+    Core.length image.composition
+
+
+imageStepsLenthString : Image -> String
+imageStepsLenthString image =
+    let
+        ( countD, countOthers ) =
+            Core.stepsLength image.composition
+    in
+    String.fromInt countD ++ ", " ++ String.fromInt countOthers
+
+
+blockBlueprintString : Int -> Image -> String
+blockBlueprintString index image =
+    case Core.getBlockAtIndex index image.composition of
+        Nothing ->
+            ""
+
+        Just block ->
+            Core.blockToString block
+
+
+
+-- WITH* PATTERN
+
+
+withBackgroundColor : Color -> Image -> Image
+withBackgroundColor color image =
+    { image | backgroundColor = color }
+
+
+withStrokeColor : Color -> Image -> Image
+withStrokeColor color image =
+    { image | backgroundColor = color }
+
+
+withStrokeWidth : Width -> Image -> Image
+withStrokeWidth width image =
+    { image | strokeWidth = width }
+
+
+withTranslate : Position -> Image -> Image
+withTranslate position image =
+    { image | translate = position }
+
+
+withTurnAngle : Angle -> Image -> Image
+withTurnAngle angle image =
+    { image | turnAngle = angle }
 
 
 
@@ -495,14 +680,4 @@ extractImage { composition, turnAngle, backgroundColor, strokeColor, translate, 
     , strokeWidth = 1
     , translate = translate
     , scale = scale
-    }
-
-
-replaceImage : Image -> HasImage a -> HasImage a
-replaceImage { composition, turnAngle, backgroundColor, strokeColor } something =
-    { something
-        | composition = composition
-        , turnAngle = turnAngle
-        , backgroundColor = backgroundColor
-        , strokeColor = strokeColor
     }
