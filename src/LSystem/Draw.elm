@@ -1,19 +1,8 @@
-module LSystem.Draw exposing
-    ( drawImage
-    , drawImageEssentials
-    , image
-    , withBackgroundColor
-    , withId
-    , withOnClick
-    , withScale
-    , withStrokeColor
-    , withTranslation
-    , withTurnAngle
-    )
+module LSystem.Draw exposing (drawBlocks, drawImage)
 
 import Colors exposing (Color)
-import ImageEssentials exposing (ImageEssentials)
 import LSystem.Core as Core exposing (Step(..), digestComposition)
+import LSystem.Image exposing (Image, Position, blocksToImages)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
 import Svg.Styled exposing (Svg, circle, defs, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
@@ -115,6 +104,12 @@ type alias Id =
 -- DRAW
 
 
+drawBlocks : Image -> List (Svg msg)
+drawBlocks image =
+    blocksToImages image
+        |> List.map (\blockImage -> drawImage blockImage Nothing Nothing True)
+
+
 {-| TODO remove this last Bool (at least use a custom type).
 -}
 drawImage : Image -> Maybe Id -> Maybe msg -> Bool -> Svg msg
@@ -135,8 +130,8 @@ drawImage image maybeId maybeMsg drawOriginAndNextStep =
 
         optionalAttrs =
             List.filterMap identity
-                [ Maybe.map maybeId id
-                , Maybe.map maybeMsg onClick
+                [ Maybe.map id maybeId
+                , Maybe.map onClick maybeMsg
                 ]
 
         originAndNextStep =
@@ -198,7 +193,7 @@ drawImage image maybeId maybeMsg drawOriginAndNextStep =
     Memoize this function!
 
 -}
-imageToSvgPathString : ImageEssentials -> ( String, String, Boundaries )
+imageToSvgPathString : Image -> ( String, String, Boundaries )
 imageToSvgPathString { composition, turnAngle } =
     let
         finalEverything =

@@ -1,4 +1,4 @@
-module Image exposing
+module LSystem.Image exposing
     ( Gallery
     , Image
     , ImageAndGallery
@@ -6,6 +6,7 @@ module Image exposing
     , Position
     , V2_Image
     , V2_ImageAndGallery
+    , blocksToImages
     , defaultImage
     , encodeImage
     , encodeImageAndGallery
@@ -31,7 +32,7 @@ module Image exposing
 import Colors exposing (Color)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import LSystem.Core as LCore exposing (Block, Composition, Step(..))
+import LSystem.Core as Core exposing (Block, Composition, Step(..))
 import ListExtra
 import Url
 import Url.Builder
@@ -85,6 +86,20 @@ defaultImage =
     }
 
 
+blocksToImages : Image -> List Image
+blocksToImages image =
+    image.composition
+        |> Core.toList
+        |> List.map
+            (\block ->
+                { image
+                    | composition = Core.fromList [ block ]
+                    , scale = 1
+                    , translate = ( 0, 0 )
+                }
+            )
+
+
 
 -- POLYGON
 
@@ -129,7 +144,7 @@ polygonAngle polygon =
 encodeImage : Image -> Encode.Value
 encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
     Encode.object
-        [ ( keyFor.composition, LCore.encodeComposition composition )
+        [ ( keyFor.composition, Core.encodeComposition composition )
         , ( keyFor.turnAngle, Encode.float turnAngle )
         , ( keyFor.backgroundColor, Colors.encode backgroundColor )
         , ( keyFor.strokeColor, Colors.encode strokeColor )
@@ -142,7 +157,7 @@ encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, s
 imageDecoder : Decoder Image
 imageDecoder =
     Decode.map7 Image
-        (Decode.field keyFor.composition LCore.compositionDecoder)
+        (Decode.field keyFor.composition Core.compositionDecoder)
         (Decode.field keyFor.turnAngle Decode.float)
         (Decode.field keyFor.backgroundColor Colors.decoder)
         (Decode.field keyFor.strokeColor Colors.decoder)
@@ -178,7 +193,7 @@ queryToImageParser =
             Image a b c d 1 e f
     in
     Query.map6 (ListExtra.maybeMap6 image)
-        (Query.string keyFor.composition |> queryMapFromDecoder LCore.compositionDecoder)
+        (Query.string keyFor.composition |> queryMapFromDecoder Core.compositionDecoder)
         (Query.string keyFor.turnAngle |> Query.map (Maybe.andThen String.toFloat))
         (Query.string keyFor.backgroundColor |> queryMapFromDecoder Colors.decoder)
         (Query.string keyFor.strokeColor |> queryMapFromDecoder Colors.decoder)
@@ -192,7 +207,7 @@ queryToImageParser =
 toUrlPathString : Image -> String
 toUrlPathString image =
     Url.Builder.absolute []
-        [ Url.Builder.string keyFor.composition (image.composition |> LCore.encodeComposition |> Encode.encode 0)
+        [ Url.Builder.string keyFor.composition (image.composition |> Core.encodeComposition |> Encode.encode 0)
         , Url.Builder.string keyFor.turnAngle (String.fromFloat image.turnAngle)
         , Url.Builder.string keyFor.backgroundColor (image.backgroundColor |> Colors.encode |> Encode.encode 0)
         , Url.Builder.string keyFor.strokeColor (image.strokeColor |> Colors.encode |> Encode.encode 0)
@@ -297,7 +312,7 @@ fragmentToCompositionParser =
     Parser.fragment <|
         Maybe.andThen
             (Url.percentDecode
-                >> Maybe.andThen (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe)
+                >> Maybe.andThen (Decode.decodeString Core.compositionDecoder >> Result.toMaybe)
             )
 
 
@@ -328,7 +343,7 @@ type alias V2_Image =
 v2_imageAndGalleryDecoder : Decoder V2_ImageAndGallery
 v2_imageAndGalleryDecoder =
     Decode.map7 V2_ImageAndGallery
-        (Decode.field "state" LCore.compositionDecoder)
+        (Decode.field "state" Core.compositionDecoder)
         (Decode.field "gallery" (Decode.list v2_imageDecoder))
         (Decode.field "bgColor" Colors.decoder)
         (Decode.field "strokeColor" Colors.decoder)
@@ -343,7 +358,7 @@ v2_imageAndGalleryDecoder =
 v2_imageDecoder : Decoder V2_Image
 v2_imageDecoder =
     Decode.map4 V2_Image
-        (Decode.field "composition" LCore.compositionDecoder)
+        (Decode.field "composition" Core.compositionDecoder)
         (Decode.field "turnAngle" Decode.float)
         (Decode.field "bgColor" Colors.decoder)
         (Decode.field "strokeColor" Colors.decoder)
@@ -366,7 +381,7 @@ v2_imageToImage { composition, turnAngle, backgroundColor, strokeColor } =
 v2_encodeImageAndGallery : V2_ImageAndGallery -> Encode.Value
 v2_encodeImageAndGallery { composition, gallery, backgroundColor, strokeColor, turnAngle, scale, translate } =
     Encode.object
-        [ ( "state", LCore.encodeComposition composition )
+        [ ( "state", Core.encodeComposition composition )
         , ( "gallery", Encode.list v2_encodeImage gallery )
         , ( "bgColor", Colors.encode backgroundColor )
         , ( "strokeColor", Colors.encode strokeColor )
@@ -380,7 +395,7 @@ v2_encodeImageAndGallery { composition, gallery, backgroundColor, strokeColor, t
 v2_encodeImage : V2_Image -> Encode.Value
 v2_encodeImage { composition, turnAngle, backgroundColor, strokeColor } =
     Encode.object
-        [ ( "composition", LCore.encodeComposition composition )
+        [ ( "composition", Core.encodeComposition composition )
         , ( "turnAngle", Encode.float turnAngle )
         , ( "bgColor", Colors.encode backgroundColor )
         , ( "strokeColor", Colors.encode strokeColor )

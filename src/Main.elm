@@ -83,11 +83,15 @@ import Html.Styled.Events
         )
 import Html.Styled.Lazy exposing (lazy7)
 import Icons exposing (withColor, withCss, withOnClick)
-import ImageEssentials
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
+import LSystem.Core as LCore exposing (Block, Composition, Step(..))
+import LSystem.Draw as LDraw exposing (drawBlocks, drawImage)
+import LSystem.Image as Image
     exposing
         ( Gallery
+        , Image
         , ImageAndGallery
-        , ImageEssentials
         , Polygon(..)
         , Position
         , defaultImage
@@ -98,19 +102,8 @@ import ImageEssentials
         , polygonBlock
         , replaceImage
         )
-import Json.Decode as Decode exposing (Decoder)
-import Json.Encode as Encode
-import LSystem.Core as LCore exposing (Block, Composition, Step(..))
-import LSystem.Draw as LDraw
-    exposing
-        ( drawImage
-        , drawImageEssentials
-        , image
-        , withBackgroundColor
-        , withStrokeColor
-        , withTurnAngle
-        )
 import ListExtra exposing (pairExec, pairMap)
+import Svg.Styled exposing (Svg)
 import Task
 import Time
 import Url
@@ -236,7 +229,7 @@ type Page
 
 
 type Route
-    = Editor (Maybe ImageEssentials)
+    = Editor (Maybe Image)
     | Gallery
     | NotFound
 
@@ -278,7 +271,7 @@ type Focus
 -- MODEL
 
 
-initialModel : ImageEssentials -> Gallery -> Url.Url -> Nav.Key -> Model
+initialModel : Image -> Gallery -> Url.Url -> Nav.Key -> Model
 initialModel image gallery url navKey =
     -- Aplication heart
     { composition = image.composition
@@ -460,7 +453,7 @@ galleryView model =
     }
 
 
-imageBox : Int -> ImageEssentials -> Html Msg
+imageBox : Int -> Image -> Html Msg
 imageBox index image =
     div
         [ css
@@ -471,12 +464,7 @@ imageBox index image =
             , position relative
             ]
         ]
-        [ LDraw.image image.composition
-            |> withTurnAngle image.turnAngle
-            |> withStrokeColor image.strokeColor
-            |> withBackgroundColor image.backgroundColor
-            |> LDraw.withOnClick (DuplicateToEdit index)
-            |> drawImage
+        [ LDraw.drawImage image Nothing (Just (DuplicateToEdit index)) False
         , Icons.trash
             |> withOnClick (RemovedFromGallery index)
             |> withColor Colors.red_
@@ -510,7 +498,7 @@ editorView model =
             [ css [ width (pct 100), height (pct 100) ] ]
             [ compositionBlocksList model
 
-            -- TODO BUG this probably doesn't work. To get around it we should have a nested record for ImageEssentials
+            -- TODO BUG this probably doesn't work. To get around it we should have a nested record for Image
             --      inside the model :(
             , lazy7 mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth
             , controlPanel model
@@ -720,15 +708,9 @@ compositionBlocksList : Model -> Html Msg
 compositionBlocksList model =
     let
         compositionBlocks =
-            model.composition
-                |> LCore.toList
-                |> List.indexedMap
-                    (blockBox
-                        model.editingIndex
-                        model.turnAngle
-                        model.strokeColor
-                        model.backgroundColor
-                    )
+            extractImage model
+                |> drawBlocks
+                |> List.indexedMap (blockBox model.editingIndex model.strokeColor)
                 |> List.reverse
     in
     fixedDiv
@@ -793,8 +775,8 @@ primaryButton msg btnText =
         [ text btnText ]
 
 
-blockBox : Int -> Float -> Color -> Color -> Int -> Block -> Html Msg
-blockBox editingIndex turnAngle strokeColor backgroundColor index transform =
+blockBox : Int -> Color -> Int -> Svg Msg -> Html Msg
+blockBox editingIndex strokeColor index blockSvg =
     let
         borderOnSelected =
             if editingIndex == index then
@@ -830,11 +812,7 @@ blockBox editingIndex turnAngle strokeColor backgroundColor index transform =
             )
         , onClick (SetEditingIndex index)
         ]
-        [ image (LCore.fromList [ transform ])
-            |> withTurnAngle turnAngle
-            |> withStrokeColor strokeColor
-            |> withBackgroundColor backgroundColor
-            |> drawImage
+        [ blockSvg
         , Icons.trash
             |> withColor Colors.red_
             |> withOnClick (DropFromState index)
@@ -869,8 +847,8 @@ mainImg composition turnAngle scale translate strokeColor backgroundColor_ strok
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ drawImageEssentials
-            (ImageEssentials
+        [ drawImage
+            (Image
                 composition
                 turnAngle
                 backgroundColor_
@@ -1253,12 +1231,12 @@ galleryParser =
 
 editorParser : Parser (Route -> a) a
 editorParser =
-    Parser.map Editor ImageEssentials.urlParser
+    Parser.map Editor Image.urlParser
 
 
 {-| Current version of Url building and parsing
 -}
-replaceUrl : Nav.Key -> ImageEssentials -> Cmd msg
+replaceUrl : Nav.Key -> Image -> Cmd msg
 replaceUrl key image =
     {--
             Note about Nav.replaceUrl: Browsers may rate-limit this function by throwing an
@@ -1268,7 +1246,7 @@ replaceUrl key image =
 
             https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
     --}
-    Nav.replaceUrl key (ImageEssentials.toUrlPathString image)
+    Nav.replaceUrl key (Image.toUrlPathString image)
 
 
 
