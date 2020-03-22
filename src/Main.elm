@@ -119,6 +119,9 @@ port saveMergedModelsVersionsAndDeleteOldOnes : Encode.Value -> Cmd msg
 port downloadSvg : () -> Cmd msg
 
 
+port midiEvent : (Encode.Value -> msg) -> Sub msg
+
+
 
 -- TYPES
 -- MSG
@@ -166,6 +169,8 @@ type Msg
     | TogglePlayingVideo
     | SetVideoAngleChangeRate Float
     | ReverseAngleChangeDirection
+      -- MIDI
+    | GotMidiEvent Encode.Value
 
 
 
@@ -996,6 +1001,26 @@ update msg model =
                     , image = image
                 }
 
+        GotMidiEvent value ->
+            let
+                midiDecoded =
+                    -- Use .andThen to process if successful
+                    Decode.decodeValue midiEventDecoder value
+
+                turnAngle =
+                    case midiDecoded of
+                        Ok { command, noteMap, velocityPosition } ->
+                            if command == 176 then
+                                velocityPosition
+
+                            else
+                                model.image.turnAngle
+
+                        _ ->
+                            model.image.turnAngle
+            in
+            ( { model | image = Image.withTurnAngle turnAngle model.image }, Cmd.none )
+
 
 processKey : Model -> String -> ( Model, Bool )
 processKey model keyPressed =
@@ -1100,7 +1125,7 @@ subscriptions model =
             else
                 Sub.none
     in
-    Sub.batch [ keyPressSub, panSubs, playingVideoSub ]
+    Sub.batch [ keyPressSub, panSubs, playingVideoSub, midiEvent GotMidiEvent ]
 
 
 
@@ -1189,3 +1214,20 @@ wheelDecoder =
             (Decode.field "clientX" Decode.float)
             (Decode.field "clientY" Decode.float)
         )
+
+
+type alias MidiEvent =
+    { command : Float
+    , noteMap : Float
+    , velocityPosition : Float
+    }
+
+
+{--}
+midiEventDecoder : Decoder MidiEvent
+midiEventDecoder =
+    Decode.map3 MidiEvent
+        (Decode.at [ "data", "0" ] Decode.float)
+        (Decode.at [ "data", "1" ] Decode.float)
+        (Decode.at [ "data", "2" ] Decode.float)
+--}
