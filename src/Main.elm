@@ -1002,24 +1002,109 @@ update msg model =
                 }
 
         GotMidiEvent value ->
-            let
-                midiDecoded =
-                    -- Use .andThen to process if successful
-                    Decode.decodeValue midiEventDecoder value
+            if model.viewingPage == GalleryPage then
+                ( model, Cmd.none )
 
-                turnAngle =
-                    case midiDecoded of
-                        Ok { command, noteMap, velocityPosition } ->
-                            if command == 176 then
-                                velocityPosition
+            else
+                -- TODO add throttle and then add updateAndSaveImageAndGallery
+                ( processMidi value model, Cmd.none )
 
-                            else
-                                model.image.turnAngle
 
-                        _ ->
-                            model.image.turnAngle
-            in
-            ( { model | image = Image.withTurnAngle turnAngle model.image }, Cmd.none )
+processMidi : Encode.Value -> Model -> Model
+processMidi value model =
+    let
+        midiDecoded =
+            -- Use .andThen to process if successful
+            Decode.decodeValue midiEventDecoder value
+    in
+    case midiDecoded of
+        Ok { command, noteMap, velocityPosition } ->
+            if command == 176 && noteMap == 114 then
+                -- Turn Angle
+                { model
+                    | image =
+                        model.image
+                            -- Magic numbers, after testing with Arturia MiniLab mk2
+                            |> Image.withTurnAngle
+                                (model.image.turnAngle
+                                    + (velocityPosition - 64)
+                                    * model.videoAngleChangeRate
+                                )
+                }
+
+            else if command == 176 && noteMap == 115 && velocityPosition == 0 then
+                { model | image = Image.centralize model.image }
+
+            else if command == 176 && noteMap == 112 then
+                -- Angle Change Rate
+                { model
+                    | videoAngleChangeRate =
+                        max (model.videoAngleChangeRate + (velocityPosition - 64) * 0.000501)
+                            0.0001
+                }
+
+            else if command == 176 && noteMap == 113 && velocityPosition == 0 then
+                { model | videoAngleChangeRate = 0.01 }
+
+            else if command == 176 && noteMap == 18 then
+                -- Stroke Width
+                { model
+                    | image =
+                        model.image
+                            -- Magic numbers, after testing with Arturia MiniLab mk2
+                            |> Image.withStrokeWidth ((velocityPosition / 127) * 2)
+                }
+                -- Background Color RGBA: (R, 93) (G, 73) (B, 75)
+
+            else if command == 176 && noteMap == 93 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withBackgroundColor (Colors.updateRed velocityPosition model.image.backgroundColor)
+                }
+
+            else if command == 176 && noteMap == 73 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withBackgroundColor (Colors.updateGreen velocityPosition model.image.backgroundColor)
+                }
+
+            else if command == 176 && noteMap == 75 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withBackgroundColor (Colors.updateBlue velocityPosition model.image.backgroundColor)
+                }
+                -- Stroke Color RGBA: (R, 91) (G, 79) (B, 72)
+
+            else if command == 176 && noteMap == 91 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withStrokeColor (Colors.updateRed velocityPosition model.image.strokeColor)
+                }
+
+            else if command == 176 && noteMap == 79 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withStrokeColor (Colors.updateGreen velocityPosition model.image.strokeColor)
+                }
+
+            else if command == 176 && noteMap == 72 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withStrokeColor (Colors.updateBlue velocityPosition model.image.strokeColor)
+                }
+
+            else
+                -- Else
+                model
+
+        _ ->
+            model
 
 
 processKey : Model -> String -> ( Model, Bool )

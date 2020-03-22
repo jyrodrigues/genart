@@ -267,7 +267,7 @@ withBackgroundColor color image =
 
 withStrokeColor : Color -> Image -> Image
 withStrokeColor color image =
-    { image | backgroundColor = color }
+    { image | strokeColor = color }
 
 
 withStrokeWidth : Width -> Image -> Image

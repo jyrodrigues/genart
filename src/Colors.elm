@@ -17,6 +17,10 @@ module Colors exposing
     , toCssColor
     , toHexString
     , toString
+    , updateAlpha
+    , updateBlue
+    , updateGreen
+    , updateRed
     )
 
 import Css exposing (Color, hex, rgba)
@@ -87,6 +91,46 @@ toHexString color =
 fromHexString : String -> Color
 fromHexString =
     Hex
+
+
+updateRed : Float -> Color -> Color
+updateRed amount color =
+    case color of
+        Color _ g b a ->
+            Color (round amount) g b a
+
+        _ ->
+            Color (round amount) 0 0 1
+
+
+updateGreen : Float -> Color -> Color
+updateGreen amount color =
+    case color of
+        Color r _ b a ->
+            Color r (round amount) b a
+
+        _ ->
+            Color 0 (round amount) 0 1
+
+
+updateBlue : Float -> Color -> Color
+updateBlue amount color =
+    case color of
+        Color r g _ a ->
+            Color r g (round amount) a
+
+        _ ->
+            Color 0 0 (round amount) 1
+
+
+updateAlpha : Float -> Color -> Color
+updateAlpha amount color =
+    case color of
+        Color r g b _ ->
+            Color r g b amount
+
+        _ ->
+            color
 
 
 

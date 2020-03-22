@@ -151,7 +151,7 @@ function onMIDISuccess(midiAccess) {
 }
 
 function getMIDIMessage(midiMessage) {
-    console.log(midiMessage);
+    console.log(midiMessage.data);
     elmApp.ports.midiEvent.send(midiMessage);
 }
 
