@@ -1,37 +1,56 @@
-module ImageEssentials exposing
+module LSystem.Image exposing
     ( Gallery
+    , Image
     , ImageAndGallery
-    , ImageEssentials
     , Polygon(..)
     , Position
     , V2_Image
     , V2_ImageAndGallery
+    , appendSimpleBlock
+    , appendStepAtIndex
+    , blockBlueprintString
+    , blocksToImages
+    , centralize
     , defaultImage
+    , dropBlockAtIndex
+    , dropLastBlock
+    , dropLastStepAtIndex
+    , duplicateBlock
     , encodeImage
     , encodeImageAndGallery
     , extractImage
     , imageAndGalleryDecoder
     , imageDecoder
+    , imageStepsLenthString
+    , length
     , mergeAllVersions_ImageAndGalleryDecoder
     , mergeToV3
+    , move
     , polygonAngle
     , polygonBlock
     , queryToImageParser
     , replaceComposition
-    , replaceImage
+    , resetBaseTo
+    , resetImageComposition
     , toUrlPathString
     , urlParser
     , v2_encodeImage
     , v2_encodeImageAndGallery
     , v2_imageAndGalleryDecoder
     , v2_imageDecoder
-    , v2_imageToImageEssentials
+    , v2_imageToImage
+    , withBackgroundColor
+    , withStrokeColor
+    , withStrokeWidth
+    , withTranslate
+    , withTurnAngle
+    , zoom
     )
 
 import Colors exposing (Color)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import LSystem.Core as LCore exposing (Block, Composition, Step(..))
+import LSystem.Core as Core exposing (Block, Composition, Step(..))
 import ListExtra
 import Url
 import Url.Builder
@@ -39,33 +58,20 @@ import Url.Parser as Parser exposing ((</>), Parser)
 import Url.Parser.Query as Query
 
 
-
--- TYPES
-
-
-type alias ImageEssentials =
-    { composition : Composition
-    , turnAngle : Float
-    , backgroundColor : Color
-    , strokeColor : Color
-    , strokeWidth : Float
-    , translate : Position
-    , scale : Float
-    }
-
-
-type alias Gallery =
-    List ImageEssentials
-
-
-type alias ImageAndGallery =
-    { image : ImageEssentials
-    , gallery : Gallery
-    }
-
-
 type alias Position =
     ( Float, Float )
+
+
+type alias Angle =
+    Float
+
+
+type alias Scale =
+    Float
+
+
+type alias Width =
+    Float
 
 
 type Polygon
@@ -75,24 +81,20 @@ type Polygon
     | Hexagon
 
 
-type alias HasImageEssentials a =
-    { a
-        | composition : Composition
-        , turnAngle : Float
-        , backgroundColor : Color
-        , strokeColor : Color
-        , translate : Position
-        , scale : Float
+type alias Image =
+    { composition : Composition
+    , turnAngle : Angle
+    , backgroundColor : Color
+    , strokeColor : Color
+    , strokeWidth : Width
+    , translate : Position
+    , scale : Scale
     }
 
 
-
--- DEFAULT VALUES
-
-
-defaultImage : ImageEssentials
+defaultImage : Image
 defaultImage =
-    { composition = LCore.fromList [ polygonBlock Square, [ D ] ]
+    { composition = Core.fromList [ polygonBlock Square, [ D ] ]
     , turnAngle = polygonAngle Square
     , backgroundColor = Colors.darkGray
     , strokeColor = Colors.defaultGreen
@@ -103,36 +105,184 @@ defaultImage =
 
 
 
--- HELPERS
--- FUNCTIONS
--- TRANSFORMERS
+-- UTILITIES
 
 
-extractImage : HasImageEssentials a -> ImageEssentials
-extractImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
-    { composition = composition
-    , turnAngle = turnAngle
-    , backgroundColor = backgroundColor
-    , strokeColor = strokeColor
-    , strokeWidth = 1
-    , translate = translate
-    , scale = scale
+blocksToImages : Image -> List Image
+blocksToImages image =
+    image.composition
+        |> Core.toList
+        |> List.map
+            (\block ->
+                { image
+                    | composition = Core.fromList [ block ]
+                    , scale = 1
+                    , translate = ( 0, 0 )
+                    , strokeWidth = 1
+                }
+            )
+
+
+
+-- ACTIONS
+
+
+appendStepAtIndex : Step -> Int -> Image -> Image
+appendStepAtIndex step index image =
+    { image | composition = Core.appendStepAtIndex step index image.composition }
+
+
+appendBlock : Block -> Image -> Image
+appendBlock block image =
+    { image | composition = Core.appendBlock block image.composition }
+
+
+appendSimpleBlock : Image -> Image
+appendSimpleBlock image =
+    appendBlock [ D ] image
+
+
+duplicateBlock : Int -> Image -> Image
+duplicateBlock index image =
+    let
+        maybeDuplicatedBlock =
+            Core.getBlockAtIndex index image.composition
+    in
+    case maybeDuplicatedBlock of
+        Just newBlock ->
+            { image | composition = Core.appendBlock newBlock image.composition }
+
+        Nothing ->
+            image
+
+
+dropLastStepAtIndex : Int -> Image -> Image
+dropLastStepAtIndex index image =
+    { image | composition = Core.dropLastStepAtIndex index image.composition }
+
+
+dropLastBlock : Image -> Image
+dropLastBlock image =
+    { image | composition = Core.dropLastBlock image.composition }
+
+
+dropBlockAtIndex : Int -> Image -> Image
+dropBlockAtIndex index image =
+    { image | composition = Core.dropBlockAtIndex index image.composition }
+
+
+resetBaseTo : Polygon -> Image -> Image
+resetBaseTo polygon image =
+    { image
+        | composition = Core.changeBase (polygonBlock polygon) image.composition
+        , turnAngle = polygonAngle polygon
     }
 
 
-replaceImage : ImageEssentials -> HasImageEssentials a -> HasImageEssentials a
-replaceImage { composition, turnAngle, backgroundColor, strokeColor } something =
-    { something
-        | composition = composition
-        , turnAngle = turnAngle
-        , backgroundColor = backgroundColor
-        , strokeColor = strokeColor
+resetImageComposition : Image -> Image
+resetImageComposition image =
+    { image
+        | composition = image.composition |> Core.dropAllBlocksButBase |> Core.appendBlock [ D ]
     }
 
 
-replaceComposition : ImageEssentials -> Composition -> ImageEssentials
-replaceComposition image composition =
-    { image | composition = composition }
+
+-- MOVEMENT
+
+
+centralize : Image -> Image
+centralize image =
+    { image
+        | scale = 1
+        , translate = ( 0, 0 )
+    }
+
+
+zoom : Float -> Position -> Position -> Image -> Image
+zoom scaleDelta zoomFocus imageDivCenter image =
+    let
+        scale =
+            max (image.scale - 0.01 * scaleDelta) 0.1
+
+        vecMouseToImgDivCenter =
+            imageDivCenter
+                |> ListExtra.pairExec (-) zoomFocus
+    in
+    { image
+        | scale = scale
+        , translate =
+            vecMouseToImgDivCenter
+                |> ListExtra.pairExec (+) image.translate
+                |> ListExtra.pairMap (\value -> value * scale / image.scale)
+                |> ListExtra.pairExec (-) vecMouseToImgDivCenter
+    }
+
+
+move : Position -> Position -> Image -> Image
+move lastPosition newPosition image =
+    image
+        |> withTranslate
+            (newPosition
+                |> ListExtra.pairExec (-) lastPosition
+                |> ListExtra.pairExec (+) image.translate
+            )
+
+
+
+-- GET INFO
+
+
+length : Image -> Int
+length image =
+    Core.length image.composition
+
+
+imageStepsLenthString : Image -> String
+imageStepsLenthString image =
+    let
+        ( countD, countOthers ) =
+            Core.stepsLength image.composition
+    in
+    String.fromInt countD ++ ", " ++ String.fromInt countOthers
+
+
+blockBlueprintString : Int -> Image -> String
+blockBlueprintString index image =
+    case Core.getBlockAtIndex index image.composition of
+        Nothing ->
+            ""
+
+        Just block ->
+            Core.blockToString block
+
+
+
+-- WITH* PATTERN
+
+
+withBackgroundColor : Color -> Image -> Image
+withBackgroundColor color image =
+    { image | backgroundColor = color }
+
+
+withStrokeColor : Color -> Image -> Image
+withStrokeColor color image =
+    { image | backgroundColor = color }
+
+
+withStrokeWidth : Width -> Image -> Image
+withStrokeWidth width image =
+    { image | strokeWidth = width }
+
+
+withTranslate : Position -> Image -> Image
+withTranslate position image =
+    { image | translate = position }
+
+
+withTurnAngle : Angle -> Image -> Image
+withTurnAngle angle image =
+    { image | turnAngle = angle }
 
 
 
@@ -174,30 +324,12 @@ polygonAngle polygon =
 
 -- ENCODER
 -- DECODER
--- URL
--- QUERY
--- PARSER
 
 
-encodeImageAndGallery : ImageAndGallery -> Encode.Value
-encodeImageAndGallery { image, gallery } =
-    Encode.object
-        [ ( "image", encodeImage image )
-        , ( "gallery", Encode.list encodeImage gallery )
-        ]
-
-
-imageAndGalleryDecoder : Decoder ImageAndGallery
-imageAndGalleryDecoder =
-    Decode.map2 ImageAndGallery
-        (Decode.field "image" imageDecoder)
-        (Decode.field "gallery" (Decode.list imageDecoder))
-
-
-encodeImage : ImageEssentials -> Encode.Value
+encodeImage : Image -> Encode.Value
 encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
     Encode.object
-        [ ( keyFor.composition, LCore.encodeComposition composition )
+        [ ( keyFor.composition, Core.encodeComposition composition )
         , ( keyFor.turnAngle, Encode.float turnAngle )
         , ( keyFor.backgroundColor, Colors.encode backgroundColor )
         , ( keyFor.strokeColor, Colors.encode strokeColor )
@@ -207,10 +339,10 @@ encodeImage { composition, turnAngle, backgroundColor, strokeColor, translate, s
         ]
 
 
-imageDecoder : Decoder ImageEssentials
+imageDecoder : Decoder Image
 imageDecoder =
-    Decode.map7 ImageEssentials
-        (Decode.field keyFor.composition LCore.compositionDecoder)
+    Decode.map7 Image
+        (Decode.field keyFor.composition Core.compositionDecoder)
         (Decode.field keyFor.turnAngle Decode.float)
         (Decode.field keyFor.backgroundColor Colors.decoder)
         (Decode.field keyFor.strokeColor Colors.decoder)
@@ -222,25 +354,31 @@ imageDecoder =
         (Decode.field keyFor.scale Decode.float)
 
 
-urlParser : Parser (Maybe ImageEssentials -> a) a
+
+-- URL
+-- QUERY
+-- PARSER
+
+
+urlParser : Parser (Maybe Image -> a) a
 urlParser =
     Parser.map
         mergeUrlV1andV2
         (Parser.query queryToImageParser </> fragmentToCompositionParser)
 
 
-queryToImageParser : Query.Parser (Maybe ImageEssentials)
+queryToImageParser : Query.Parser (Maybe Image)
 queryToImageParser =
     let
         queryMapFromDecoder decoder =
             Query.map (Maybe.andThen (Result.toMaybe << Decode.decodeString decoder))
 
-        imageEssentials a b c d e f =
+        image a b c d e f =
             -- TODO remove this, only here while strokeWidth doesn't make into the URL
-            ImageEssentials a b c d 1 e f
+            Image a b c d 1 e f
     in
-    Query.map6 (ListExtra.maybeMap6 imageEssentials)
-        (Query.string keyFor.composition |> queryMapFromDecoder LCore.compositionDecoder)
+    Query.map6 (ListExtra.maybeMap6 image)
+        (Query.string keyFor.composition |> queryMapFromDecoder Core.compositionDecoder)
         (Query.string keyFor.turnAngle |> Query.map (Maybe.andThen String.toFloat))
         (Query.string keyFor.backgroundColor |> queryMapFromDecoder Colors.decoder)
         (Query.string keyFor.strokeColor |> queryMapFromDecoder Colors.decoder)
@@ -251,10 +389,10 @@ queryToImageParser =
         (Query.string keyFor.scale |> Query.map (Maybe.andThen String.toFloat))
 
 
-toUrlPathString : ImageEssentials -> String
+toUrlPathString : Image -> String
 toUrlPathString image =
     Url.Builder.absolute []
-        [ Url.Builder.string keyFor.composition (image.composition |> LCore.encodeComposition |> Encode.encode 0)
+        [ Url.Builder.string keyFor.composition (image.composition |> Core.encodeComposition |> Encode.encode 0)
         , Url.Builder.string keyFor.turnAngle (String.fromFloat image.turnAngle)
         , Url.Builder.string keyFor.backgroundColor (image.backgroundColor |> Colors.encode |> Encode.encode 0)
         , Url.Builder.string keyFor.strokeColor (image.strokeColor |> Colors.encode |> Encode.encode 0)
@@ -305,7 +443,7 @@ mergeToV3 maybeImageAndGallery maybeV2 =
                     extractImage v2_imageAndGallery
 
                 v2_gallery =
-                    List.map v2_imageToImageEssentials v2_imageAndGallery.gallery
+                    List.map v2_imageToImage v2_imageAndGallery.gallery
             in
             { imageAndGallery | gallery = imageAndGallery.gallery ++ v2_mainImg :: v2_gallery }
 
@@ -313,7 +451,7 @@ mergeToV3 maybeImageAndGallery maybeV2 =
             imageAndGallery
 
         ( Nothing, Just v2_imageAndGallery ) ->
-            { image = extractImage v2_imageAndGallery, gallery = List.map v2_imageToImageEssentials v2_imageAndGallery.gallery }
+            { image = extractImage v2_imageAndGallery, gallery = List.map v2_imageToImage v2_imageAndGallery.gallery }
 
         ( Nothing, Nothing ) ->
             { image = defaultImage, gallery = [] }
@@ -331,12 +469,12 @@ mergeToV3 maybeImageAndGallery maybeV2 =
 -- URL - VERSION 1
 
 
-mergeUrlV1andV2 : Maybe ImageEssentials -> Maybe Composition -> Maybe ImageEssentials
+mergeUrlV1andV2 : Maybe Image -> Maybe Composition -> Maybe Image
 mergeUrlV1andV2 v2_dataOnQueryParams v1_dataOnHash =
     case ( v2_dataOnQueryParams, v1_dataOnHash ) of
         -- If there is an image on query parameters, we ignore the hash.
-        ( Just imageEssentials, _ ) ->
-            Just imageEssentials
+        ( Just image, _ ) ->
+            Just image
 
         ( Nothing, Just composition ) ->
             Just
@@ -359,7 +497,7 @@ fragmentToCompositionParser =
     Parser.fragment <|
         Maybe.andThen
             (Url.percentDecode
-                >> Maybe.andThen (Decode.decodeString LCore.compositionDecoder >> Result.toMaybe)
+                >> Maybe.andThen (Decode.decodeString Core.compositionDecoder >> Result.toMaybe)
             )
 
 
@@ -390,7 +528,7 @@ type alias V2_Image =
 v2_imageAndGalleryDecoder : Decoder V2_ImageAndGallery
 v2_imageAndGalleryDecoder =
     Decode.map7 V2_ImageAndGallery
-        (Decode.field "state" LCore.compositionDecoder)
+        (Decode.field "state" Core.compositionDecoder)
         (Decode.field "gallery" (Decode.list v2_imageDecoder))
         (Decode.field "bgColor" Colors.decoder)
         (Decode.field "strokeColor" Colors.decoder)
@@ -405,7 +543,7 @@ v2_imageAndGalleryDecoder =
 v2_imageDecoder : Decoder V2_Image
 v2_imageDecoder =
     Decode.map4 V2_Image
-        (Decode.field "composition" LCore.compositionDecoder)
+        (Decode.field "composition" Core.compositionDecoder)
         (Decode.field "turnAngle" Decode.float)
         (Decode.field "bgColor" Colors.decoder)
         (Decode.field "strokeColor" Colors.decoder)
@@ -413,8 +551,8 @@ v2_imageDecoder =
 
 {-| TODO make this dependable on defaultImage
 -}
-v2_imageToImageEssentials : V2_Image -> ImageEssentials
-v2_imageToImageEssentials { composition, turnAngle, backgroundColor, strokeColor } =
+v2_imageToImage : V2_Image -> Image
+v2_imageToImage { composition, turnAngle, backgroundColor, strokeColor } =
     { composition = composition
     , turnAngle = turnAngle
     , backgroundColor = backgroundColor
@@ -428,7 +566,7 @@ v2_imageToImageEssentials { composition, turnAngle, backgroundColor, strokeColor
 v2_encodeImageAndGallery : V2_ImageAndGallery -> Encode.Value
 v2_encodeImageAndGallery { composition, gallery, backgroundColor, strokeColor, turnAngle, scale, translate } =
     Encode.object
-        [ ( "state", LCore.encodeComposition composition )
+        [ ( "state", Core.encodeComposition composition )
         , ( "gallery", Encode.list v2_encodeImage gallery )
         , ( "bgColor", Colors.encode backgroundColor )
         , ( "strokeColor", Colors.encode strokeColor )
@@ -442,7 +580,7 @@ v2_encodeImageAndGallery { composition, gallery, backgroundColor, strokeColor, t
 v2_encodeImage : V2_Image -> Encode.Value
 v2_encodeImage { composition, turnAngle, backgroundColor, strokeColor } =
     Encode.object
-        [ ( "composition", LCore.encodeComposition composition )
+        [ ( "composition", Core.encodeComposition composition )
         , ( "turnAngle", Encode.float turnAngle )
         , ( "bgColor", Colors.encode backgroundColor )
         , ( "strokeColor", Colors.encode strokeColor )
@@ -452,3 +590,94 @@ v2_encodeImage { composition, turnAngle, backgroundColor, strokeColor } =
 
 -- LOCAL STORAGE - VERSION 1
 -- TODO Search git for "genart/v0.1/state" and create migrations
+{--
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- OLD STUFF
+
+
+
+
+
+--}
+-- IMAGE AND GALLERY
+-- Should it be here or on Main.elm?
+
+
+type alias Gallery =
+    List Image
+
+
+type alias ImageAndGallery =
+    { image : Image
+    , gallery : Gallery
+    }
+
+
+type alias HasImage a =
+    { a
+        | composition : Composition
+        , turnAngle : Float
+        , backgroundColor : Color
+        , strokeColor : Color
+        , translate : Position
+        , scale : Float
+    }
+
+
+encodeImageAndGallery : ImageAndGallery -> Encode.Value
+encodeImageAndGallery { image, gallery } =
+    Encode.object
+        [ ( "image", encodeImage image )
+        , ( "gallery", Encode.list encodeImage gallery )
+        ]
+
+
+imageAndGalleryDecoder : Decoder ImageAndGallery
+imageAndGalleryDecoder =
+    Decode.map2 ImageAndGallery
+        (Decode.field "image" imageDecoder)
+        (Decode.field "gallery" (Decode.list imageDecoder))
+
+
+
+-- Should we delete this function? This would imply adding a lot of other functions
+-- to deal with composition transformation/replacement
+
+
+replaceComposition : Image -> Composition -> Image
+replaceComposition image composition =
+    { image | composition = composition }
+
+
+
+-- DELETE THIS FUNCTIONS
+
+
+extractImage : HasImage a -> Image
+extractImage { composition, turnAngle, backgroundColor, strokeColor, translate, scale } =
+    { composition = composition
+    , turnAngle = turnAngle
+    , backgroundColor = backgroundColor
+    , strokeColor = strokeColor
+    , strokeWidth = 1
+    , translate = translate
+    , scale = scale
+    }

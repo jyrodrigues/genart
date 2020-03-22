@@ -81,36 +81,25 @@ import Html.Styled.Events
         , onMouseUp
         , preventDefaultOn
         )
-import Html.Styled.Lazy exposing (lazy7)
+import Html.Styled.Lazy exposing (lazy)
 import Icons exposing (withColor, withCss, withOnClick)
-import ImageEssentials
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
+import LSystem.Core exposing (Step(..))
+import LSystem.Draw as LDraw exposing (drawBlocks, drawImage)
+import LSystem.Image as Image
     exposing
         ( Gallery
+        , Image
         , ImageAndGallery
-        , ImageEssentials
         , Polygon(..)
         , Position
         , defaultImage
         , encodeImageAndGallery
-        , extractImage
         , mergeAllVersions_ImageAndGalleryDecoder
-        , polygonAngle
-        , polygonBlock
-        , replaceImage
         )
-import Json.Decode as Decode exposing (Decoder)
-import Json.Encode as Encode
-import LSystem.Core as LCore exposing (Block, Composition, Step(..))
-import LSystem.Draw as LDraw
-    exposing
-        ( drawImage
-        , drawImageEssentials
-        , image
-        , withBackgroundColor
-        , withStrokeColor
-        , withTurnAngle
-        )
-import ListExtra exposing (pairExec, pairMap)
+import ListExtra
+import Svg.Styled exposing (Svg)
 import Task
 import Time
 import Url
@@ -185,7 +174,7 @@ type Msg
 
 type alias Model =
     -- Aplication heart
-    { composition : Composition
+    { image : Image
     , editingIndex : Int
 
     -- Storage
@@ -193,24 +182,12 @@ type alias Model =
     , viewingPage : Page
 
     -- Pan and Zoom
-    , scale : Float
     , panStarted : Bool
     , lastPos : Position
-    , translate : Position
 
     -- Main Image Div Coordinates
     , imgDivCenter : Position
     , imgDivStart : Position
-
-    -- Color
-    , backgroundColor : Color
-    , strokeColor : Color
-
-    -- Angle
-    , turnAngle : Float
-
-    -- Stroke Width
-    , strokeWidth : Float
 
     -- Browser Focus
     , focus : Focus
@@ -236,7 +213,7 @@ type Page
 
 
 type Route
-    = Editor (Maybe ImageEssentials)
+    = Editor (Maybe Image)
     | Gallery
     | NotFound
 
@@ -278,10 +255,10 @@ type Focus
 -- MODEL
 
 
-initialModel : ImageEssentials -> Gallery -> Url.Url -> Nav.Key -> Model
+initialModel : Image -> Gallery -> Url.Url -> Nav.Key -> Model
 initialModel image gallery url navKey =
     -- Aplication heart
-    { composition = image.composition
+    { image = image
     , editingIndex = 1
 
     -- Storage
@@ -289,24 +266,12 @@ initialModel image gallery url navKey =
     , viewingPage = EditorPage
 
     -- Pan and Zoom
-    , scale = image.scale
     , panStarted = False
     , lastPos = ( 0, 0 )
-    , translate = image.translate
 
     -- Main Image Div Coordinates
     , imgDivCenter = ( 0, 0 )
     , imgDivStart = ( 0, 0 )
-
-    -- Color
-    , backgroundColor = image.backgroundColor
-    , strokeColor = image.strokeColor
-
-    -- Angle
-    , turnAngle = image.turnAngle
-
-    -- Stroke Width
-    , strokeWidth = 1
 
     -- Browser Focus
     , focus = KeyboardEditing
@@ -334,7 +299,7 @@ modelWithRoute route model =
 
 modelWithEditIndexLast : Model -> Model
 modelWithEditIndexLast model =
-    { model | editingIndex = LCore.length model.composition - 1 }
+    { model | editingIndex = Image.length model.image - 1 }
 
 
 
@@ -460,7 +425,7 @@ galleryView model =
     }
 
 
-imageBox : Int -> ImageEssentials -> Html Msg
+imageBox : Int -> Image -> Html Msg
 imageBox index image =
     div
         [ css
@@ -471,12 +436,7 @@ imageBox index image =
             , position relative
             ]
         ]
-        [ LDraw.image image.composition
-            |> withTurnAngle image.turnAngle
-            |> withStrokeColor image.strokeColor
-            |> withBackgroundColor image.backgroundColor
-            |> LDraw.withOnClick (DuplicateToEdit index)
-            |> drawImage
+        [ LDraw.drawImage image Nothing (Just (DuplicateToEdit index)) False
         , Icons.trash
             |> withOnClick (RemovedFromGallery index)
             |> withColor Colors.red_
@@ -497,22 +457,15 @@ imageBox index image =
 
 editorView : Model -> Browser.Document Msg
 editorView model =
-    let
-        { composition, turnAngle, strokeColor, strokeWidth, scale, translate } =
-            model
-
-        backgroundColor_ =
-            model.backgroundColor
-    in
     { title = "Generative Art"
     , body =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
             [ compositionBlocksList model
 
-            -- TODO BUG this probably doesn't work. To get around it we should have a nested record for ImageEssentials
+            -- TODO BUG this probably doesn't work. To get around it we should have a nested record for Image
             --      inside the model :(
-            , lazy7 mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth
+            , lazy mainImg model.image
             , controlPanel model
             ]
             |> toUnstyled
@@ -531,15 +484,15 @@ controlPanel model =
             , borderLeft3 (px 1) solid (toCssColor Colors.black)
             , overflowY scroll
             , overflowX hidden
-            , backgroundColor (toCssColor model.backgroundColor)
+            , backgroundColor (toCssColor Colors.darkGray)
             , color (toCssColor offWhite)
             ]
         ]
         [ infoAndBasicControls model
-        , colorControls model.backgroundColor model.strokeColor
+        , colorControls model.image.backgroundColor model.image.strokeColor
         , videoControls model.videoAngleChangeRate model.playingVideo
-        , turnAngleControl model.turnAngle
-        , strokeWidthControl model.strokeWidth
+        , turnAngleControl model.image.turnAngle
+        , strokeWidthControl model.image.strokeWidth
         , curatedSettings
         , controlsList
         ]
@@ -547,28 +500,13 @@ controlPanel model =
 
 infoAndBasicControls : Model -> Html Msg
 infoAndBasicControls model =
-    let
-        ( countD, countOthers ) =
-            LCore.stepsLength model.composition
-
-        stateLengthString =
-            String.fromInt countD ++ ", " ++ String.fromInt countOthers
-
-        editingTransformBlueprint =
-            case LCore.getBlockAtIndex model.editingIndex model.composition of
-                Nothing ->
-                    ""
-
-                Just block ->
-                    LCore.blockToString block
-    in
     controlBlock
         [ button [ onClick (ViewingPage GalleryPage) ] [ text "Go to Gallery" ]
         , button [ onClick ResetDrawing ] [ text "ResetDrawing" ]
         , button [ onClick (DuplicateAndAppendBlock model.editingIndex) ] [ text "Duplicate selected block" ]
         , button [ onClick DropLastBlock ] [ text "Delete top block" ]
-        , p [] [ text stateLengthString ]
-        , p [] [ text editingTransformBlueprint ]
+        , p [] [ text (Image.imageStepsLenthString model.image) ]
+        , p [] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
         , button [ onClick DownloadSvg ] [ text "Download Image" ]
         , button [ onClick SavedToGallery ] [ text "Save to Gallery" ]
         ]
@@ -720,15 +658,9 @@ compositionBlocksList : Model -> Html Msg
 compositionBlocksList model =
     let
         compositionBlocks =
-            model.composition
-                |> LCore.toList
-                |> List.indexedMap
-                    (blockBox
-                        model.editingIndex
-                        model.turnAngle
-                        model.strokeColor
-                        model.backgroundColor
-                    )
+            model.image
+                |> drawBlocks
+                |> List.indexedMap (blockBox model.editingIndex model.image.strokeColor)
                 |> List.reverse
     in
     fixedDiv
@@ -793,8 +725,8 @@ primaryButton msg btnText =
         [ text btnText ]
 
 
-blockBox : Int -> Float -> Color -> Color -> Int -> Block -> Html Msg
-blockBox editingIndex turnAngle strokeColor backgroundColor index transform =
+blockBox : Int -> Color -> Int -> Svg Msg -> Html Msg
+blockBox editingIndex strokeColor index blockSvg =
     let
         borderOnSelected =
             if editingIndex == index then
@@ -830,11 +762,7 @@ blockBox editingIndex turnAngle strokeColor backgroundColor index transform =
             )
         , onClick (SetEditingIndex index)
         ]
-        [ image (LCore.fromList [ transform ])
-            |> withTurnAngle turnAngle
-            |> withStrokeColor strokeColor
-            |> withBackgroundColor backgroundColor
-            |> drawImage
+        [ blockSvg
         , Icons.trash
             |> withColor Colors.red_
             |> withOnClick (DropFromState index)
@@ -854,11 +782,11 @@ blockBox editingIndex turnAngle strokeColor backgroundColor index transform =
 {-| N.B. This function has 7 arguments because otherwise it wouldn't be lazily evaluated since `lazy*` woks via
 reference equality and not deep equality.
 -}
-mainImg : Composition -> Float -> Float -> Position -> Color -> Color -> Float -> Html Msg
-mainImg composition turnAngle scale translate strokeColor backgroundColor_ strokeWidth =
+mainImg : Image -> Html Msg
+mainImg image =
     fixedDiv
         [ css
-            [ backgroundColor (toCssColor backgroundColor_)
+            [ backgroundColor (toCssColor image.backgroundColor)
             , position fixed
             , height (pct 100)
             , width (pct layout.mainImg)
@@ -869,19 +797,7 @@ mainImg composition turnAngle scale translate strokeColor backgroundColor_ strok
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ drawImageEssentials
-            (ImageEssentials
-                composition
-                turnAngle
-                backgroundColor_
-                strokeColor
-                strokeWidth
-                translate
-                scale
-            )
-            (Just "MainSVG")
-            Nothing
-            False
+        [ drawImage image (Just "MainSVG") Nothing False
         ]
 
 
@@ -916,16 +832,13 @@ update msg model =
     let
         updateAndSaveImageAndGallery newModel =
             let
-                newImage =
-                    extractImage newModel
-
                 newImageAndGallery =
-                    ImageAndGallery newImage newModel.gallery
+                    ImageAndGallery newModel.image newModel.gallery
             in
             ( newModel
             , Cmd.batch
                 [ saveEncodedModelToLocalStorage (encodeImageAndGallery newImageAndGallery)
-                , replaceUrl newModel.navKey newImage
+                , replaceUrl newModel.navKey newModel.image
                 ]
             )
     in
@@ -948,12 +861,14 @@ update msg model =
         ResetDrawing ->
             updateAndSaveImageAndGallery
                 { model
-                    | composition = model.composition |> LCore.dropAllBlocksButBase |> LCore.appendBlock [ D ]
+                    | image = Image.resetImageComposition model.image
                     , editingIndex = 1
                 }
 
         AddSimpleBlock ->
-            updateAndSaveImageAndGallery <| appendBlock [ D ] model
+            { model | image = Image.appendSimpleBlock model.image }
+                |> modelWithEditIndexLast
+                |> updateAndSaveImageAndGallery
 
         DuplicateAndAppendBlock editingIndex ->
             updateAndSaveImageAndGallery <| duplicateAndAppendBlock model editingIndex
@@ -983,7 +898,7 @@ update msg model =
         DropFromState index ->
             updateAndSaveImageAndGallery <|
                 { model
-                    | composition = LCore.dropBlockAtIndex index model.composition
+                    | image = Image.dropBlockAtIndex index model.image
                     , editingIndex =
                         if index <= model.editingIndex then
                             max 0 (model.editingIndex - 1)
@@ -993,15 +908,15 @@ update msg model =
                 }
 
         SetBackgroundColor color ->
-            updateAndSaveImageAndGallery <| { model | backgroundColor = color }
+            updateAndSaveImageAndGallery <| { model | image = Image.withBackgroundColor color model.image }
 
         SetStrokeColor color ->
-            updateAndSaveImageAndGallery <| { model | strokeColor = color }
+            updateAndSaveImageAndGallery <| { model | image = Image.withStrokeColor color model.image }
 
         SetTurnAngle turn ->
             let
                 newModel =
-                    { model | turnAngle = turn }
+                    { model | image = Image.withTurnAngle turn model.image }
             in
             if model.playingVideo then
                 -- Don't update URL and Local Storage on each video step
@@ -1011,7 +926,7 @@ update msg model =
                 updateAndSaveImageAndGallery newModel
 
         SetStrokeWidth width ->
-            updateAndSaveImageAndGallery <| { model | strokeWidth = width }
+            updateAndSaveImageAndGallery <| { model | image = Image.withStrokeWidth width model.image }
 
         PanStarted pos ->
             ( { model | panStarted = True, lastPos = pos }, Cmd.none )
@@ -1020,15 +935,7 @@ update msg model =
             updateAndSaveImageAndGallery <| { model | panStarted = False }
 
         MouseMoved pos ->
-            ( { model
-                | translate =
-                    pos
-                        |> pairExec (-) model.lastPos
-                        |> pairExec (+) model.translate
-                , lastPos = pos
-              }
-            , Cmd.none
-            )
+            ( { model | image = Image.move model.lastPos pos model.image }, Cmd.none )
 
         SetFocus focus ->
             ( { model | focus = focus }, Cmd.none )
@@ -1069,7 +976,7 @@ update msg model =
             ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )
 
         SavedToGallery ->
-            updateAndSaveImageAndGallery <| { model | gallery = extractImage model :: model.gallery }
+            updateAndSaveImageAndGallery <| { model | gallery = model.image :: model.gallery }
 
         ViewingPage page ->
             ( { model | viewingPage = page }, Cmd.none )
@@ -1081,19 +988,20 @@ update msg model =
             let
                 image =
                     ListExtra.getAt index model.gallery
-                        |> Maybe.withDefault (extractImage model)
-
-                newModel =
-                    replaceImage image model
+                        |> Maybe.withDefault model.image
             in
-            updateAndSaveImageAndGallery <| { newModel | viewingPage = EditorPage }
+            updateAndSaveImageAndGallery <|
+                { model
+                    | viewingPage = EditorPage
+                    , image = image
+                }
 
 
 processKey : Model -> String -> ( Model, Bool )
 processKey model keyPressed =
     let
         appendStep step =
-            { model | composition = LCore.appendStepAtIndex step model.editingIndex model.composition }
+            { model | image = Image.appendStepAtIndex step model.editingIndex model.image }
     in
     case keyPressed of
         "ArrowLeft" ->
@@ -1109,10 +1017,10 @@ processKey model keyPressed =
             ( appendStep S, True )
 
         " " ->
-            ( { model | scale = 1, translate = ( 0, 0 ) }, True )
+            ( { model | image = Image.centralize model.image }, True )
 
         "Backspace" ->
-            ( { model | composition = LCore.dropLastStepAtIndex model.editingIndex model.composition }, True )
+            ( { model | image = Image.dropLastStepAtIndex model.editingIndex model.image }, True )
 
         "i" ->
             ( duplicateAndAppendBlock model model.editingIndex, True )
@@ -1126,63 +1034,30 @@ processKey model keyPressed =
 
 duplicateAndAppendBlock : Model -> Int -> Model
 duplicateAndAppendBlock model editingIndex =
-    let
-        maybeDuplicatedBlock =
-            LCore.getBlockAtIndex editingIndex model.composition
-    in
-    case maybeDuplicatedBlock of
-        Just newBlock ->
-            { model | composition = LCore.appendBlock newBlock model.composition }
-                |> modelWithEditIndexLast
-
-        Nothing ->
-            model
-
-
-appendBlock : Block -> Model -> Model
-appendBlock block model =
-    { model | composition = LCore.appendBlock block model.composition }
+    { model | image = Image.duplicateBlock editingIndex model.image }
         |> modelWithEditIndexLast
 
 
 dropLastBlock : Model -> Model
 dropLastBlock model =
     let
-        updatedComposition =
-            LCore.dropLastBlock model.composition
+        image =
+            Image.dropLastBlock model.image
     in
     { model
-        | composition = updatedComposition
-        , editingIndex = min model.editingIndex (LCore.length updatedComposition - 1)
+        | image = image
+        , editingIndex = min model.editingIndex (Image.length image - 1)
     }
 
 
 applyZoom : Float -> Position -> Model -> Model
 applyZoom deltaY mousePos model =
-    let
-        scale =
-            max (model.scale - 0.01 * deltaY) 0.1
-
-        vecMouseToImgDivCenter =
-            model.imgDivCenter
-                |> pairExec (-) mousePos
-    in
-    { model
-        | scale = scale
-        , translate =
-            vecMouseToImgDivCenter
-                |> pairExec (+) model.translate
-                |> pairMap (\value -> value * scale / model.scale)
-                |> pairExec (-) vecMouseToImgDivCenter
-    }
+    { model | image = Image.zoom deltaY mousePos model.imgDivCenter model.image }
 
 
 updateCompositionBaseAndAngle : Model -> Polygon -> Model
 updateCompositionBaseAndAngle model polygon =
-    { model
-        | composition = LCore.changeBase (polygonBlock polygon) model.composition
-        , turnAngle = polygonAngle polygon
-    }
+    { model | image = Image.resetBaseTo polygon model.image }
 
 
 
@@ -1220,7 +1095,7 @@ subscriptions model =
 
         playingVideoSub =
             if model.playingVideo then
-                Time.every 50 (always (SetTurnAngle (model.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
+                Time.every 50 (always (SetTurnAngle (model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
 
             else
                 Sub.none
@@ -1253,12 +1128,12 @@ galleryParser =
 
 editorParser : Parser (Route -> a) a
 editorParser =
-    Parser.map Editor ImageEssentials.urlParser
+    Parser.map Editor Image.urlParser
 
 
 {-| Current version of Url building and parsing
 -}
-replaceUrl : Nav.Key -> ImageEssentials -> Cmd msg
+replaceUrl : Nav.Key -> Image -> Cmd msg
 replaceUrl key image =
     {--
             Note about Nav.replaceUrl: Browsers may rate-limit this function by throwing an
@@ -1268,7 +1143,7 @@ replaceUrl key image =
 
             https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
     --}
-    Nav.replaceUrl key (ImageEssentials.toUrlPathString image)
+    Nav.replaceUrl key (Image.toUrlPathString image)
 
 
 

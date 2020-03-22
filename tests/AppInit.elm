@@ -16,10 +16,13 @@ module AppInit exposing (backwardCompatibilitySuite, suite)
 import Colors exposing (Color(..))
 import Expect
 import Fuzz exposing (Fuzzer)
-import ImageEssentials
+import Json.Decode as Decode
+import Json.Encode as Encode
+import LSystem.Core as LCore exposing (Composition, Step(..), encodeComposition)
+import LSystem.Image as Image
     exposing
-        ( ImageAndGallery
-        , ImageEssentials
+        ( Image
+        , ImageAndGallery
         , V2_Image
         , V2_ImageAndGallery
         , defaultImage
@@ -33,11 +36,8 @@ import ImageEssentials
         , v2_encodeImageAndGallery
         , v2_imageAndGalleryDecoder
         , v2_imageDecoder
-        , v2_imageToImageEssentials
+        , v2_imageToImage
         )
-import Json.Decode as Decode
-import Json.Encode as Encode
-import LSystem.Core as LCore exposing (Composition, Step(..), encodeComposition)
 import Main exposing (Route(..), parseUrl)
 import Test exposing (Test, describe, fuzz, fuzz2, test, todo)
 import Url exposing (Protocol(..), Url)
@@ -99,8 +99,8 @@ colorFuzzer =
             Fuzz.float
 
 
-imageEssentialsFuzzer : Fuzzer ImageEssentials
-imageEssentialsFuzzer =
+imageFuzzer : Fuzzer Image
+imageFuzzer =
     Fuzz.map5
         (\c ta bg st sw tr s ->
             { composition = c
@@ -125,8 +125,8 @@ imageEssentialsFuzzer =
 imageAndGalleryFuzzer : Fuzzer ImageAndGallery
 imageAndGalleryFuzzer =
     Fuzz.map2 ImageAndGallery
-        imageEssentialsFuzzer
-        (Fuzz.list imageEssentialsFuzzer)
+        imageFuzzer
+        (Fuzz.list imageFuzzer)
 
 
 
@@ -189,7 +189,7 @@ suite =
     describe "Main"
         [ describe "Core functions inside `init`"
             [ describe "Encode/Decode image and gallery (localStorage)"
-                [ fuzz imageEssentialsFuzzer "Image essentials" <|
+                [ fuzz imageFuzzer "Image essentials" <|
                     \fuzzyImage ->
                         fuzzyImage
                             |> encodeImage
@@ -208,8 +208,8 @@ suite =
                                 { fuzzyImageAndGallery
                                     | gallery =
                                         fuzzyImageAndGallery.gallery
-                                            ++ ImageEssentials.extractImage v2_fuzzyImageAndGallery
-                                            :: List.map v2_imageToImageEssentials v2_fuzzyImageAndGallery.gallery
+                                            ++ Image.extractImage v2_fuzzyImageAndGallery
+                                            :: List.map v2_imageToImage v2_fuzzyImageAndGallery.gallery
                                 }
 
                 {--
@@ -235,9 +235,9 @@ suite =
                 --                      &translateX=-6.72000000000002
                 --                      &translateY=-0.24000000000000055
                 --                      &scale=1.480000000000001
-                , fuzz imageEssentialsFuzzer "URL v2 - composition on query" <|
+                , fuzz imageFuzzer "URL v2 - composition on query" <|
                     \fuzzyImage ->
-                        Maybe.withDefault emptyUrl (Url.fromString ("https://test.art" ++ ImageEssentials.toUrlPathString fuzzyImage))
+                        Maybe.withDefault emptyUrl (Url.fromString ("https://test.art" ++ Image.toUrlPathString fuzzyImage))
                             |> parseUrl
                             |> Expect.equal (Editor (Just fuzzyImage))
                 , describe "Backwards compatibility"
@@ -270,12 +270,12 @@ suite =
                     --                      &translateY=-0.24000000000000055
                     --                      &scale=1.480000000000001
                     --                      #["DLRS","DLRS"]
-                    , fuzz2 compositionFuzzer imageEssentialsFuzzer "URL v1 and v2 - composition on fragment && on query" <|
+                    , fuzz2 compositionFuzzer imageFuzzer "URL v1 and v2 - composition on fragment && on query" <|
                         \fuzzyComposition fuzzyImage ->
                             Maybe.withDefault emptyUrl
                                 (Url.fromString
                                     ("https://test.art"
-                                        ++ ImageEssentials.toUrlPathString fuzzyImage
+                                        ++ Image.toUrlPathString fuzzyImage
                                         ++ "#"
                                         ++ compositionToFragment fuzzyComposition
                                     )
@@ -331,7 +331,7 @@ v2_imageFuzzer =
 backwardCompatibilitySuite : Test
 backwardCompatibilitySuite =
     describe "Backwards compatibility"
-        [ describe "ImageEssentials Data Structure"
+        [ describe "Image Data Structure"
             [ fuzz v2_imageFuzzer "V2_Image Encode Decode" <|
                 \fuzzyImage ->
                     fuzzyImage

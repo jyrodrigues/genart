@@ -207,7 +207,8 @@ fromList blocks_ =
 
 blockToString : Block -> String
 blockToString =
-    String.fromList << List.map stepToChar
+    List.map stepToChar
+        >> String.fromList
 
 
 
