@@ -24,6 +24,7 @@ module Colors exposing
     )
 
 import Css exposing (Color, hex, rgba)
+import Hex
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 
@@ -39,6 +40,12 @@ import Json.Encode as Encode
     we keep this type to allow for `toString` methods.
 
 -}
+
+
+
+-- TODO remove the Hex variant use rtfeldman/hex to convert from or to hex notation
+
+
 type Color
     = Color Int Int Int Float
     | Hex String
@@ -80,9 +87,12 @@ toString color =
 toHexString : Color -> String
 toHexString color =
     case color of
+        -- TODO findout if hex can store alpha value (caniuse.com)
         Color r g b a ->
-            -- TODO implement this
-            "#aabbcc"
+            "#"
+                ++ Hex.toString r
+                ++ Hex.toString g
+                ++ Hex.toString b
 
         Hex str ->
             str

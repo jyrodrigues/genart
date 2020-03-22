@@ -531,6 +531,7 @@ colorControls backgroundColor strokeColor =
                     , value (Colors.toHexString color)
                     ]
                     []
+                , text (Colors.toString color)
                 ]
     in
     controlBlock
@@ -1046,6 +1047,14 @@ processMidi value model =
             else if command == 176 && noteMap == 113 && velocityPosition == 0 then
                 { model | videoAngleChangeRate = 0.01 }
 
+            else if command == 153 && noteMap == 37 then
+                -- Reverse angle change direction
+                { model | videoAngleChangeDirection = -model.videoAngleChangeDirection }
+
+            else if command == 153 && noteMap == 36 then
+                -- Play / pause video
+                { model | playingVideo = not model.playingVideo }
+
             else if command == 176 && noteMap == 18 then
                 -- Stroke Width
                 { model
@@ -1060,21 +1069,21 @@ processMidi value model =
                 { model
                     | image =
                         model.image
-                            |> Image.withBackgroundColor (Colors.updateRed velocityPosition model.image.backgroundColor)
+                            |> Image.withBackgroundColor (Colors.updateRed (velocityPosition * 2) model.image.backgroundColor)
                 }
 
             else if command == 176 && noteMap == 73 then
                 { model
                     | image =
                         model.image
-                            |> Image.withBackgroundColor (Colors.updateGreen velocityPosition model.image.backgroundColor)
+                            |> Image.withBackgroundColor (Colors.updateGreen (velocityPosition * 2) model.image.backgroundColor)
                 }
 
             else if command == 176 && noteMap == 75 then
                 { model
                     | image =
                         model.image
-                            |> Image.withBackgroundColor (Colors.updateBlue velocityPosition model.image.backgroundColor)
+                            |> Image.withBackgroundColor (Colors.updateBlue (velocityPosition * 2) model.image.backgroundColor)
                 }
                 -- Stroke Color RGBA: (R, 91) (G, 79) (B, 72)
 
@@ -1082,21 +1091,21 @@ processMidi value model =
                 { model
                     | image =
                         model.image
-                            |> Image.withStrokeColor (Colors.updateRed velocityPosition model.image.strokeColor)
+                            |> Image.withStrokeColor (Colors.updateRed (velocityPosition * 2) model.image.strokeColor)
                 }
 
             else if command == 176 && noteMap == 79 then
                 { model
                     | image =
                         model.image
-                            |> Image.withStrokeColor (Colors.updateGreen velocityPosition model.image.strokeColor)
+                            |> Image.withStrokeColor (Colors.updateGreen (velocityPosition * 2) model.image.strokeColor)
                 }
 
             else if command == 176 && noteMap == 72 then
                 { model
                     | image =
                         model.image
-                            |> Image.withStrokeColor (Colors.updateBlue velocityPosition model.image.strokeColor)
+                            |> Image.withStrokeColor (Colors.updateBlue (velocityPosition * 2) model.image.strokeColor)
                 }
 
             else
