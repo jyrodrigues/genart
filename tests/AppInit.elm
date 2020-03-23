@@ -13,7 +13,8 @@ module AppInit exposing (backwardCompatibilitySuite, suite)
     - https://elmer-test.cfapps.io/elmer/versions/6.0.0/module/Elmer.Navigation
 --}
 
-import Colors exposing (Color(..))
+import Color exposing (rgba)
+import Colors exposing (Color)
 import Expect
 import Fuzz exposing (Fuzzer)
 import Json.Decode as Decode
@@ -92,10 +93,10 @@ colorFuzzer =
     -- TODO change this when implementing Colors.toString always as hex (essentially it would be the same as encode?)
     Fuzz.map (Colors.toHexString >> Colors.fromHexString) <|
         Fuzz.map4
-            (\r g b a -> Color r g b a)
-            (Fuzz.intRange 0 255)
-            (Fuzz.intRange 0 255)
-            (Fuzz.intRange 0 255)
+            rgba
+            Fuzz.float
+            Fuzz.float
+            Fuzz.float
             Fuzz.float
 
 
