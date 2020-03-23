@@ -2,8 +2,46 @@
 
 // Import index.html so it gets copied to dist
 import "./index.html";
-//import "./js-libs/WebMIDIAPI.min.js"
 import { Elm } from "./Main.elm";
+
+
+
+/**
+ * INIT
+ */
+
+var elmApp = Elm.Main.init({
+    node: document.getElementById('elm'),
+    flags: storage || {},
+});
+
+
+
+/**
+ * PORTS
+ */
+
+elmApp.ports.saveEncodedModelToLocalStorage.subscribe(function(encodedModel) {
+    localStorage.setItem(storageKeys.latest, JSON.stringify(encodedModel));
+});
+
+// This is used only once!
+elmApp.ports.saveMergedModelsVersionsAndDeleteOldOnes.subscribe(function(encodedMergedModel) {
+    localStorage.setItem(storageKeys.latest, JSON.stringify(encodedMergedModel));
+
+    //localStorage.removeItem(storageKeys.v1)
+    localStorage.removeItem(storageKeys.v2)
+});
+
+elmApp.ports.downloadSvg.subscribe(function() {
+    saveSvg(document.getElementById("MainSVG"), "hybridcode.svg");
+});
+
+
+
+/**
+ * STORAGE KEYS
+ */
 
 var storageKeys =
     { v2: 'genart/v0.2/state'
@@ -23,24 +61,14 @@ var storage = mapValue(storageKeys, function(key) {
     return parsedItem;
 });
 
-var elmApp = Elm.Main.init({
-    node: document.getElementById('elm'),
-    flags: storage || {},
-});
 
-elmApp.ports.saveEncodedModelToLocalStorage.subscribe(function(encodedModel) {
-    localStorage.setItem(storageKeys.latest, JSON.stringify(encodedModel));
-});
 
-// This is used only once!
-elmApp.ports.saveMergedModelsVersionsAndDeleteOldOnes.subscribe(function(encodedMergedModel) {
-    localStorage.setItem(storageKeys.latest, JSON.stringify(encodedMergedModel));
+/**
+ * SVG DOWNLOAD
+ *
+ * https://stackoverflow.com/a/46403589
+ */
 
-    //localStorage.removeItem(storageKeys.v1)
-    localStorage.removeItem(storageKeys.v2)
-});
-
-// As per https://stackoverflow.com/a/46403589
 function saveSvg(svgEl, name) {
     svgEl.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     var svgData = svgEl.outerHTML;
@@ -55,9 +83,7 @@ function saveSvg(svgEl, name) {
     document.body.removeChild(downloadLink);
 }
 
-elmApp.ports.downloadSvg.subscribe(function() {
-    saveSvg(document.getElementById("MainSVG"), "hybridcode.svg");
-});
+
 
 /**
  * Hackery to prevent going back in history with `backspace` press.
@@ -75,18 +101,65 @@ document.onkeydown = (e) => {
     }
 }
 
+
+
 /**
- * MIDI stuff.
+ * MIDI INTEROP (*not* Firefox friendly)
  *
+ * https://webaudio.github.io/web-midi-api/
+ */
+
+var midiOptions = {
+    sysex: true, // allow setPadColor
+    software: false,
+};
+
+navigator.requestMIDIAccess(midiOptions)
+    .then(onMIDISuccess, onMIDIFailure);
+
+function onMIDISuccess(midiAccess) {
+    console.log("MIDI Access Granted: midiAccess obj =", midiAccess);
+
+    for (var input of midiAccess.inputs.values()) {
+        input.onmidimessage = getMIDIMessage;
+    }
+
+    var firstOutput = midiAccess.outputs.values().next().value;
+    for (var i = 0; i < 16; i++) {
+        firstOutput.send(setPadColor(i, PAD_COLORS[i]));
+    }
+}
+
+function getMIDIMessage(midiMessage) {
+    console.log(midiMessage.data);
+    elmApp.ports.midiEvent.send(midiMessage);
+}
+
+function onMIDIFailure() {
+    console.log('Could not access your MIDI devices.');
+}
+
+// Set single pad color via SysEx.
+function setPadColor(pad, color) {
+	let padHex = (112 + pad)//.toString(16);
+	return new Uint8Array( [ 0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x02, 0x00, 0x10, padHex, color, 0xF7 ] );
+}
+
+/**
  * Constants from https://github.com/chrenn/minilab-mk2-bitwig/blob/master/minilab-mk2.control.js
  *
+ * Originally (and probably) from
+ * https://www.untergeek.de/2014/11/taming-arturias-beatstep-sysex-codes-for-programming-via-ipad/
+ *
+ * More stuff
+ * https://answers.bitwig.com/questions/16952/arturia-minilab-mk2-script-need-some-help
+ *
+ *
+ * Other configs present in `minilab-mk2.control.js`
  * host.defineController("Arturia", "MiniLab Mk II", "1.0", "2fdbbb1f-f771-43f7-83e8-bc01c3e573de", "bequadro");
  * khost.defineMidiPorts(1, 1);
  * host.addDeviceNameBasedDiscoveryPair(["Arturia MiniLab mkII"], ["Arturia MiniLab mkII"]);
  */
-
-
-// MIDI messages.
 const MIDI_STATUS_PAD_ON = 153;
 const MIDI_STATUS_PAD_OFF = 137;
 const MIDI_STATUS_KNOBS = 176;
@@ -100,69 +173,44 @@ const KNOB9_CLICK = 115;
 const KNOBS_LEFT_ = [74, 71, 76, 18, 19, 16];
 const KNOBS_RIGHT = [77, 93, 73, 75, 17, 91, 79, 72];
 
-// MiniLab colors.
 const COLOR = {
-	BLACK: "00",
-	RED: "01",
-	BLUE: "10",
-	GREEN: "04",
-	CYAN: "14",
-	PURPLE: "11",
-	YELLOW: "05",
-	WHITE: "7F"
+	BLACK: 0x00,
+	RED: 0x01,
+	BLUE: 0x10,
+	GREEN: 0x04,
+	CYAN: 0x14,
+	PURPLE: 0x11,
+	YELLOW: 0x05,
+	WHITE: 0x7F
 };
 
-// Set single pad color via SysEx.
-function setPadColor(pad, color) {
-	let padHex = (112 + pad).toString(16);
-	sendSysex("F0 00 20 6B 7F 42 02 00 10 " + padHex + " " + color + " F7");
-}
-
-// Pad color mapping. Notes = white, Control = color.
 const PAD_COLORS = [
+        // Video Controls
 	COLOR.WHITE,
 	COLOR.WHITE,
-	COLOR.WHITE,
-	COLOR.WHITE,
-	COLOR.WHITE,
-	COLOR.WHITE,
-	COLOR.WHITE,
-	COLOR.WHITE,
-	COLOR.WHITE,
-	COLOR.WHITE,
+        // HSL
+	COLOR.YELLOW,
+	COLOR.YELLOW,
+	COLOR.YELLOW,
+        // RGB
+	COLOR.RED,
+	COLOR.GREEN,
+	COLOR.BLUE,
+        // OTHER
 	COLOR.BLACK,
-	COLOR.BLACK,
-	COLOR.CYAN,
+	COLOR.RED,
 	COLOR.GREEN,
 	COLOR.YELLOW,
-	COLOR.RED
+	COLOR.BLUE,
+	COLOR.PURPLE,
+	COLOR.CYAN,
+	COLOR.WHITE
 ];
 
 
 
-navigator.requestMIDIAccess()
-    .then(onMIDISuccess, onMIDIFailure);
-
-function onMIDISuccess(midiAccess) {
-    console.log("MIDI Access Granted: midiAccess obj =", midiAccess);
-    for (var input of midiAccess.inputs.values()) {
-        input.onmidimessage = getMIDIMessage;
-    }
-}
-
-function getMIDIMessage(midiMessage) {
-    console.log(midiMessage.data);
-    elmApp.ports.midiEvent.send(midiMessage);
-}
-
-function onMIDIFailure() {
-    console.log('Could not access your MIDI devices.');
-}
-
-
-
 /**
- * Helper Funcions
+ * HELPERS
  *
  * Copied from Lodash.js: https://github.com/lodash/lodash/blob/d5ef31929a1262abbc75b8dadc0b6ae6e9558b5f/mapValue.js
  */
@@ -178,9 +226,10 @@ function mapValue(object, fn) {
   return result;
 }
 
+
+
 /**
- * Copy and paste on browser to
- *
+ * SET LOOCAL STORAGE
  *
 
 var storageKeys =

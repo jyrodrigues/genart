@@ -6,3 +6,5 @@ dist
 *.swp
 .DS_Store
 svg_results
+dna_samples
+
