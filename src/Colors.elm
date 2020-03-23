@@ -20,11 +20,14 @@ module Colors exposing
     , updateAlpha
     , updateBlue
     , updateGreen
+    , updateHue
+    , updateLightness
     , updateRed
+    , updateSaturation
     )
 
-import Color exposing (Color, fromHsla, fromRgba, hsl, hsla, rgb255, rgba, toCssString, toHsla, toRgba)
-import Css exposing (hex)
+import Color exposing (Color, hsla, rgb255, rgba, toCssString, toHsla, toRgba)
+import Css
 import Hex
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -164,7 +167,7 @@ updateRed amount color =
         { green, blue, alpha } =
             toRgba color
     in
-    rgba amount green blue alpha
+    rgba (clamp 0 1 amount) green blue alpha
 
 
 updateGreen : Float -> Color -> Color
@@ -173,7 +176,7 @@ updateGreen amount color =
         { red, blue, alpha } =
             toRgba color
     in
-    rgba red amount blue alpha
+    rgba red (clamp 0 1 amount) blue alpha
 
 
 updateBlue : Float -> Color -> Color
@@ -182,7 +185,7 @@ updateBlue amount color =
         { red, green, alpha } =
             toRgba color
     in
-    rgba red green amount alpha
+    rgba red green (clamp 0 1 amount) alpha
 
 
 updateAlpha : Float -> Color -> Color
@@ -191,7 +194,34 @@ updateAlpha amount color =
         { red, green, blue } =
             toRgba color
     in
-    rgba red green blue amount
+    rgba red green blue (clamp 0 1 amount)
+
+
+updateHue : Float -> Color -> Color
+updateHue amount color =
+    let
+        { saturation, lightness, alpha } =
+            toHsla color
+    in
+    hsla (clamp 0 1 amount) saturation lightness alpha
+
+
+updateSaturation : Float -> Color -> Color
+updateSaturation amount color =
+    let
+        { hue, lightness, alpha } =
+            toHsla color
+    in
+    hsla hue (clamp 0 1 amount) lightness alpha
+
+
+updateLightness : Float -> Color -> Color
+updateLightness amount color =
+    let
+        { hue, saturation, alpha } =
+            toHsla color
+    in
+    hsla hue saturation (clamp 0 1 amount) alpha
 
 
 
