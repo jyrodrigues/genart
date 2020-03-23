@@ -203,6 +203,7 @@ type alias Model =
 
     -- Video
     , videoAngleChangeRate : Float
+    , slowMotion : SlowMotion
     , playingVideo : Bool
     , videoAngleChangeDirection : Float
     }
@@ -255,6 +256,11 @@ type Focus
     | TurnAngleInput
 
 
+type SlowMotion
+    = NotSet
+    | Slowly Float
+
+
 
 -- IMPLEMENTATION, LOGIC, FUNCTIONS
 -- MODEL
@@ -287,6 +293,7 @@ initialModel image gallery url navKey =
 
     -- Video
     , videoAngleChangeRate = 0.01
+    , slowMotion = NotSet
     , playingVideo = False
     , videoAngleChangeDirection = 1
     }
@@ -1035,6 +1042,9 @@ processMidi value model =
 
             else if command == 176 && noteMap == 115 && velocityPosition == 0 then
                 { model | image = Image.centralize model.image }
+                --
+                --
+                --
 
             else if command == 176 && noteMap == 112 then
                 -- Angle Change Rate
@@ -1046,6 +1056,12 @@ processMidi value model =
 
             else if command == 176 && noteMap == 113 && velocityPosition == 0 then
                 { model | videoAngleChangeRate = 0.01 }
+
+            else if command == 169 && noteMap == 43 then
+                { model | slowMotion = Slowly (1 - velocityPosition / 128) }
+
+            else if command == 137 && noteMap == 43 then
+                { model | slowMotion = NotSet }
 
             else if command == 153 && noteMap == 37 then
                 -- Reverse angle change direction
@@ -1060,12 +1076,30 @@ processMidi value model =
                 { model
                     | image =
                         model.image
-                            -- Magic numbers, after testing with Arturia MiniLab mk2
-                            |> Image.withStrokeWidth ((velocityPosition / 127) * 2)
+                            {--Exponential function in range 0-127:
+
+                                Choose
+                                    f(1) = startValue
+                                    f(finalStep) = finalValue
+
+                                    f(x) = a . (b^x)
+
+                                    b = (finalValue . startValue^-1) ^ (1 / (finalStep - 1));
+                                    a = startValue / b;
+
+                                Here we chose
+                                    startValue = 0.00001; (1e-5)
+                                    finalStep = 127;
+                                    finalValue = 2;
+                            --}
+                            |> Image.withStrokeWidth (1.10172109893 ^ velocityPosition * 0.0000090767)
                 }
-                -- Background Color RGBA: (R, 93) (G, 73) (B, 75)
+                --
+                --
+                --
 
             else if command == 176 && noteMap == 93 then
+                -- Background Color RGBA: (R, 93) (G, 73) (B, 75)
                 { model
                     | image =
                         model.image
@@ -1085,9 +1119,9 @@ processMidi value model =
                         model.image
                             |> Image.withBackgroundColor (Colors.updateBlue (velocityPosition * 2) model.image.backgroundColor)
                 }
-                -- Stroke Color RGBA: (R, 91) (G, 79) (B, 72)
 
             else if command == 176 && noteMap == 91 then
+                -- Stroke Color RGBA: (R, 91) (G, 79) (B, 72)
                 { model
                     | image =
                         model.image
@@ -1106,6 +1140,53 @@ processMidi value model =
                     | image =
                         model.image
                             |> Image.withStrokeColor (Colors.updateBlue (velocityPosition * 2) model.image.strokeColor)
+                }
+                --
+                --
+                --
+
+            else if command == 176 && noteMap == 71 then
+                -- Background Color HSL: (H, 71) (G, 76) (B, 77)
+                { model
+                    | image =
+                        model.image
+                            |> Image.withBackgroundColor (Colors.updateHue (velocityPosition / 127) model.image.backgroundColor)
+                }
+
+            else if command == 176 && noteMap == 76 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withBackgroundColor (Colors.updateSaturation (velocityPosition / 127) model.image.backgroundColor)
+                }
+
+            else if command == 176 && noteMap == 77 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withBackgroundColor (Colors.updateLightness (velocityPosition / 127) model.image.backgroundColor)
+                }
+
+            else if command == 176 && noteMap == 19 then
+                -- Background Color HSL: (H, 19) (G, 16) (B, 17)
+                { model
+                    | image =
+                        model.image
+                            |> Image.withStrokeColor (Colors.updateHue (velocityPosition / 127) model.image.strokeColor)
+                }
+
+            else if command == 176 && noteMap == 16 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withStrokeColor (Colors.updateSaturation (velocityPosition / 127) model.image.strokeColor)
+                }
+
+            else if command == 176 && noteMap == 17 then
+                { model
+                    | image =
+                        model.image
+                            |> Image.withStrokeColor (Colors.updateLightness (velocityPosition / 127) model.image.strokeColor)
                 }
 
             else
@@ -1214,7 +1295,12 @@ subscriptions model =
 
         playingVideoSub =
             if model.playingVideo then
-                Time.every 50 (always (SetTurnAngle (model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
+                case model.slowMotion of
+                    NotSet ->
+                        Time.every 50 (always (SetTurnAngle (model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
+
+                    Slowly by ->
+                        Time.every 50 (always (SetTurnAngle (model.image.turnAngle + (by * model.videoAngleChangeDirection * model.videoAngleChangeRate))))
 
             else
                 Sub.none
