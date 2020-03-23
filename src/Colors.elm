@@ -1,5 +1,5 @@
 module Colors exposing
-    ( Color(..)
+    ( Color
     , allColors
     , black
     , darkBlue
@@ -23,7 +23,8 @@ module Colors exposing
     , updateRed
     )
 
-import Css exposing (Color, hex, rgba)
+import Color exposing (Color, fromHsla, fromRgba, hsl, hsla, rgb255, rgba, toCssString, toHsla, toRgba)
+import Css exposing (hex)
 import Hex
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -40,107 +41,157 @@ import Json.Encode as Encode
     we keep this type to allow for `toString` methods.
 
 -}
+type alias Color =
+    Color.Color
 
 
 
 -- TODO remove the Hex variant use rtfeldman/hex to convert from or to hex notation
-
-
-type Color
-    = Color Int Int Int Float
-    | Hex String
-
-
-
 -- CONVERTERS
+
+
+to255 : Float -> Int
+to255 f =
+    round (clamp 0 1 f * 255)
 
 
 toCssColor : Color -> Css.Color
 toCssColor color =
-    case color of
-        Color r g b a ->
-            rgba r g b a
-
-        Hex str ->
-            hex str
+    let
+        { red, green, blue, alpha } =
+            toRgba color
+    in
+    Css.rgba (to255 red) (to255 green) (to255 blue) alpha
 
 
 toString : Color -> String
-toString color =
-    case color of
-        Color r g b a ->
-            let
-                rgb =
-                    [ r, g, b ]
-                        |> List.map String.fromInt
-                        |> String.join ","
-
-                innerString =
-                    rgb ++ "," ++ String.fromFloat a
-            in
-            "rgba(" ++ innerString ++ ")"
-
-        Hex str ->
-            str
+toString =
+    toCssString
 
 
 toHexString : Color -> String
 toHexString color =
-    case color of
-        -- TODO findout if hex can store alpha value (caniuse.com)
-        Color r g b a ->
-            "#"
-                ++ Hex.toString r
-                ++ Hex.toString g
-                ++ Hex.toString b
+    let
+        { red, green, blue, alpha } =
+            toRgba color
 
-        Hex str ->
-            str
+        pad hexString =
+            if String.length hexString < 2 then
+                "0" ++ hexString
+
+            else
+                hexString
+    in
+    "#"
+        ++ (pad <| Hex.toString <| to255 red)
+        ++ (pad <| Hex.toString <| to255 green)
+        ++ (pad <| Hex.toString <| to255 blue)
+
+
+
+-- START OF COPY-PASTE FROM RTFELDMAN/ELM-CSS IMPLEMENTATION OF `HEX`
 
 
 fromHexString : String -> Color
-fromHexString =
-    Hex
+fromHexString str =
+    let
+        withoutHash =
+            if String.startsWith "#" str then
+                String.dropLeft 1 str
+
+            else
+                str
+    in
+    case String.toList withoutHash of
+        [ r, g, b ] ->
+            validHex str ( r, r ) ( g, g ) ( b, b ) ( 'f', 'f' )
+
+        [ r, g, b, a ] ->
+            validHex str ( r, r ) ( g, g ) ( b, b ) ( a, a )
+
+        [ r1, r2, g1, g2, b1, b2 ] ->
+            validHex str ( r1, r2 ) ( g1, g2 ) ( b1, b2 ) ( 'f', 'f' )
+
+        [ r1, r2, g1, g2, b1, b2, a1, a2 ] ->
+            validHex str ( r1, r2 ) ( g1, g2 ) ( b1, b2 ) ( a1, a2 )
+
+        _ ->
+            erroneousHex str
+
+
+validHex : String -> ( Char, Char ) -> ( Char, Char ) -> ( Char, Char ) -> ( Char, Char ) -> Color
+validHex str ( r1, r2 ) ( g1, g2 ) ( b1, b2 ) ( a1, a2 ) =
+    let
+        toResult =
+            String.fromList >> String.toLower >> Hex.fromString
+
+        results =
+            ( ( toResult [ r1, r2 ]
+              , toResult [ g1, g2 ]
+              )
+            , ( toResult [ b1, b2 ]
+              , toResult [ a1, a2 ]
+              )
+            )
+    in
+    case results of
+        ( ( Ok red, Ok green ), ( Ok blue, Ok alpha ) ) ->
+            rgba255 red green blue (toFloat alpha / 255.0)
+
+        _ ->
+            erroneousHex str
+
+
+{-| Not to be confused with Thelonious Monk or Hieronymus Bosch.
+-}
+erroneousHex : String -> Color
+erroneousHex str =
+    let
+        _ =
+            Debug.log "erroneousHex string" str
+    in
+    rgba 0 0 0 1
+
+
+
+-- END OF COPY-PASTE
+-- TODO check float values are aligned with what is expected from Color library
 
 
 updateRed : Float -> Color -> Color
 updateRed amount color =
-    case color of
-        Color _ g b a ->
-            Color (round amount) g b a
-
-        _ ->
-            Color (round amount) 0 0 1
+    let
+        { green, blue, alpha } =
+            toRgba color
+    in
+    rgba amount green blue alpha
 
 
 updateGreen : Float -> Color -> Color
 updateGreen amount color =
-    case color of
-        Color r _ b a ->
-            Color r (round amount) b a
-
-        _ ->
-            Color 0 (round amount) 0 1
+    let
+        { red, blue, alpha } =
+            toRgba color
+    in
+    rgba red amount blue alpha
 
 
 updateBlue : Float -> Color -> Color
 updateBlue amount color =
-    case color of
-        Color r g _ a ->
-            Color r g (round amount) a
-
-        _ ->
-            Color 0 0 (round amount) 1
+    let
+        { red, green, alpha } =
+            toRgba color
+    in
+    rgba red green amount alpha
 
 
 updateAlpha : Float -> Color -> Color
 updateAlpha amount color =
-    case color of
-        Color r g b _ ->
-            Color r g b amount
-
-        _ ->
-            color
+    let
+        { red, green, blue } =
+            toRgba color
+    in
+    rgba red green blue amount
 
 
 
@@ -154,7 +205,20 @@ encode =
 
 decoder : Decoder Color
 decoder =
-    Decode.map Hex Decode.string
+    Decode.map fromHexString Decode.string
+
+
+
+-- Aux
+
+
+rgba255 : Int -> Int -> Int -> Float -> Color
+rgba255 r g b a =
+    let
+        { red, green, blue } =
+            toRgba (rgb255 r g b)
+    in
+    rgba red green blue a
 
 
 
@@ -163,54 +227,54 @@ decoder =
 
 gray : Color
 gray =
-    Color 170 170 170 1
+    rgb255 170 170 170
 
 
 lightBlue : Color
 lightBlue =
-    Color 10 80 180 0.5
+    rgba255 10 80 180 0.5
 
 
 darkBlue : Color
 darkBlue =
-    Color 15 15 60 0.95
+    rgba255 15 15 60 0.95
 
 
 lightGray : Color
 lightGray =
-    Hex "#ABAAAA"
+    fromHexString "#ABAAAA"
 
 
 darkGray : Color
 darkGray =
     -- Color 0 0 0 0.8
-    Hex "#333333"
+    fromHexString "#333333"
 
 
 black : Color
 black =
-    Color 0 0 0 1
+    rgba 0 0 0 1
 
 
 offWhite : Color
 offWhite =
-    Color 200 200 200 1
+    rgb255 200 200 200
 
 
 red_ : Color
 red_ =
-    Color 240 0 0 1
+    rgb255 240 0 0
 
 
 green_ : Color
 green_ =
-    Color 0 240 0 1
+    rgb255 0 240 0
 
 
 defaultGreen : Color
 defaultGreen =
     --Color 0 180 110 0.7
-    Hex "#00b46e"
+    fromHexString "#00b46e"
 
 
 allColors : List Color
@@ -225,37 +289,37 @@ allColors =
 
     -- Get more on https://coolors.co
     -- 1
-    , Color 11 19 43 1
-    , Color 28 37 65 1
-    , Color 58 80 107 1
-    , Color 91 192 190 1
-    , Color 111 255 233 1
+    , rgb255 11 19 43
+    , rgb255 28 37 65
+    , rgb255 58 80 107
+    , rgb255 91 192 190
+    , rgb255 111 255 233
 
     -- 2
-    , Color 244 247 190 1
-    , Color 229 247 125 1
-    , Color 222 186 111 1
-    , Color 130 48 56 1
-    , Color 30 0 14 1
+    , rgb255 244 247 190
+    , rgb255 229 247 125
+    , rgb255 222 186 111
+    , rgb255 130 48 56
+    , rgb255 30 0 14
 
     -- 3
-    , Color 72 74 71 1
-    , Color 92 109 112 1
-    , Color 163 119 116 1
-    , Color 232 136 115 1
+    , rgb255 72 74 71
+    , rgb255 92 109 112
+    , rgb255 163 119 116
+    , rgb255 232 136 115
 
     -- 4
-    , Color 8 61 119 1
-    , Color 235 235 211 1
-    , Color 218 65 103 1
-    , Color 244 211 94 1
-    , Color 247 135 100 1
-    , Color 224 172 157 1
+    , rgb255 8 61 119
+    , rgb255 235 235 211
+    , rgb255 218 65 103
+    , rgb255 244 211 94
+    , rgb255 247 135 100
+    , rgb255 224 172 157
 
     -- 5
-    , Color 229 193 189 1
-    , Color 210 208 186 1
-    , Color 182 190 156 1
-    , Color 123 158 135 1
-    , Color 94 116 127 1
+    , rgb255 229 193 189
+    , rgb255 210 208 186
+    , rgb255 182 190 156
+    , rgb255 123 158 135
+    , rgb255 94 116 127
     ]
