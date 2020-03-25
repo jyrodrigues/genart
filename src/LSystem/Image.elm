@@ -40,6 +40,7 @@ module LSystem.Image exposing
     , v2_imageDecoder
     , v2_imageToImage
     , withBackgroundColor
+    , withScale
     , withStrokeColor
     , withStrokeWidth
     , withTranslate
@@ -283,6 +284,11 @@ withTranslate position image =
 withTurnAngle : Angle -> Image -> Image
 withTurnAngle angle image =
     { image | turnAngle = angle }
+
+
+withScale : Scale -> Image -> Image
+withScale scale image =
+    { image | scale = scale }
 
 
 
