@@ -948,7 +948,12 @@ update msg model =
             updateAndSaveImageAndGallery <| { model | panStarted = False }
 
         MouseMoved pos ->
-            ( { model | image = Image.move model.lastPos pos model.image }, Cmd.none )
+            ( { model
+                | image = Image.move model.lastPos pos model.image
+                , lastPos = pos
+              }
+            , Cmd.none
+            )
 
         SetFocus focus ->
             ( { model | focus = focus }, Cmd.none )
