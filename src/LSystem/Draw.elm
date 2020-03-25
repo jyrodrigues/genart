@@ -1,8 +1,8 @@
-module LSystem.Draw exposing (drawBlocks, drawImage)
+module LSystem.Draw exposing (drawBlocks, drawFixedImage, drawImage)
 
 import Colors exposing (Color)
 import LSystem.Core as Core exposing (Step(..), digestComposition)
-import LSystem.Image exposing (Image, Position, blocksToImages)
+import LSystem.Image as Image exposing (Image, Position)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
 import Svg.Styled exposing (Svg, circle, defs, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
@@ -106,14 +106,22 @@ type alias Id =
 
 drawBlocks : Image -> List (Svg msg)
 drawBlocks image =
-    blocksToImages image
-        |> List.map (\blockImage -> drawImage blockImage Nothing Nothing True)
+    Image.blocksToImages image
+        |> List.map (drawImage Nothing Nothing True)
+
+
+drawFixedImage : Maybe msg -> Image -> Svg msg
+drawFixedImage maybeMsg image =
+    image
+        |> Image.withTranslate ( 0, 0 )
+        |> Image.withScale 1
+        |> drawImage Nothing maybeMsg False
 
 
 {-| TODO remove this last Bool (at least use a custom type).
 -}
-drawImage : Image -> Maybe Id -> Maybe msg -> Bool -> Svg msg
-drawImage image maybeId maybeMsg drawOriginAndNextStep =
+drawImage : Maybe Id -> Maybe msg -> Bool -> Image -> Svg msg
+drawImage maybeId maybeMsg drawOriginAndNextStep image =
     let
         { backgroundColor, strokeColor, translate, scale } =
             image

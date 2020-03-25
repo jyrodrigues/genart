@@ -30,6 +30,7 @@ import Css
         , borderRadius
         , borderRight3
         , bottom
+        , boxShadow5
         , boxShadow6
         , boxSizing
         , color
@@ -48,6 +49,7 @@ import Css
         , margin
         , margin2
         , margin3
+        , marginTop
         , minWidth
         , none
         , overflow
@@ -63,6 +65,7 @@ import Css
         , sansSerif
         , scroll
         , solid
+        , top
         , transparent
         , vw
         , width
@@ -427,6 +430,7 @@ galleryView model =
                     [ width (pct (layout.transformsList + layout.mainImg))
                     , height (pct 100)
                     , padding (px 10)
+                    , boxSizing borderBox
                     , overflow scroll
                     ]
                 ]
@@ -441,23 +445,24 @@ imageBox : Int -> Image -> Html Msg
 imageBox index image =
     div
         [ css
-            [ width (pct 40)
-            , borderBottom3 (px 1) solid (toCssColor Colors.black)
+            [ width (px 300)
+            , height (px 300)
             , display inlineBlock
             , margin (px 10)
             , position relative
+            , overflow hidden
+            , boxShadow5 zero zero (px 5) (px 1) (toCssColor Colors.black)
             ]
         ]
-        [ LDraw.drawImage image Nothing (Just (DuplicateToEdit index)) False
+        [ LDraw.drawFixedImage (Just (DuplicateToEdit index)) image
         , Icons.trash
             |> withOnClick (RemovedFromGallery index)
             |> withColor Colors.red_
             |> withCss
                 [ cursor pointer
-                , border3 (px 1) solid (toCssColor Colors.black)
                 , position absolute
-                , bottom zero
-                , left zero
+                , bottom (px 5)
+                , left (px 5)
                 ]
             |> Icons.toSvg
         ]
@@ -810,7 +815,7 @@ mainImg image =
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ drawImage image (Just "MainSVG") Nothing False
+        [ drawImage (Just "MainSVG") Nothing False image
         ]
 
 
