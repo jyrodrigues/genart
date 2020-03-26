@@ -6,7 +6,9 @@
 
 port module Main exposing
     ( Route(..)
+    , encodeModel
     , main
+    , modelDecoder
     , parseUrl
     )
 
@@ -49,7 +51,6 @@ import Css
         , margin
         , margin2
         , margin3
-        , marginTop
         , minWidth
         , none
         , overflow
@@ -65,7 +66,6 @@ import Css
         , sansSerif
         , scroll
         , solid
-        , top
         , transparent
         , vw
         , width
@@ -114,9 +114,6 @@ import Url.Parser as Parser exposing (Parser, string)
 
 
 port saveEncodedModelToLocalStorage : Encode.Value -> Cmd msg
-
-
-port saveMergedModelsVersionsAndDeleteOldOnes : Encode.Value -> Cmd msg
 
 
 port downloadSvg : () -> Cmd msg
@@ -363,14 +360,14 @@ init localStorage url navKey =
 
          -- TODO Break this task into two: use the already available saveEncodedModelToLocalStorage and create
          -- a new one to delete. also rename saveEncodedModelToLocalStorage to saveModelToLocalStorage or saveModel
-         , saveMergedModelsVersionsAndDeleteOldOnes (encodeModel model)
+         , saveEncodedModelToLocalStorage (encodeModel model)
          ]
             ++ updateUrl
         )
     )
 
 
-encodeModel : Model -> Encode.Value
+encodeModel : { a | image : Image, gallery : List Image } -> Encode.Value
 encodeModel { image, gallery } =
     Encode.object
         [ ( keyFor.image, encodeImage image )
@@ -380,9 +377,12 @@ encodeModel { image, gallery } =
 
 modelDecoder : Decoder ( Image, List Image )
 modelDecoder =
-    Decode.map2 Tuple.pair
-        (Decode.field keyFor.image imageDecoder)
-        (Decode.field keyFor.gallery (Decode.list imageDecoder))
+    Decode.oneOf
+        -- Add new model versions here!
+        [ Decode.map2 Tuple.pair
+            (Decode.field keyFor.image imageDecoder)
+            (Decode.field keyFor.gallery (Decode.list imageDecoder))
+        ]
 
 
 keyFor =
@@ -868,10 +868,6 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
         updateAndSaveImageAndGallery newModel =
-            let
-                newImageAndGallery =
-                    ( newModel.image, newModel.gallery )
-            in
             ( newModel
             , Cmd.batch
                 [ saveEncodedModelToLocalStorage (encodeModel newModel)
@@ -1362,7 +1358,7 @@ galleryParser =
 
 editorParser : Parser (Route -> a) a
 editorParser =
-    Parser.map Editor Image.urlParser
+    Parser.map Editor (Parser.query Image.queryParser)
 
 
 {-| Current version of Url building and parsing
@@ -1377,7 +1373,7 @@ replaceUrl key image =
 
             https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
     --}
-    Nav.replaceUrl key (Image.toUrlPathString image)
+    Nav.replaceUrl key (Image.toQuery image)
 
 
 
