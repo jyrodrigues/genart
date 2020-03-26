@@ -384,15 +384,15 @@ queryToImageParser =
             Image a b c d 1 e f
     in
     Query.map6 (ListExtra.maybeMap6 image)
-        (Query.string keyFor.composition |> queryMapFromDecoder Core.compositionDecoder)
-        (Query.string keyFor.turnAngle |> Query.map (Maybe.andThen String.toFloat))
-        (Query.string keyFor.backgroundColor |> queryMapFromDecoder Colors.decoder)
-        (Query.string keyFor.strokeColor |> queryMapFromDecoder Colors.decoder)
+        (queryMapFromDecoder Core.compositionDecoder (Query.string keyFor.composition))
+        (Query.map (Maybe.andThen String.toFloat) (Query.string keyFor.turnAngle))
+        (queryMapFromDecoder Colors.decoder (Query.string keyFor.backgroundColor))
+        (queryMapFromDecoder Colors.decoder (Query.string keyFor.strokeColor))
         (Query.map2 (Maybe.map2 Tuple.pair)
-            (Query.string keyFor.translateX |> Query.map (Maybe.andThen String.toFloat))
-            (Query.string keyFor.translateY |> Query.map (Maybe.andThen String.toFloat))
+            (Query.map (Maybe.andThen String.toFloat) (Query.string keyFor.translateX))
+            (Query.map (Maybe.andThen String.toFloat) (Query.string keyFor.translateY))
         )
-        (Query.string keyFor.scale |> Query.map (Maybe.andThen String.toFloat))
+        (Query.map (Maybe.andThen String.toFloat) (Query.string keyFor.scale))
 
 
 toUrlPathString : Image -> String
