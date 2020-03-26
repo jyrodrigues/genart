@@ -231,6 +231,25 @@ charToStep char =
             S
 
         _ ->
+            dnaOrSkip char
+
+
+dnaOrSkip : Char -> Step
+dnaOrSkip char =
+    case char of
+        'c' ->
+            D
+
+        't' ->
+            R
+
+        'g' ->
+            L
+
+        'a' ->
+            S
+
+        _ ->
             S
 
 
