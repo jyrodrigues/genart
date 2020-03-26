@@ -2,6 +2,7 @@ module LSystem.Image exposing
     ( Gallery
     , Image
     , ImageAndGallery
+    , PartialImage
     , Polygon(..)
     , Position
     , V2_Image
@@ -40,6 +41,7 @@ module LSystem.Image exposing
     , v2_imageDecoder
     , v2_imageToImage
     , withBackgroundColor
+    , withImage
     , withScale
     , withStrokeColor
     , withStrokeWidth
@@ -90,6 +92,17 @@ type alias Image =
     , strokeWidth : Width
     , translate : Position
     , scale : Scale
+    }
+
+
+type alias PartialImage =
+    { composition : Maybe Composition
+    , turnAngle : Maybe Angle
+    , backgroundColor : Maybe Color
+    , strokeColor : Maybe Color
+    , strokeWidth : Maybe Width
+    , translate : Maybe Position
+    , scale : Maybe Scale
     }
 
 
@@ -291,6 +304,18 @@ withScale scale image =
     { image | scale = scale }
 
 
+withImage : PartialImage -> Image -> Image
+withImage partial image =
+    { composition = Maybe.withDefault image.composition partial.composition
+    , turnAngle = Maybe.withDefault image.turnAngle partial.turnAngle
+    , backgroundColor = Maybe.withDefault image.backgroundColor partial.backgroundColor
+    , strokeColor = Maybe.withDefault image.strokeColor partial.strokeColor
+    , strokeWidth = Maybe.withDefault image.strokeWidth partial.strokeWidth
+    , translate = Maybe.withDefault image.translate partial.translate
+    , scale = Maybe.withDefault image.scale partial.scale
+    }
+
+
 
 -- POLYGON
 
@@ -366,7 +391,7 @@ imageDecoder =
 -- PARSER
 
 
-urlParser : Parser (Maybe Image -> a) a
+urlParser : Parser (PartialImage -> a) a
 urlParser =
     Parser.map
         mergeUrlV1andV2
