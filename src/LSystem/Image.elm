@@ -397,14 +397,18 @@ queryToImageParser =
 
 toUrlPathString : Image -> String
 toUrlPathString image =
+    let
+        query getKey value =
+            Url.Builder.string (getKey keyFor) (Encode.encode 0 value)
+    in
     Url.Builder.absolute []
-        [ Url.Builder.string keyFor.composition (image.composition |> Core.encodeComposition |> Encode.encode 0)
-        , Url.Builder.string keyFor.turnAngle (String.fromFloat image.turnAngle)
-        , Url.Builder.string keyFor.backgroundColor (image.backgroundColor |> Colors.encode |> Encode.encode 0)
-        , Url.Builder.string keyFor.strokeColor (image.strokeColor |> Colors.encode |> Encode.encode 0)
-        , Url.Builder.string keyFor.translateX (Tuple.first image.translate |> Encode.float |> Encode.encode 0)
-        , Url.Builder.string keyFor.translateY (Tuple.second image.translate |> Encode.float |> Encode.encode 0)
-        , Url.Builder.string keyFor.scale (image.scale |> Encode.float |> Encode.encode 0)
+        [ query .composition (Core.encodeComposition image.composition)
+        , query .turnAngle (Encode.float image.turnAngle)
+        , query .backgroundColor (Colors.encode image.backgroundColor)
+        , query .strokeColor (Colors.encode image.strokeColor)
+        , query .translateX (Encode.float (Tuple.first image.translate))
+        , query .translateY (Encode.float (Tuple.second image.translate))
+        , query .scale (Encode.float image.scale)
         ]
 
 
