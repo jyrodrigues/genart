@@ -1,8 +1,10 @@
 module LSystem.Image exposing
-    ( Image
+    ( Boundaries
+    , Image
     , PartialImage
     , Polygon(..)
     , Position
+    , SvgPathAndBoundaries
     , appendSimpleBlock
     , appendStepAtIndex
     , blockBlueprintString
@@ -16,6 +18,7 @@ module LSystem.Image exposing
     , encodeImage
     , imageDecoder
     , imageStepsLenthString
+    , imageToSvgPathString
     , length
     , move
     , polygonAngle
@@ -24,11 +27,13 @@ module LSystem.Image exposing
     , resetBaseTo
     , resetImageComposition
     , toQuery
+    , updateSvgPathAndBoundaries
     , withBackgroundColor
     , withImage
     , withScale
     , withStrokeColor
     , withStrokeWidth
+    , withSvgPathAndBoundaries
     , withTranslate
     , withTurnAngle
     , zoom
@@ -66,9 +71,22 @@ type Polygon
     | Hexagon
 
 
+type alias SvgPathAndBoundaries =
+    ( String, String, Boundaries )
+
+
+type alias Boundaries =
+    { leftTop : Position
+    , rightBottom : Position
+    }
+
+
 type alias Image =
     { composition : Composition
     , turnAngle : Angle
+
+    -- Refactor to make impossible states impossible: composition + turnAngle + svgPathAndBoundaries
+    , svgPathAndBoundaries : Maybe SvgPathAndBoundaries
     , backgroundColor : Color
     , strokeColor : Color
     , strokeWidth : Width
@@ -92,6 +110,7 @@ defaultImage : Image
 defaultImage =
     { composition = Core.fromList [ polygonBlock Square, [ D ] ]
     , turnAngle = polygonAngle Square
+    , svgPathAndBoundaries = Nothing
     , backgroundColor = Colors.darkGray
     , strokeColor = Colors.defaultGreen
     , strokeWidth = 1
@@ -115,6 +134,7 @@ blocksToImages image =
                     , scale = 1
                     , translate = ( 0, 0 )
                     , strokeWidth = 1
+                    , svgPathAndBoundaries = Nothing
                 }
             )
 
@@ -125,12 +145,18 @@ blocksToImages image =
 
 appendStepAtIndex : Step -> Int -> Image -> Image
 appendStepAtIndex step index image =
-    { image | composition = Core.appendStepAtIndex step index image.composition }
+    { image
+        | composition = Core.appendStepAtIndex step index image.composition
+        , svgPathAndBoundaries = Nothing
+    }
 
 
 appendBlock : Block -> Image -> Image
 appendBlock block image =
-    { image | composition = Core.appendBlock block image.composition }
+    { image
+        | composition = Core.appendBlock block image.composition
+        , svgPathAndBoundaries = Nothing
+    }
 
 
 appendSimpleBlock : Image -> Image
@@ -146,7 +172,10 @@ duplicateBlock index image =
     in
     case maybeDuplicatedBlock of
         Just newBlock ->
-            { image | composition = Core.appendBlock newBlock image.composition }
+            { image
+                | composition = Core.appendBlock newBlock image.composition
+                , svgPathAndBoundaries = Nothing
+            }
 
         Nothing ->
             image
@@ -154,17 +183,26 @@ duplicateBlock index image =
 
 dropLastStepAtIndex : Int -> Image -> Image
 dropLastStepAtIndex index image =
-    { image | composition = Core.dropLastStepAtIndex index image.composition }
+    { image
+        | composition = Core.dropLastStepAtIndex index image.composition
+        , svgPathAndBoundaries = Nothing
+    }
 
 
 dropLastBlock : Image -> Image
 dropLastBlock image =
-    { image | composition = Core.dropLastBlock image.composition }
+    { image
+        | composition = Core.dropLastBlock image.composition
+        , svgPathAndBoundaries = Nothing
+    }
 
 
 dropBlockAtIndex : Int -> Image -> Image
 dropBlockAtIndex index image =
-    { image | composition = Core.dropBlockAtIndex index image.composition }
+    { image
+        | composition = Core.dropBlockAtIndex index image.composition
+        , svgPathAndBoundaries = Nothing
+    }
 
 
 resetBaseTo : Polygon -> Image -> Image
@@ -172,6 +210,7 @@ resetBaseTo polygon image =
     { image
         | composition = Core.changeBase (polygonBlock polygon) image.composition
         , turnAngle = polygonAngle polygon
+        , svgPathAndBoundaries = Nothing
     }
 
 
@@ -179,6 +218,7 @@ resetImageComposition : Image -> Image
 resetImageComposition image =
     { image
         | composition = image.composition |> Core.dropAllBlocksButBase |> Core.appendBlock [ D ]
+        , svgPathAndBoundaries = Nothing
     }
 
 
@@ -278,7 +318,15 @@ withTranslate position image =
 
 withTurnAngle : Angle -> Image -> Image
 withTurnAngle angle image =
-    { image | turnAngle = angle }
+    { image
+        | turnAngle = angle
+        , svgPathAndBoundaries = Nothing
+    }
+
+
+withSvgPathAndBoundaries : Maybe SvgPathAndBoundaries -> Image -> Image
+withSvgPathAndBoundaries svgPathAndBoundaries image =
+    { image | svgPathAndBoundaries = svgPathAndBoundaries }
 
 
 withScale : Scale -> Image -> Image
@@ -288,8 +336,18 @@ withScale scale image =
 
 withImage : PartialImage -> Image -> Image
 withImage partial image =
+    let
+        updatedSvgPathAndBoundaries =
+            case ( partial.composition, partial.turnAngle ) of
+                ( Nothing, Nothing ) ->
+                    image.svgPathAndBoundaries
+
+                _ ->
+                    Nothing
+    in
     { composition = Maybe.withDefault image.composition partial.composition
     , turnAngle = Maybe.withDefault image.turnAngle partial.turnAngle
+    , svgPathAndBoundaries = updatedSvgPathAndBoundaries
     , backgroundColor = Maybe.withDefault image.backgroundColor partial.backgroundColor
     , strokeColor = Maybe.withDefault image.strokeColor partial.strokeColor
     , strokeWidth = Maybe.withDefault image.strokeWidth partial.strokeWidth
@@ -306,16 +364,16 @@ polygonBlock : Polygon -> Block
 polygonBlock polygon =
     case polygon of
         Triangle ->
-            [ D, L, D, L, D ]
+            [ D, Core.L, D, Core.L, D ]
 
         Square ->
-            [ D, L, D, L, D, L, D ]
+            [ D, Core.L, D, Core.L, D, Core.L, D ]
 
         Pentagon ->
-            [ D, L, D, L, D, L, D, L, D ]
+            [ D, Core.L, D, Core.L, D, Core.L, D, Core.L, D ]
 
         Hexagon ->
-            [ D, L, D, L, D, L, D, L, D, L, D ]
+            [ D, Core.L, D, Core.L, D, Core.L, D, Core.L, D, Core.L, D ]
 
 
 polygonAngle : Polygon -> Float
@@ -383,8 +441,8 @@ imageDecoder =
             Decode.succeed
     in
     Decode.oneOf
-        [ Decode.map7 Image composition turnAngle backgroundColor strokeColor strokeWidth translate scale
-        , Decode.map7 Image composition turnAngle backgroundColor strokeColor (succeed 1) translate scale
+        [ Decode.map8 Image composition turnAngle (succeed Nothing) backgroundColor strokeColor strokeWidth translate scale
+        , Decode.map8 Image composition turnAngle (succeed Nothing) backgroundColor strokeColor (succeed 1) translate scale
         ]
 
 
@@ -441,3 +499,238 @@ keyFor =
     , translateY = "translateY"
     , scale = "scale"
     }
+
+
+
+-- CALCULATE svgPathAndBoundaries
+-- TYPES
+
+
+{-| <https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths>
+
+    Important:
+
+    Using uppercase letters only because Elm forces us when creating types,
+    *BUT* every case (but `M`) represents lowercase counterparts from the
+    SVG specification!
+
+
+    Also check:
+    - v1: https://www.w3.org/TR/SVG11/paths.html#PathElement
+    - v2: https://svgwg.org/svg2-draft/paths.html#PathElement
+    - Working draft: https://svgwg.org/specs/paths/#PathElement
+
+-}
+type
+    PathSegment
+    -- Move to delta
+    -- m dx dy
+    = M Position
+      -- Line to delta
+      -- l dx dy
+    | L Position
+      -- Horizontal line to delta
+      -- h dx
+    | H Float
+      -- Vertical line to delta
+      -- v dy
+    | V Float
+      -- Close path ("from A to Z")
+      -- z
+    | Z
+      -- Cubic bezier curve: `C controlPoint1 controlPoint2 destination`
+      -- c dx1 dy1, dx2 dy2, dx dy
+    | C Position Position Position
+      -- Cubic bezier curve reflecting last curve's last control point
+      -- s dx2 dy2, dx dy
+    | S Position Position
+      -- Quadratic bezier curve: `Q controlPoint destination`
+      -- q dx1 dy1, dx dy
+    | Q Position Position
+      -- Quadratic bezier curve reflecting last curve's last control point
+      -- t dx dy
+    | T Position
+      -- Arc curve
+      -- a rx ry x-axis-rotation large-arc-flag sweep-flag dx dy
+    | A Position Float Bool Bool Position
+
+
+type alias PathSegmentString =
+    String
+
+
+type alias EverythingInOnePass =
+    { pathString : String
+    , angle : Float
+    , position : Position
+    , boundaries : Boundaries
+    }
+
+
+updateSvgPathAndBoundaries : Image -> Image
+updateSvgPathAndBoundaries image =
+    case image.svgPathAndBoundaries of
+        Just _ ->
+            image
+
+        Nothing ->
+            withSvgPathAndBoundaries (Just (imageToSvgPathString image)) image
+
+
+{-|
+
+    This function call takes a lot of time/resources/cpu and it's one of the main
+    reasons for frame drops (low FPS) when composition is too large.
+
+    What does it means to be too large?
+
+    Memoize this function!
+
+-}
+imageToSvgPathString : Image -> SvgPathAndBoundaries
+imageToSvgPathString { composition, turnAngle } =
+    let
+        finalEverything =
+            Core.digestComposition composition
+                |> List.foldl (processCompositionStep turnAngle) baseEverything
+
+        ( lastX, lastY ) =
+            finalEverything.position
+    in
+    -- Main path
+    ( "M 0 0 " ++ finalEverything.pathString
+      -- Next step path
+    , "M "
+        ++ String.fromFloat lastX
+        ++ " "
+        ++ String.fromFloat lastY
+        ++ " "
+        ++ segmentToString (L (nextPositionDelta finalEverything.angle))
+      -- TopRight and BottomLeft extremes of final image
+    , finalEverything.boundaries
+    )
+
+
+baseEverything : EverythingInOnePass
+baseEverything =
+    EverythingInOnePass
+        ""
+        0
+        ( 0, 0 )
+        (Boundaries ( 0, 0 ) ( 0, 0 ))
+
+
+{-|
+
+    For performance reasons we have to iterate over the digested composition
+    as few times as possible, ideally just one. That's why we aren't breaking
+    up this function (as it once was: one step to get a list of PathSegments
+    and another to create a string from those)
+
+-}
+processCompositionStep : Float -> Step -> EverythingInOnePass -> EverythingInOnePass
+processCompositionStep turnAngleSize step { pathString, angle, position, boundaries } =
+    let
+        nextPositionDelta_ =
+            nextPositionDelta angle
+
+        nextPosition =
+            ListExtra.pairExec (+) nextPositionDelta_ position
+
+        updatedBoundaries =
+            { leftTop = ListExtra.pairExec min boundaries.leftTop nextPosition
+            , rightBottom = ListExtra.pairExec max boundaries.rightBottom nextPosition
+            }
+    in
+    case step of
+        Core.D ->
+            EverythingInOnePass
+                (pathString ++ " " ++ segmentToString (L nextPositionDelta_))
+                angle
+                nextPosition
+                updatedBoundaries
+
+        Core.S ->
+            EverythingInOnePass
+                (pathString ++ " " ++ segmentToString (M nextPositionDelta_))
+                angle
+                nextPosition
+                updatedBoundaries
+
+        Core.L ->
+            EverythingInOnePass
+                pathString
+                (modBy360 (angle + turnAngleSize))
+                position
+                boundaries
+
+        Core.R ->
+            EverythingInOnePass
+                pathString
+                (modBy360 (angle - turnAngleSize))
+                position
+                boundaries
+
+
+segmentToString : PathSegment -> PathSegmentString
+segmentToString segment =
+    case segment of
+        M ( dx, dy ) ->
+            "m " ++ String.fromFloat dx ++ " " ++ String.fromFloat dy
+
+        L ( dx, dy ) ->
+            "l " ++ String.fromFloat dx ++ " " ++ String.fromFloat dy
+
+        H dx ->
+            ""
+
+        V dy ->
+            ""
+
+        Z ->
+            ""
+
+        C ( dx1, dy1 ) ( dx2, dy2 ) ( dx, dy ) ->
+            ""
+
+        S ( dx2, dy2 ) ( dx, dy ) ->
+            ""
+
+        Q ( dx1, dy1 ) ( dx, dy ) ->
+            ""
+
+        T ( dx, dy ) ->
+            ""
+
+        A ( rx, ry ) xAxisRotation largeArcFlag sweepFlag ( x, y ) ->
+            ""
+
+
+{-| TODO This `10` value here is scaling the drawing. It's probably related to the viewbox size. Extract it.
+-}
+nextPositionDelta : Float -> Position
+nextPositionDelta angle =
+    fromPolar ( 1, degrees angle )
+        |> ListExtra.pairMap ((*) 10)
+        |> adjustForViewportAxisOrientation
+
+
+adjustForViewportAxisOrientation : Position -> Position
+adjustForViewportAxisOrientation ( x, y ) =
+    ( x, -y )
+
+
+
+-- HELPER
+
+
+modBy360 : Float -> Float
+modBy360 angle =
+    if angle > 360 then
+        angle - 360
+
+    else if angle < -360 then
+        angle + 360
+
+    else
+        angle

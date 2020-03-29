@@ -357,9 +357,6 @@ init localStorage url navKey =
     ( model
     , Cmd.batch
         ([ getImgDivPosition
-
-         -- TODO Break this task into two: use the already available saveEncodedModelToLocalStorage and create
-         -- a new one to delete. also rename saveEncodedModelToLocalStorage to saveModelToLocalStorage or saveModel
          , saveEncodedModelToLocalStorage (encodeModel model)
          ]
             ++ updateUrl
@@ -498,9 +495,6 @@ editorView model =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
             [ compositionBlocksList model
-
-            -- TODO BUG this probably doesn't work. To get around it we should have a nested record for Image
-            --      inside the model :(
             , lazy mainImg model.image
             , controlPanel model
             ]
@@ -864,183 +858,189 @@ fixedDiv attrs children =
 -- UPDATE
 
 
+updateSvgPathAndBoundariesIfNeeded : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+updateSvgPathAndBoundariesIfNeeded ( model, cmd ) =
+    ( { model | image = Image.updateSvgPathAndBoundaries model.image }, cmd )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        updateAndSaveImageAndGallery newModel =
-            ( newModel
-            , Cmd.batch
-                [ saveEncodedModelToLocalStorage (encodeModel newModel)
-                , replaceUrl newModel.navKey newModel.image
-                ]
-            )
-    in
-    case msg of
-        LinkClicked urlRequest ->
-            case urlRequest of
-                Browser.Internal url ->
-                    ( model, Nav.replaceUrl model.navKey (Url.toString url) )
+    updateSvgPathAndBoundariesIfNeeded <|
+        let
+            updateAndSaveImageAndGallery newModel =
+                ( newModel
+                , Cmd.batch
+                    [ saveEncodedModelToLocalStorage (encodeModel newModel)
+                    , replaceUrl newModel.navKey newModel.image
+                    ]
+                )
+        in
+        case msg of
+            LinkClicked urlRequest ->
+                case urlRequest of
+                    Browser.Internal url ->
+                        ( model, Nav.replaceUrl model.navKey (Url.toString url) )
 
-                Browser.External href ->
-                    ( model, Nav.load href )
+                    Browser.External href ->
+                        ( model, Nav.load href )
 
-        UrlChanged url ->
-            -- Called via replaceUrl (and indirectly via click on internal links/href, see LinkClicked above)
-            ( { model | viewingPage = mapRouteToPage (parseUrl url) }, Cmd.none )
+            UrlChanged url ->
+                -- Called via replaceUrl (and indirectly via click on internal links/href, see LinkClicked above)
+                ( { model | viewingPage = mapRouteToPage (parseUrl url) }, Cmd.none )
 
-        DownloadSvg ->
-            ( model, downloadSvg () )
+            DownloadSvg ->
+                ( model, downloadSvg () )
 
-        ResetDrawing ->
-            updateAndSaveImageAndGallery
-                { model
-                    | image = Image.resetImageComposition model.image
-                    , editingIndex = 1
-                }
+            ResetDrawing ->
+                updateAndSaveImageAndGallery
+                    { model
+                        | image = Image.resetImageComposition model.image
+                        , editingIndex = 1
+                    }
 
-        AddSimpleBlock ->
-            { model | image = Image.appendSimpleBlock model.image }
-                |> modelWithEditIndexLast
-                |> updateAndSaveImageAndGallery
+            AddSimpleBlock ->
+                { model | image = Image.appendSimpleBlock model.image }
+                    |> modelWithEditIndexLast
+                    |> updateAndSaveImageAndGallery
 
-        DuplicateAndAppendBlock editingIndex ->
-            updateAndSaveImageAndGallery <| duplicateAndAppendBlock model editingIndex
+            DuplicateAndAppendBlock editingIndex ->
+                updateAndSaveImageAndGallery <| duplicateAndAppendBlock model editingIndex
 
-        DropLastBlock ->
-            updateAndSaveImageAndGallery <| dropLastBlock model
+            DropLastBlock ->
+                updateAndSaveImageAndGallery <| dropLastBlock model
 
-        KeyPress keyString ->
-            let
-                ( newModel, shouldUpdate ) =
-                    processKey model keyString
-            in
-            if shouldUpdate then
-                updateAndSaveImageAndGallery newModel
+            KeyPress keyString ->
+                let
+                    ( newModel, shouldUpdate ) =
+                        processKey model keyString
+                in
+                if shouldUpdate then
+                    updateAndSaveImageAndGallery newModel
 
-            else
-                ( model, Cmd.none )
-
-        -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
-        -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
-        Zoom _ deltaY _ mousePos ->
-            updateAndSaveImageAndGallery <| applyZoom deltaY mousePos model
-
-        SetEditingIndex index ->
-            ( { model | editingIndex = index }, Cmd.none )
-
-        DropFromState index ->
-            updateAndSaveImageAndGallery <|
-                { model
-                    | image = Image.dropBlockAtIndex index model.image
-                    , editingIndex =
-                        if index <= model.editingIndex then
-                            max 0 (model.editingIndex - 1)
-
-                        else
-                            model.editingIndex
-                }
-
-        SetBackgroundColor color ->
-            updateAndSaveImageAndGallery <| { model | image = Image.withBackgroundColor color model.image }
-
-        SetStrokeColor color ->
-            updateAndSaveImageAndGallery <| { model | image = Image.withStrokeColor color model.image }
-
-        SetTurnAngle turn ->
-            let
-                newModel =
-                    { model | image = Image.withTurnAngle turn model.image }
-            in
-            if model.playingVideo then
-                -- Don't update URL and Local Storage on each video step
-                ( newModel, Cmd.none )
-
-            else
-                updateAndSaveImageAndGallery newModel
-
-        SetStrokeWidth width ->
-            updateAndSaveImageAndGallery <| { model | image = Image.withStrokeWidth width model.image }
-
-        PanStarted pos ->
-            ( { model | panStarted = True, lastPos = pos }, Cmd.none )
-
-        PanEnded ->
-            updateAndSaveImageAndGallery <| { model | panStarted = False }
-
-        MouseMoved pos ->
-            ( { model
-                | image = Image.move model.lastPos pos model.image
-                , lastPos = pos
-              }
-            , Cmd.none
-            )
-
-        SetFocus focus ->
-            ( { model | focus = focus }, Cmd.none )
-
-        BasePolygonChanged polygon ->
-            updateAndSaveImageAndGallery <| updateCompositionBaseAndAngle model polygon
-
-        GotImgDivPosition result ->
-            case result of
-                Ok data ->
-                    let
-                        { x, y, width, height } =
-                            data.element
-                    in
-                    ( { model | imgDivCenter = ( x + width / 2, y + height / 2 ), imgDivStart = ( x, y ) }, Cmd.none )
-
-                Err _ ->
+                else
                     ( model, Cmd.none )
 
-        TogglePlayingVideo ->
-            let
-                newModel =
-                    { model | playingVideo = not model.playingVideo }
-            in
-            if model.playingVideo then
-                -- When video stopped save model in URL and Local Storage
-                -- N.B. Copying the URL while a playing video will copy the last image saved
-                -- i.e. before playing video or the last not-angle edit while playing.
-                updateAndSaveImageAndGallery <| newModel
+            -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
+            -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
+            Zoom _ deltaY _ mousePos ->
+                updateAndSaveImageAndGallery <| applyZoom deltaY mousePos model
 
-            else
-                ( newModel, Cmd.none )
+            SetEditingIndex index ->
+                ( { model | editingIndex = index }, Cmd.none )
 
-        SetVideoAngleChangeRate rate ->
-            ( { model | videoAngleChangeRate = rate }, Cmd.none )
+            DropFromState index ->
+                updateAndSaveImageAndGallery <|
+                    { model
+                        | image = Image.dropBlockAtIndex index model.image
+                        , editingIndex =
+                            if index <= model.editingIndex then
+                                max 0 (model.editingIndex - 1)
 
-        ReverseAngleChangeDirection ->
-            ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )
+                            else
+                                model.editingIndex
+                    }
 
-        SavedToGallery ->
-            updateAndSaveImageAndGallery <| { model | gallery = model.image :: model.gallery }
+            SetBackgroundColor color ->
+                updateAndSaveImageAndGallery <| { model | image = Image.withBackgroundColor color model.image }
 
-        ViewingPage page ->
-            ( { model | viewingPage = page }, Cmd.none )
+            SetStrokeColor color ->
+                updateAndSaveImageAndGallery <| { model | image = Image.withStrokeColor color model.image }
 
-        RemovedFromGallery index ->
-            updateAndSaveImageAndGallery <| { model | gallery = ListExtra.dropIndex index model.gallery }
+            SetTurnAngle turn ->
+                let
+                    newModel =
+                        { model | image = Image.withTurnAngle turn model.image }
+                in
+                if model.playingVideo then
+                    -- Don't update URL and Local Storage on each video step
+                    ( newModel, Cmd.none )
 
-        DuplicateToEdit index ->
-            let
-                image =
-                    ListExtra.getAt index model.gallery
-                        |> Maybe.withDefault model.image
-            in
-            updateAndSaveImageAndGallery <|
-                { model
-                    | viewingPage = EditorPage
-                    , image = image
-                }
+                else
+                    updateAndSaveImageAndGallery newModel
 
-        GotMidiEvent value ->
-            if model.viewingPage == GalleryPage then
-                ( model, Cmd.none )
+            SetStrokeWidth width ->
+                updateAndSaveImageAndGallery <| { model | image = Image.withStrokeWidth width model.image }
 
-            else
-                -- TODO add throttle and then add updateAndSaveImageAndGallery
-                ( processMidi value model, Cmd.none )
+            PanStarted pos ->
+                ( { model | panStarted = True, lastPos = pos }, Cmd.none )
+
+            PanEnded ->
+                updateAndSaveImageAndGallery <| { model | panStarted = False }
+
+            MouseMoved pos ->
+                ( { model
+                    | image = Image.move model.lastPos pos model.image
+                    , lastPos = pos
+                  }
+                , Cmd.none
+                )
+
+            SetFocus focus ->
+                ( { model | focus = focus }, Cmd.none )
+
+            BasePolygonChanged polygon ->
+                updateAndSaveImageAndGallery <| updateCompositionBaseAndAngle model polygon
+
+            GotImgDivPosition result ->
+                case result of
+                    Ok data ->
+                        let
+                            { x, y, width, height } =
+                                data.element
+                        in
+                        ( { model | imgDivCenter = ( x + width / 2, y + height / 2 ), imgDivStart = ( x, y ) }, Cmd.none )
+
+                    Err _ ->
+                        ( model, Cmd.none )
+
+            TogglePlayingVideo ->
+                let
+                    newModel =
+                        { model | playingVideo = not model.playingVideo }
+                in
+                if model.playingVideo then
+                    -- When video stopped save model in URL and Local Storage
+                    -- N.B. Copying the URL while a playing video will copy the last image saved
+                    -- i.e. before playing video or the last not-angle edit while playing.
+                    updateAndSaveImageAndGallery <| newModel
+
+                else
+                    ( newModel, Cmd.none )
+
+            SetVideoAngleChangeRate rate ->
+                ( { model | videoAngleChangeRate = rate }, Cmd.none )
+
+            ReverseAngleChangeDirection ->
+                ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )
+
+            SavedToGallery ->
+                updateAndSaveImageAndGallery <| { model | gallery = model.image :: model.gallery }
+
+            ViewingPage page ->
+                ( { model | viewingPage = page }, Cmd.none )
+
+            RemovedFromGallery index ->
+                updateAndSaveImageAndGallery <| { model | gallery = ListExtra.dropIndex index model.gallery }
+
+            DuplicateToEdit index ->
+                let
+                    image =
+                        ListExtra.getAt index model.gallery
+                            |> Maybe.withDefault model.image
+                in
+                updateAndSaveImageAndGallery <|
+                    { model
+                        | viewingPage = EditorPage
+                        , image = image
+                    }
+
+            GotMidiEvent value ->
+                if model.viewingPage == GalleryPage then
+                    ( model, Cmd.none )
+
+                else
+                    -- TODO add throttle and then add updateAndSaveImageAndGallery
+                    ( processMidi value model, Cmd.none )
 
 
 processMidi : Encode.Value -> Model -> Model

@@ -94,12 +94,14 @@ imageFuzzer =
         compositionFuzzer
         -- Turn angle
         Fuzz.float
+        -- SvgPathAndBoundaries
+        (Fuzz.constant Nothing)
         -- Background color
         colorFuzzer
         -- Stroke Color
         colorFuzzer
         -- Stroke width
-        Fuzz.float
+        |> Fuzz.andMap Fuzz.float
         -- Translate
         |> Fuzz.andMap (Fuzz.tuple ( Fuzz.float, Fuzz.float ))
         -- Scale
