@@ -18,6 +18,7 @@ module LSystem.Image exposing
     , encodeImage
     , imageDecoder
     , imageStepsLenthString
+    , imageToSvgPathString
     , length
     , move
     , polygonAngle
@@ -26,6 +27,7 @@ module LSystem.Image exposing
     , resetBaseTo
     , resetImageComposition
     , toQuery
+    , updateSvgPathAndBoundaries
     , withBackgroundColor
     , withImage
     , withScale
@@ -84,7 +86,7 @@ type alias Image =
     , turnAngle : Angle
 
     -- Refactor to make impossible states impossible: composition + turnAngle + svgPathAndBoundaries
-    , svgPathAndBoundaries : SvgPathAndBoundaries
+    , svgPathAndBoundaries : Maybe SvgPathAndBoundaries
     , backgroundColor : Color
     , strokeColor : Color
     , strokeWidth : Width
@@ -104,24 +106,17 @@ type alias PartialImage =
     }
 
 
-emptySvgPathAndBoundaries : SvgPathAndBoundaries
-emptySvgPathAndBoundaries =
-    -- Maybe change to actual defaultSvgPathAndBoundaries values
-    ( "", "", { leftTop = ( 0, 0 ), rightBottom = ( 0, 0 ) } )
-
-
 defaultImage : Image
 defaultImage =
     { composition = Core.fromList [ polygonBlock Square, [ D ] ]
     , turnAngle = polygonAngle Square
-    , svgPathAndBoundaries = emptySvgPathAndBoundaries
+    , svgPathAndBoundaries = Nothing
     , backgroundColor = Colors.darkGray
     , strokeColor = Colors.defaultGreen
     , strokeWidth = 1
     , translate = ( 0, 0 )
     , scale = 1
     }
-        |> updateSvgPathAndBoundaries
 
 
 
@@ -139,8 +134,8 @@ blocksToImages image =
                     , scale = 1
                     , translate = ( 0, 0 )
                     , strokeWidth = 1
+                    , svgPathAndBoundaries = Nothing
                 }
-                    |> updateSvgPathAndBoundaries
             )
 
 
@@ -150,16 +145,18 @@ blocksToImages image =
 
 appendStepAtIndex : Step -> Int -> Image -> Image
 appendStepAtIndex step index image =
-    { image | composition = Core.appendStepAtIndex step index image.composition }
-        |> updateSvgPathAndBoundaries
+    { image
+        | composition = Core.appendStepAtIndex step index image.composition
+        , svgPathAndBoundaries = Nothing
+    }
 
 
 appendBlock : Block -> Image -> Image
 appendBlock block image =
     { image
         | composition = Core.appendBlock block image.composition
+        , svgPathAndBoundaries = Nothing
     }
-        |> updateSvgPathAndBoundaries
 
 
 appendSimpleBlock : Image -> Image
@@ -175,8 +172,10 @@ duplicateBlock index image =
     in
     case maybeDuplicatedBlock of
         Just newBlock ->
-            { image | composition = Core.appendBlock newBlock image.composition }
-                |> updateSvgPathAndBoundaries
+            { image
+                | composition = Core.appendBlock newBlock image.composition
+                , svgPathAndBoundaries = Nothing
+            }
 
         Nothing ->
             image
@@ -184,20 +183,26 @@ duplicateBlock index image =
 
 dropLastStepAtIndex : Int -> Image -> Image
 dropLastStepAtIndex index image =
-    { image | composition = Core.dropLastStepAtIndex index image.composition }
-        |> updateSvgPathAndBoundaries
+    { image
+        | composition = Core.dropLastStepAtIndex index image.composition
+        , svgPathAndBoundaries = Nothing
+    }
 
 
 dropLastBlock : Image -> Image
 dropLastBlock image =
-    { image | composition = Core.dropLastBlock image.composition }
-        |> updateSvgPathAndBoundaries
+    { image
+        | composition = Core.dropLastBlock image.composition
+        , svgPathAndBoundaries = Nothing
+    }
 
 
 dropBlockAtIndex : Int -> Image -> Image
 dropBlockAtIndex index image =
-    { image | composition = Core.dropBlockAtIndex index image.composition }
-        |> updateSvgPathAndBoundaries
+    { image
+        | composition = Core.dropBlockAtIndex index image.composition
+        , svgPathAndBoundaries = Nothing
+    }
 
 
 resetBaseTo : Polygon -> Image -> Image
@@ -205,14 +210,16 @@ resetBaseTo polygon image =
     { image
         | composition = Core.changeBase (polygonBlock polygon) image.composition
         , turnAngle = polygonAngle polygon
+        , svgPathAndBoundaries = Nothing
     }
-        |> updateSvgPathAndBoundaries
 
 
 resetImageComposition : Image -> Image
 resetImageComposition image =
-    { image | composition = image.composition |> Core.dropAllBlocksButBase |> Core.appendBlock [ D ] }
-        |> updateSvgPathAndBoundaries
+    { image
+        | composition = image.composition |> Core.dropAllBlocksButBase |> Core.appendBlock [ D ]
+        , svgPathAndBoundaries = Nothing
+    }
 
 
 
@@ -311,11 +318,13 @@ withTranslate position image =
 
 withTurnAngle : Angle -> Image -> Image
 withTurnAngle angle image =
-    { image | turnAngle = angle }
-        |> updateSvgPathAndBoundaries
+    { image
+        | turnAngle = angle
+        , svgPathAndBoundaries = Nothing
+    }
 
 
-withSvgPathAndBoundaries : SvgPathAndBoundaries -> Image -> Image
+withSvgPathAndBoundaries : Maybe SvgPathAndBoundaries -> Image -> Image
 withSvgPathAndBoundaries svgPathAndBoundaries image =
     { image | svgPathAndBoundaries = svgPathAndBoundaries }
 
@@ -328,24 +337,23 @@ withScale scale image =
 withImage : PartialImage -> Image -> Image
 withImage partial image =
     let
-        toKeepOrNotToKeepTheSvgPathAndBoundaries =
+        updatedSvgPathAndBoundaries =
             case ( partial.composition, partial.turnAngle ) of
                 ( Nothing, Nothing ) ->
-                    identity
+                    image.svgPathAndBoundaries
 
                 _ ->
-                    updateSvgPathAndBoundaries
+                    Nothing
     in
     { composition = Maybe.withDefault image.composition partial.composition
     , turnAngle = Maybe.withDefault image.turnAngle partial.turnAngle
-    , svgPathAndBoundaries = image.svgPathAndBoundaries
+    , svgPathAndBoundaries = updatedSvgPathAndBoundaries
     , backgroundColor = Maybe.withDefault image.backgroundColor partial.backgroundColor
     , strokeColor = Maybe.withDefault image.strokeColor partial.strokeColor
     , strokeWidth = Maybe.withDefault image.strokeWidth partial.strokeWidth
     , translate = Maybe.withDefault image.translate partial.translate
     , scale = Maybe.withDefault image.scale partial.scale
     }
-        |> updateSvgPathAndBoundaries
 
 
 
@@ -433,10 +441,8 @@ imageDecoder =
             Decode.succeed
     in
     Decode.oneOf
-        [ Decode.map updateSvgPathAndBoundaries <|
-            Decode.map8 Image composition turnAngle (succeed emptySvgPathAndBoundaries) backgroundColor strokeColor strokeWidth translate scale
-        , Decode.map updateSvgPathAndBoundaries <|
-            Decode.map8 Image composition turnAngle (succeed emptySvgPathAndBoundaries) backgroundColor strokeColor (succeed 1) translate scale
+        [ Decode.map8 Image composition turnAngle (succeed Nothing) backgroundColor strokeColor strokeWidth translate scale
+        , Decode.map8 Image composition turnAngle (succeed Nothing) backgroundColor strokeColor (succeed 1) translate scale
         ]
 
 
@@ -563,7 +569,12 @@ type alias EverythingInOnePass =
 
 updateSvgPathAndBoundaries : Image -> Image
 updateSvgPathAndBoundaries image =
-    withSvgPathAndBoundaries (imageToSvgPathString image) image
+    case image.svgPathAndBoundaries of
+        Just _ ->
+            image
+
+        Nothing ->
+            withSvgPathAndBoundaries (Just (imageToSvgPathString image)) image
 
 
 {-|

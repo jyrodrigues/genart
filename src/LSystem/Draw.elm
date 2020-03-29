@@ -59,7 +59,12 @@ drawImage maybeId maybeMsg drawOriginAndNextStep image =
 
         -- MAIN COMPUTATION: process image and create SVG path.
         ( mainPathString, nextStepPathString, boundaries ) =
-            image.svgPathAndBoundaries
+            case image.svgPathAndBoundaries of
+                Just svgPathAndBoundaries ->
+                    svgPathAndBoundaries
+
+                Nothing ->
+                    Image.imageToSvgPathString image
 
         ( ( viewBoxMinX, viewBoxMinY ), ( viewBoxWidth, viewBoxHeight ) ) =
             calculateViewBox boundaries
