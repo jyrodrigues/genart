@@ -72,6 +72,7 @@ import Css
         , zero
         )
 import Css.Media as Media exposing (withMedia)
+import Debouncer.Messages as Debouncer exposing (Debouncer)
 import Html.Styled exposing (Html, br, button, div, h2, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
 import Html.Styled.Events
@@ -151,6 +152,8 @@ type Msg
     | PanEnded
     | MouseMoved Position
     | Zoom Float Float ShiftKey Position
+      -- Debounce
+    | DebouncerMsg (Debouncer.Msg Msg)
       -- Colors
     | SetBackgroundColor Color
     | SetStrokeColor Color
@@ -189,6 +192,9 @@ type alias Model =
     -- Pan and Zoom
     , panStarted : Bool
     , lastPos : Position
+
+    -- Debouncer
+    , debouncer : Debouncer Msg
 
     -- Main Image Div Coordinates
     , imgDivCenter : Position
@@ -280,6 +286,12 @@ initialModel image gallery url navKey =
     , panStarted = False
     , lastPos = ( 0, 0 )
 
+    -- Debouncer
+    , debouncer =
+        Debouncer.throttle throttleInterval
+            |> Debouncer.settleWhenQuietFor (Just throttleInterval)
+            |> Debouncer.toDebouncer
+
     -- Main Image Div Coordinates
     , imgDivCenter = ( 0, 0 )
     , imgDivStart = ( 0, 0 )
@@ -307,6 +319,11 @@ modelWithRoute route model =
 modelWithEditIndexLast : Model -> Model
 modelWithEditIndexLast model =
     { model | editingIndex = Image.length model.image - 1 }
+
+
+throttleInterval : Int
+throttleInterval =
+    800
 
 
 
@@ -975,6 +992,9 @@ update msg model =
             , Cmd.none
             )
 
+        DebouncerMsg debouncerMsg ->
+            Debouncer.update update updateDebouncer debouncerMsg model
+
         SetFocus focus ->
             ( { model | focus = focus }, Cmd.none )
 
@@ -1041,6 +1061,14 @@ update msg model =
             else
                 -- TODO add throttle and then add updateAndSaveImageAndGallery
                 ( processMidi value model, Cmd.none )
+
+
+updateDebouncer : Debouncer.UpdateConfig Msg Model
+updateDebouncer =
+    { mapMsg = DebouncerMsg
+    , getDebouncer = .debouncer
+    , setDebouncer = \debouncer model -> { model | debouncer = debouncer }
+    }
 
 
 processMidi : Encode.Value -> Model -> Model
@@ -1304,7 +1332,7 @@ subscriptions model =
         panSubs =
             if model.panStarted then
                 Sub.batch
-                    [ Browser.Events.onMouseMove mouseMoveDecoder
+                    [ Browser.Events.onMouseMove (Decode.map (Debouncer.provideInput >> DebouncerMsg) mouseMoveDecoder)
                     , Browser.Events.onMouseUp (Decode.succeed PanEnded)
                     ]
 
