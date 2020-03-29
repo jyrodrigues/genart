@@ -1,8 +1,7 @@
 module LSystem.Draw exposing (drawBlocks, drawFixedImage, drawImage)
 
 import Colors exposing (Color)
-import LSystem.Core as Core exposing (Step(..), digestComposition)
-import LSystem.Image as Image exposing (Boundaries, Cache, Image, Position)
+import LSystem.Image as Image exposing (Boundaries, Image, Position)
 import ListExtra exposing (floatsToSpacedString, pairExec, pairMap)
 import Svg.Styled exposing (Svg, circle, defs, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
@@ -60,7 +59,7 @@ drawImage maybeId maybeMsg drawOriginAndNextStep image =
 
         -- MAIN COMPUTATION: process image and create SVG path.
         ( mainPathString, nextStepPathString, boundaries ) =
-            image.cache
+            image.svgPathAndBoundaries
 
         ( ( viewBoxMinX, viewBoxMinY ), ( viewBoxWidth, viewBoxHeight ) ) =
             calculateViewBox boundaries

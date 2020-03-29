@@ -1,10 +1,10 @@
 module LSystem.Image exposing
     ( Boundaries
-    , Cache
     , Image
     , PartialImage
     , Polygon(..)
     , Position
+    , SvgPathAndBoundaries
     , appendSimpleBlock
     , appendStepAtIndex
     , blockBlueprintString
@@ -27,11 +27,11 @@ module LSystem.Image exposing
     , resetImageComposition
     , toQuery
     , withBackgroundColor
-    , withCache
     , withImage
     , withScale
     , withStrokeColor
     , withStrokeWidth
+    , withSvgPathAndBoundaries
     , withTranslate
     , withTurnAngle
     , zoom
@@ -69,7 +69,7 @@ type Polygon
     | Hexagon
 
 
-type alias Cache =
+type alias SvgPathAndBoundaries =
     ( String, String, Boundaries )
 
 
@@ -83,8 +83,8 @@ type alias Image =
     { composition : Composition
     , turnAngle : Angle
 
-    -- Refactor to make impossible states impossible: composition + turnAngle + cache
-    , cache : Cache
+    -- Refactor to make impossible states impossible: composition + turnAngle + svgPathAndBoundaries
+    , svgPathAndBoundaries : SvgPathAndBoundaries
     , backgroundColor : Color
     , strokeColor : Color
     , strokeWidth : Width
@@ -104,9 +104,9 @@ type alias PartialImage =
     }
 
 
-emptyCache : Cache
-emptyCache =
-    -- Maybe change to actual defaultCache values
+emptySvgPathAndBoundaries : SvgPathAndBoundaries
+emptySvgPathAndBoundaries =
+    -- Maybe change to actual defaultSvgPathAndBoundaries values
     ( "", "", { leftTop = ( 0, 0 ), rightBottom = ( 0, 0 ) } )
 
 
@@ -114,14 +114,14 @@ defaultImage : Image
 defaultImage =
     { composition = Core.fromList [ polygonBlock Square, [ D ] ]
     , turnAngle = polygonAngle Square
-    , cache = emptyCache
+    , svgPathAndBoundaries = emptySvgPathAndBoundaries
     , backgroundColor = Colors.darkGray
     , strokeColor = Colors.defaultGreen
     , strokeWidth = 1
     , translate = ( 0, 0 )
     , scale = 1
     }
-        |> updateCache
+        |> updateSvgPathAndBoundaries
 
 
 
@@ -140,7 +140,7 @@ blocksToImages image =
                     , translate = ( 0, 0 )
                     , strokeWidth = 1
                 }
-                    |> updateCache
+                    |> updateSvgPathAndBoundaries
             )
 
 
@@ -151,7 +151,7 @@ blocksToImages image =
 appendStepAtIndex : Step -> Int -> Image -> Image
 appendStepAtIndex step index image =
     { image | composition = Core.appendStepAtIndex step index image.composition }
-        |> updateCache
+        |> updateSvgPathAndBoundaries
 
 
 appendBlock : Block -> Image -> Image
@@ -159,7 +159,7 @@ appendBlock block image =
     { image
         | composition = Core.appendBlock block image.composition
     }
-        |> updateCache
+        |> updateSvgPathAndBoundaries
 
 
 appendSimpleBlock : Image -> Image
@@ -176,7 +176,7 @@ duplicateBlock index image =
     case maybeDuplicatedBlock of
         Just newBlock ->
             { image | composition = Core.appendBlock newBlock image.composition }
-                |> updateCache
+                |> updateSvgPathAndBoundaries
 
         Nothing ->
             image
@@ -185,19 +185,19 @@ duplicateBlock index image =
 dropLastStepAtIndex : Int -> Image -> Image
 dropLastStepAtIndex index image =
     { image | composition = Core.dropLastStepAtIndex index image.composition }
-        |> updateCache
+        |> updateSvgPathAndBoundaries
 
 
 dropLastBlock : Image -> Image
 dropLastBlock image =
     { image | composition = Core.dropLastBlock image.composition }
-        |> updateCache
+        |> updateSvgPathAndBoundaries
 
 
 dropBlockAtIndex : Int -> Image -> Image
 dropBlockAtIndex index image =
     { image | composition = Core.dropBlockAtIndex index image.composition }
-        |> updateCache
+        |> updateSvgPathAndBoundaries
 
 
 resetBaseTo : Polygon -> Image -> Image
@@ -206,13 +206,13 @@ resetBaseTo polygon image =
         | composition = Core.changeBase (polygonBlock polygon) image.composition
         , turnAngle = polygonAngle polygon
     }
-        |> updateCache
+        |> updateSvgPathAndBoundaries
 
 
 resetImageComposition : Image -> Image
 resetImageComposition image =
     { image | composition = image.composition |> Core.dropAllBlocksButBase |> Core.appendBlock [ D ] }
-        |> updateCache
+        |> updateSvgPathAndBoundaries
 
 
 
@@ -312,12 +312,12 @@ withTranslate position image =
 withTurnAngle : Angle -> Image -> Image
 withTurnAngle angle image =
     { image | turnAngle = angle }
-        |> updateCache
+        |> updateSvgPathAndBoundaries
 
 
-withCache : Cache -> Image -> Image
-withCache cache image =
-    { image | cache = cache }
+withSvgPathAndBoundaries : SvgPathAndBoundaries -> Image -> Image
+withSvgPathAndBoundaries svgPathAndBoundaries image =
+    { image | svgPathAndBoundaries = svgPathAndBoundaries }
 
 
 withScale : Scale -> Image -> Image
@@ -328,24 +328,24 @@ withScale scale image =
 withImage : PartialImage -> Image -> Image
 withImage partial image =
     let
-        toKeepOrNotToKeepTheCache =
+        toKeepOrNotToKeepTheSvgPathAndBoundaries =
             case ( partial.composition, partial.turnAngle ) of
                 ( Nothing, Nothing ) ->
                     identity
 
                 _ ->
-                    updateCache
+                    updateSvgPathAndBoundaries
     in
     { composition = Maybe.withDefault image.composition partial.composition
     , turnAngle = Maybe.withDefault image.turnAngle partial.turnAngle
-    , cache = image.cache
+    , svgPathAndBoundaries = image.svgPathAndBoundaries
     , backgroundColor = Maybe.withDefault image.backgroundColor partial.backgroundColor
     , strokeColor = Maybe.withDefault image.strokeColor partial.strokeColor
     , strokeWidth = Maybe.withDefault image.strokeWidth partial.strokeWidth
     , translate = Maybe.withDefault image.translate partial.translate
     , scale = Maybe.withDefault image.scale partial.scale
     }
-        |> updateCache
+        |> updateSvgPathAndBoundaries
 
 
 
@@ -433,10 +433,10 @@ imageDecoder =
             Decode.succeed
     in
     Decode.oneOf
-        [ Decode.map updateCache <|
-            Decode.map8 Image composition turnAngle (succeed emptyCache) backgroundColor strokeColor strokeWidth translate scale
-        , Decode.map updateCache <|
-            Decode.map8 Image composition turnAngle (succeed emptyCache) backgroundColor strokeColor (succeed 1) translate scale
+        [ Decode.map updateSvgPathAndBoundaries <|
+            Decode.map8 Image composition turnAngle (succeed emptySvgPathAndBoundaries) backgroundColor strokeColor strokeWidth translate scale
+        , Decode.map updateSvgPathAndBoundaries <|
+            Decode.map8 Image composition turnAngle (succeed emptySvgPathAndBoundaries) backgroundColor strokeColor (succeed 1) translate scale
         ]
 
 
@@ -496,7 +496,7 @@ keyFor =
 
 
 
--- CALCULATE CACHE
+-- CALCULATE svgPathAndBoundaries
 -- TYPES
 
 
@@ -561,9 +561,9 @@ type alias EverythingInOnePass =
     }
 
 
-updateCache : Image -> Image
-updateCache image =
-    withCache (imageToSvgPathString image) image
+updateSvgPathAndBoundaries : Image -> Image
+updateSvgPathAndBoundaries image =
+    withSvgPathAndBoundaries (imageToSvgPathString image) image
 
 
 {-|
@@ -576,7 +576,7 @@ updateCache image =
     Memoize this function!
 
 -}
-imageToSvgPathString : Image -> Cache
+imageToSvgPathString : Image -> SvgPathAndBoundaries
 imageToSvgPathString { composition, turnAngle } =
     let
         finalEverything =
