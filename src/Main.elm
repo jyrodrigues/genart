@@ -578,10 +578,20 @@ videoControls angleChangeRate playingVideo =
                 "Play"
     in
     controlBlock
-        [ span [ css [ display block ] ] [ text ("Video Playback:" ++ String.fromFloat (angleChangeRate * 20) ++ "x") ]
+        [ span [ css [ display block ] ]
+            [ text
+                ("Video Playback:"
+                    ++ String.fromFloat (angleChangeRate * 1000 / framesInterval)
+                    ++ "x"
+                )
+            ]
         , button [ onClick TogglePlayingVideo ] [ text playPauseText ]
         , button [ onClick ReverseAngleChangeDirection ] [ text "Reverse" ]
-        , sliderInput SetVideoAngleChangeRate angleChangeRate 0.0001 0.0501 0.0005
+        -- Magic values:
+        -- min: 0.00005 * 20 = 0.001 degrees/second
+        -- max: 2 * 20 = 40 degrees/second
+        -- center: 1 * 20 degrees/second at 90% of slider
+        , sliderExponentialInput SetVideoAngleChangeRate angleChangeRate 0.00005 1 2 0.9
         ]
 
 
@@ -619,7 +629,11 @@ strokeWidthControl : Float -> Html Msg
 strokeWidthControl width =
     controlBlock
         [ text ("Line width: " ++ String.fromFloat width)
-        , sliderExponentialInput SetStrokeWidth width 0.0001 4 0.9
+        -- Magic values:
+        -- min: 0.0001px
+        -- max: 4px
+        -- center: 1px at 90% of slider
+        , sliderExponentialInput SetStrokeWidth width 0.0001 1 4 0.9
         , button [ onClick (SetStrokeWidth 1) ] [ text "Reset" ]
         ]
 
@@ -647,22 +661,35 @@ sliderInput msg oldValue min_ max_ step_ =
         []
 
 
-sliderExponentialInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Html msg
-sliderExponentialInput msg oldValue minValue maxValue centerOneAt =
+{-|
+
+    - minValue and maxValue are always enforced; while
+    - centerValue can be thought of as a center of gravity
+    - centerAt should be a percentage (0 ~ 1), the point in the slider where centerValue will target
+
+-}
+sliderExponentialInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Float -> Html msg
+sliderExponentialInput msg oldValue minValue centerValue maxValue centerAt =
     let
         {--
-            Based on `centerOneAt` and `maxValue`:
+            Based on `centerAt` and `maxValue`:
             Convert from linear (0 ~ 1) to exponential (0.000001 ~ 4)
 
             Take f(x) = a*b^x;
-            Where f(centerOneAt) = 1;
+            Where f(centerAt) = centerValue;
             And f(1) = maxValue;
         --}
+        exponent =
+            if centerAt == 1 then
+                1 / 1.0e-8
+            else
+                1 / (1 - centerAt)
+
         b =
-            maxValue ^ (1 / (1 - centerOneAt + 1.0e-5))
+            (maxValue / centerValue) ^ exponent
 
         a =
-            maxValue ^ (-centerOneAt / (1 - centerOneAt + 1.0e-8))
+            maxValue ^ (1 - exponent) * centerValue ^ exponent
 
         toExponential zeroToOne =
             a * b ^ zeroToOne
@@ -677,7 +704,7 @@ sliderExponentialInput msg oldValue minValue maxValue centerOneAt =
             *But* we restrict it even further with `toExponential 0`.
         --}
         magicN =
-            fromExponential (max minValue (toExponential 0))
+            fromExponential minValue
 
         magicAdjust value =
             (value * (1 - magicN)) + magicN
@@ -1361,15 +1388,20 @@ subscriptions model =
             if model.playingVideo then
                 case model.slowMotion of
                     NotSet ->
-                        Time.every 50 (always (SetTurnAngle (model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
+                        Time.every framesInterval (always (SetTurnAngle (model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
 
                     Slowly by ->
-                        Time.every 50 (always (SetTurnAngle (model.image.turnAngle + (by * model.videoAngleChangeDirection * model.videoAngleChangeRate))))
+                        Time.every framesInterval (always (SetTurnAngle (model.image.turnAngle + (by * model.videoAngleChangeDirection * model.videoAngleChangeRate))))
 
             else
                 Sub.none
     in
     Sub.batch [ keyPressSub, panSubs, playingVideoSub, midiEvent GotMidiEvent ]
+
+
+framesInterval : Float
+framesInterval =
+    50
 
 
 
