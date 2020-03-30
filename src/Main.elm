@@ -102,6 +102,7 @@ import LSystem.Image as Image
         , withImage
         )
 import ListExtra
+import Midi exposing (adjustInputForStrokeWidth)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
@@ -618,7 +619,7 @@ strokeWidthControl : Float -> Html Msg
 strokeWidthControl width =
     controlBlock
         [ text ("Line width: " ++ String.fromFloat width)
-        , sliderInput SetStrokeWidth width 0.001 2.001 0.005
+        , sliderInput SetStrokeWidth width 0.0001 1 0.0001
         , button [ onClick (SetStrokeWidth 1) ] [ text "Reset" ]
         ]
 
@@ -1098,27 +1099,7 @@ processMidi value model =
 
             else if command == 176 && noteMap == 18 then
                 -- Stroke Width
-                { model
-                    | image =
-                        model.image
-                            {--Exponential function in range 0-127:
-
-                                Choose
-                                    f(1) = startValue
-                                    f(finalStep) = finalValue
-
-                                    f(x) = a . (b^x)
-
-                                    b = (finalValue . startValue^-1) ^ (1 / (finalStep - 1));
-                                    a = startValue / b;
-
-                                Here we chose
-                                    startValue = 0.00001; (1e-5)
-                                    finalStep = 127;
-                                    finalValue = 2;
-                            --}
-                            |> Image.withStrokeWidth (1.10172109893 ^ velocityPosition * 0.0000090767)
-                }
+                { model | image = model.image |> Image.withStrokeWidth (adjustInputForStrokeWidth velocityPosition) }
                 --
                 --
                 --
