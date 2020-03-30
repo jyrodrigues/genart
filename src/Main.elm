@@ -102,6 +102,7 @@ import LSystem.Image as Image
         , withImage
         )
 import ListExtra
+import Midi exposing (adjustInputForStrokeWidth)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
@@ -577,10 +578,20 @@ videoControls angleChangeRate playingVideo =
                 "Play"
     in
     controlBlock
-        [ span [ css [ display block ] ] [ text ("Video Playback:" ++ String.fromFloat (angleChangeRate * 20) ++ "x") ]
+        [ span [ css [ display block ] ]
+            [ text
+                ("Video Playback:"
+                    ++ String.fromFloat (angleChangeRate * 1000 / framesInterval)
+                    ++ "x"
+                )
+            ]
         , button [ onClick TogglePlayingVideo ] [ text playPauseText ]
         , button [ onClick ReverseAngleChangeDirection ] [ text "Reverse" ]
-        , sliderInput SetVideoAngleChangeRate angleChangeRate 0.0001 0.0501 0.0005
+        -- Magic values:
+        -- min: 0.00005 * 20 = 0.001 degrees/second
+        -- max: 2 * 20 = 40 degrees/second
+        -- center: 1 * 20 degrees/second at 90% of slider
+        , sliderExponentialInput SetVideoAngleChangeRate angleChangeRate 0.00005 1 2 0.9
         ]
 
 
@@ -618,7 +629,11 @@ strokeWidthControl : Float -> Html Msg
 strokeWidthControl width =
     controlBlock
         [ text ("Line width: " ++ String.fromFloat width)
-        , sliderInput SetStrokeWidth width 0.001 2.001 0.005
+        -- Magic values:
+        -- min: 0.0001px
+        -- max: 4px
+        -- center: 1px at 90% of slider
+        , sliderExponentialInput SetStrokeWidth width 0.0001 1 4 0.9
         , button [ onClick (SetStrokeWidth 1) ] [ text "Reset" ]
         ]
 
@@ -640,6 +655,77 @@ sliderInput msg oldValue min_ max_ step_ =
         , Html.Styled.Attributes.max (String.fromFloat max_)
         , Html.Styled.Attributes.step (String.fromFloat step_)
         , value <| String.fromFloat oldValue
+        , onInput onInputCallback
+        , css [ display block, Css.width (pct 100) ]
+        ]
+        []
+
+
+{-|
+
+    - minValue and maxValue are always enforced; while
+    - centerValue can be thought of as a center of gravity
+    - centerAt should be a percentage (0 ~ 1), the point in the slider where centerValue will target
+
+-}
+sliderExponentialInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Float -> Html msg
+sliderExponentialInput msg oldValue minValue centerValue maxValue centerAt =
+    let
+        {--
+            Based on `centerAt` and `maxValue`:
+            Convert from linear (0 ~ 1) to exponential (0.000001 ~ 4)
+
+            Take f(x) = a*b^x;
+            Where f(centerAt) = centerValue;
+            And f(1) = maxValue;
+        --}
+        exponent =
+            if centerAt == 1 then
+                1 / 1.0e-8
+            else
+                1 / (1 - centerAt)
+
+        b =
+            (maxValue / centerValue) ^ exponent
+
+        a =
+            maxValue ^ (1 - exponent) * centerValue ^ exponent
+
+        toExponential zeroToOne =
+            a * b ^ zeroToOne
+
+        fromExponential value =
+            logBase b (value / a)
+
+        {--
+            Linearly adjusting from e.g. (0.000001 ~ 4) into (0.01 ~ 4)
+
+            N.B. `fromExponential` isn't defined for values below or equal to 0.
+            *But* we restrict it even further with `toExponential 0`.
+        --}
+        magicN =
+            fromExponential minValue
+
+        magicAdjust value =
+            (value * (1 - magicN)) + magicN
+
+        magicReverse value =
+            (value - magicN) / (1 - magicN)
+
+        onInputCallback stringValue =
+            case String.toFloat stringValue of
+                Just newValue ->
+                    msg (toExponential <| magicAdjust newValue)
+
+                Nothing ->
+                    msg oldValue
+    in
+    input
+        [ type_ "range"
+        , Html.Styled.Attributes.min "0.0001"
+        , Html.Styled.Attributes.max "1"
+        , Html.Styled.Attributes.step "0.0001"
+        , value <| String.fromFloat <| magicReverse <| fromExponential oldValue
         , onInput onInputCallback
         , css [ display block, Css.width (pct 100) ]
         ]
@@ -1098,27 +1184,7 @@ processMidi value model =
 
             else if command == 176 && noteMap == 18 then
                 -- Stroke Width
-                { model
-                    | image =
-                        model.image
-                            {--Exponential function in range 0-127:
-
-                                Choose
-                                    f(1) = startValue
-                                    f(finalStep) = finalValue
-
-                                    f(x) = a . (b^x)
-
-                                    b = (finalValue . startValue^-1) ^ (1 / (finalStep - 1));
-                                    a = startValue / b;
-
-                                Here we chose
-                                    startValue = 0.00001; (1e-5)
-                                    finalStep = 127;
-                                    finalValue = 2;
-                            --}
-                            |> Image.withStrokeWidth (1.10172109893 ^ velocityPosition * 0.0000090767)
-                }
+                { model | image = model.image |> Image.withStrokeWidth (adjustInputForStrokeWidth velocityPosition) }
                 --
                 --
                 --
@@ -1322,15 +1388,20 @@ subscriptions model =
             if model.playingVideo then
                 case model.slowMotion of
                     NotSet ->
-                        Time.every 50 (always (SetTurnAngle (model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
+                        Time.every framesInterval (always (SetTurnAngle (model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
 
                     Slowly by ->
-                        Time.every 50 (always (SetTurnAngle (model.image.turnAngle + (by * model.videoAngleChangeDirection * model.videoAngleChangeRate))))
+                        Time.every framesInterval (always (SetTurnAngle (model.image.turnAngle + (by * model.videoAngleChangeDirection * model.videoAngleChangeRate))))
 
             else
                 Sub.none
     in
     Sub.batch [ keyPressSub, panSubs, playingVideoSub, midiEvent GotMidiEvent ]
+
+
+framesInterval : Float
+framesInterval =
+    50
 
 
 
