@@ -619,7 +619,7 @@ strokeWidthControl : Float -> Html Msg
 strokeWidthControl width =
     controlBlock
         [ text ("Line width: " ++ String.fromFloat width)
-        , sliderInput SetStrokeWidth width 0.0001 1 0.0001
+        , sliderExponentialInput SetStrokeWidth width 0.0001 4 0.9
         , button [ onClick (SetStrokeWidth 1) ] [ text "Reset" ]
         ]
 
@@ -641,6 +641,64 @@ sliderInput msg oldValue min_ max_ step_ =
         , Html.Styled.Attributes.max (String.fromFloat max_)
         , Html.Styled.Attributes.step (String.fromFloat step_)
         , value <| String.fromFloat oldValue
+        , onInput onInputCallback
+        , css [ display block, Css.width (pct 100) ]
+        ]
+        []
+
+
+sliderExponentialInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Html msg
+sliderExponentialInput msg oldValue minValue maxValue centerOneAt =
+    let
+        {--
+            Based on `centerOneAt` and `maxValue`:
+            Convert from linear (0 ~ 1) to exponential (0.000001 ~ 4)
+
+            Take f(x) = a*b^x;
+            Where f(centerOneAt) = 1;
+            And f(1) = maxValue;
+        --}
+        b =
+            maxValue ^ (1 / (1 - centerOneAt + 1.0e-5))
+
+        a =
+            maxValue ^ (-centerOneAt / (1 - centerOneAt + 1.0e-8))
+
+        toExponential zeroToOne =
+            a * b ^ zeroToOne
+
+        fromExponential value =
+            logBase b (value / a)
+
+        {--
+            Linearly adjusting from e.g. (0.000001 ~ 4) into (0.01 ~ 4)
+
+            N.B. `fromExponential` isn't defined for values below or equal to 0.
+            *But* we restrict it even further with `toExponential 0`.
+        --}
+        magicN =
+            fromExponential (max minValue (toExponential 0))
+
+        magicAdjust value =
+            (value * (1 - magicN)) + magicN
+
+        magicReverse value =
+            (value - magicN) / (1 - magicN)
+
+        onInputCallback stringValue =
+            case String.toFloat stringValue of
+                Just newValue ->
+                    msg (toExponential <| magicAdjust newValue)
+
+                Nothing ->
+                    msg oldValue
+    in
+    input
+        [ type_ "range"
+        , Html.Styled.Attributes.min "0.0001"
+        , Html.Styled.Attributes.max "1"
+        , Html.Styled.Attributes.step "0.0001"
+        , value <| String.fromFloat <| magicReverse <| fromExponential oldValue
         , onInput onInputCallback
         , css [ display block, Css.width (pct 100) ]
         ]
