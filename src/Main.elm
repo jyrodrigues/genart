@@ -581,12 +581,13 @@ videoControls angleChangeRate playingVideo =
         [ span [ css [ display block ] ]
             [ text
                 ("Video Playback:"
-                    ++ String.fromFloat (angleChangeRate * 1000 / framesInterval)
+                    ++ truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval))
                     ++ "x"
                 )
             ]
         , button [ onClick TogglePlayingVideo ] [ text playPauseText ]
         , button [ onClick ReverseAngleChangeDirection ] [ text "Reverse" ]
+
         -- Magic values:
         -- min: 0.00005 * 20 = 0.001 degrees/second
         -- max: 2 * 20 = 40 degrees/second
@@ -628,7 +629,8 @@ turnAngleControl turnAngle =
 strokeWidthControl : Float -> Html Msg
 strokeWidthControl width =
     controlBlock
-        [ text ("Line width: " ++ String.fromFloat width)
+        [ text ("Line width: " ++ truncateFloatString 6 (String.fromFloat width))
+
         -- Magic values:
         -- min: 0.0001px
         -- max: 4px
@@ -682,6 +684,7 @@ sliderExponentialInput msg oldValue minValue centerValue maxValue centerAt =
         exponent =
             if centerAt == 1 then
                 1 / 1.0e-8
+
             else
                 1 / (1 - centerAt)
 
@@ -769,6 +772,27 @@ controlText command explanation =
 controlBlock : List (Html Msg) -> Html Msg
 controlBlock =
     div [ css [ padding (px 10), borderBottom3 (px 1) solid (toCssColor Colors.black), fontFamily Css.monospace ] ]
+
+
+truncateFloatString : Int -> String -> String
+truncateFloatString precision floatString =
+    let
+        truncate string =
+            if String.length string <= precision then
+                string
+
+            else
+                String.dropRight (String.length string - precision) string
+    in
+    case String.split "." floatString of
+        integer :: [] ->
+            integer
+
+        integer :: [ decimal ] ->
+            integer ++ "." ++ truncate decimal
+
+        _ ->
+            floatString
 
 
 compositionBlocksList : Model -> Html Msg
@@ -896,9 +920,6 @@ blockBox editingIndex strokeColor index blockSvg =
         ]
 
 
-{-| N.B. This function has 7 arguments because otherwise it wouldn't be lazily evaluated since `lazy*` woks via
-reference equality and not deep equality.
--}
 mainImg : Image -> Html Msg
 mainImg image =
     fixedDiv
