@@ -16,6 +16,7 @@ import Browser
 import Browser.Dom exposing (Element)
 import Browser.Events
 import Browser.Navigation as Nav
+import ColorWheel exposing (colorWheel)
 import Colors exposing (Color, offWhite, toCssColor)
 import Css
     exposing
@@ -424,10 +425,15 @@ view : Model -> Browser.Document Msg
 view model =
     case model.viewingPage of
         EditorPage ->
-            editorView model
+            wheel
 
+        --editorView model
         GalleryPage ->
             galleryView model
+
+
+wheel =
+    { title = "Wheel", body = [ div [ css [ height (px 900), width (px 900) ] ] [ colorWheel ] |> toUnstyled ] }
 
 
 

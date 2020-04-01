@@ -2,6 +2,12 @@ module LSystem.Image exposing
     ( Boundaries
     , Image
     , PartialImage
+    ,  PathSegment(..)
+       -- Remove (extract from this module)
+
+    ,  PathSegmentString
+       -- Remove (extract from this module)
+
     , Polygon(..)
     , Position
     , SvgPathAndBoundaries
@@ -26,6 +32,12 @@ module LSystem.Image exposing
     , queryParser
     , resetBaseTo
     , resetImageComposition
+    ,  segmentToString
+       -- Remove (extract from this module)
+
+    ,  toAbsoluteValue
+       -- Remove (extract from this module)
+
     , toQuery
     , updateSvgPathAndBoundaries
     , withBackgroundColor
