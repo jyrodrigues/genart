@@ -1,5 +1,6 @@
-module ColorWheel exposing (Model, Msg, update, view)
+module ColorWheel exposing (Model, Msg, getSvgPosition, initialModel, update, view)
 
+import Browser.Dom exposing (Element)
 import Colors exposing (Color)
 import Json.Decode as Decode exposing (Decoder)
 import LSystem.Image exposing (PathSegment(..), PathSegmentString, segmentToString, toAbsoluteValue)
@@ -21,29 +22,63 @@ import Svg.Styled.Attributes
         , width
         )
 import Svg.Styled.Events exposing (on)
+import Task
 
 
-type alias Model =
+type alias Position =
     ( Float, Float )
 
 
+type alias Model =
+    { id : String
+    , clickPosition : Position
+    , svgPosition : Maybe Element
+    }
+
+
+initialModel : String -> Model
+initialModel id_ =
+    Model id_ ( 0, 0 ) Nothing
+
+
 type Msg
-    = MouseClicked ( Float, Float )
+    = MouseClicked Position
+    | GotSvgPosition (Result Browser.Dom.Error Element)
 
 
-update : Msg -> ( Float, Float )
-update msg =
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
     case msg of
-        MouseClicked position ->
-            position
+        MouseClicked ( x, y ) ->
+            case model.svgPosition of
+                Just svgPos ->
+                    let
+                        ( v, e ) =
+                            ( svgPos.viewport, svgPos.element )
+
+                        relativePosition =
+                            ( x + v.x - e.x, y + v.y - e.y )
+                    in
+                    ( { model | clickPosition = relativePosition }, Cmd.none )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        GotSvgPosition result ->
+            ( { model | svgPosition = Result.toMaybe result }, Cmd.none )
+
+
+getSvgPosition : Model -> Cmd Msg
+getSvgPosition model =
+    Task.attempt GotSvgPosition (Browser.Dom.getElement model.id)
 
 
 
 -- VIEW
 
 
-view : Svg Msg
-view =
+view : Model -> Svg Msg
+view model =
     svg
         -- TODO add xmlns="http://www.w3.org/2000/svg"
         [ viewBox "-1 -1 2 2"
@@ -54,6 +89,7 @@ view =
                 -- TODO remove those?
                 ++ "height: 100%; "
                 ++ "width: 100%; "
+        , id model.id
         , on "click" (Decode.map MouseClicked clickPositionDecoder)
         ]
         pizza
@@ -126,7 +162,7 @@ toppings startColor endColor id_ =
 -- DECODER
 
 
-clickPositionDecoder : Decoder ( Float, Float )
+clickPositionDecoder : Decoder Position
 clickPositionDecoder =
     Decode.map2 Tuple.pair
         (Decode.field "clientX" Decode.float)

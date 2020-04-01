@@ -78,6 +78,7 @@ import Css
         , width
         , zero
         )
+import Css.Global exposing (body, global)
 import Css.Media as Media exposing (withMedia)
 import Html.Styled exposing (Html, br, button, div, h2, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
@@ -203,6 +204,9 @@ type alias Model =
     , imgDivCenter : Position
     , imgDivStart : Position
 
+    -- ColorWheel
+    , colorWheel : ColorWheel.Model
+
     -- Browser Focus
     , focus : Focus
 
@@ -293,6 +297,9 @@ initialModel image gallery url navKey =
     , imgDivCenter = ( 0, 0 )
     , imgDivStart = ( 0, 0 )
 
+    -- ColorWheel
+    , colorWheel = ColorWheel.initialModel "ColorWheel1"
+
     -- Browser Focus
     , focus = KeyboardEditing
 
@@ -367,6 +374,7 @@ init localStorage url navKey =
     , Cmd.batch
         ([ getImgDivPosition
          , saveEncodedModelToLocalStorage (encodeModel model)
+         , Cmd.map ColorWheelMsg (ColorWheel.getSvgPosition model.colorWheel)
          ]
             ++ updateUrl
         )
@@ -427,17 +435,19 @@ view model =
     case model.viewingPage of
         EditorPage ->
             --editorView model
-            wheel
+            wheel model
 
         GalleryPage ->
             galleryView model
 
 
-wheel =
+wheel model =
     { title = "Wheel"
     , body =
-        [ div [ css [ height (px 900), width (px 900) ] ]
-            [ Html.Styled.map ColorWheelMsg ColorWheel.view
+        [ global [ body [ width (px 4000) ] ] |> toUnstyled
+        , div [ css [ height (px 1000), width (px 1000), display inlineBlock ] ] [] |> toUnstyled
+        , div [ css [ height (px 900), width (px 900), display inlineBlock ] ]
+            [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
             ]
             |> toUnstyled
         ]
@@ -1089,10 +1099,10 @@ update msg model =
 
             ColorWheelMsg subMsg ->
                 let
-                    pos =
-                        Debug.log "colorWheel clicked position" <| ColorWheel.update subMsg
+                    ( updatedColorWheel, subCmd ) =
+                        ColorWheel.update subMsg model.colorWheel
                 in
-                ( model, Cmd.none )
+                ( { model | colorWheel = updatedColorWheel }, Cmd.none )
 
             ResetDrawing ->
                 updateAndSaveImageAndGallery
