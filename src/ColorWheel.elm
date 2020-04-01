@@ -1,6 +1,7 @@
-module ColorWheel exposing (colorWheel)
+module ColorWheel exposing (Model, Msg, update, view)
 
 import Colors exposing (Color)
+import Json.Decode as Decode exposing (Decoder)
 import LSystem.Image exposing (PathSegment(..), PathSegmentString, segmentToString, toAbsoluteValue)
 import Svg.Styled exposing (Svg, defs, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
@@ -19,22 +20,41 @@ import Svg.Styled.Attributes
         , viewBox
         , width
         )
+import Svg.Styled.Events exposing (on)
+
+
+type alias Model =
+    ( Float, Float )
+
+
+type Msg
+    = MouseClicked ( Float, Float )
+
+
+update : Msg -> ( Float, Float )
+update msg =
+    case msg of
+        MouseClicked position ->
+            position
 
 
 
--- TODO add xmlns="http://www.w3.org/2000/svg"
+-- VIEW
 
 
-colorWheel : Svg msg
-colorWheel =
+view : Svg Msg
+view =
     svg
+        -- TODO add xmlns="http://www.w3.org/2000/svg"
         [ viewBox "-1 -1 2 2"
         , height "100%"
         , width "100%"
         , style <|
             "display: block; "
+                -- TODO remove those?
                 ++ "height: 100%; "
                 ++ "width: 100%; "
+        , on "click" (Decode.map MouseClicked clickPositionDecoder)
         ]
         pizza
 
@@ -64,7 +84,7 @@ pizzaSlice radians_ =
         id_ =
             "colorId_" ++ String.fromFloat radians_
     in
-    [ customGradient startColor endColor id_
+    [ toppings startColor endColor id_
     , path
         [ d ("M 0 0" ++ line ++ dough radians_ ++ "z")
         , fill <| "url(#" ++ id_ ++ ")"
@@ -91,8 +111,8 @@ dough radians_ =
     toAbsoluteValue <| segmentToString <| Q (position controlPoint) (position destination)
 
 
-customGradient : String -> String -> String -> Svg msg
-customGradient startColor endColor id_ =
+toppings : String -> String -> String -> Svg msg
+toppings startColor endColor id_ =
     defs []
         [ radialGradient [ id id_, cx "0", cy "0", r "1", gradientUnits "userSpaceOnUse" ]
             [ stop [ offset "0%", stopColor startColor ] []
@@ -101,11 +121,13 @@ customGradient startColor endColor id_ =
         ]
 
 
-gradients : Color -> Color -> Svg msg
-gradients strokeColor backgroundColor =
-    defs []
-        [ radialGradient [ id "RadialGradient1" ]
-            [ stop [ offset "30%", stopColor (Colors.toString backgroundColor) ] []
-            , stop [ offset "100%", stopColor (Colors.toString strokeColor) ] []
-            ]
-        ]
+
+-- EVENTS
+-- DECODER
+
+
+clickPositionDecoder : Decoder ( Float, Float )
+clickPositionDecoder =
+    Decode.map2 Tuple.pair
+        (Decode.field "clientX" Decode.float)
+        (Decode.field "clientY" Decode.float)

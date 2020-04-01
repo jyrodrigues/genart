@@ -16,7 +16,7 @@ import Browser
 import Browser.Dom exposing (Element)
 import Browser.Events
 import Browser.Navigation as Nav
-import ColorWheel exposing (colorWheel)
+import ColorWheel
 import Colors exposing (Color, offWhite, toCssColor)
 import Css
     exposing
@@ -162,6 +162,7 @@ type Msg
       -- Colors
     | SetBackgroundColor Color
     | SetStrokeColor Color
+    | ColorWheelMsg ColorWheel.Msg
       -- Angle
     | SetTurnAngle Float
       -- Stroke width
@@ -425,15 +426,22 @@ view : Model -> Browser.Document Msg
 view model =
     case model.viewingPage of
         EditorPage ->
+            --editorView model
             wheel
 
-        --editorView model
         GalleryPage ->
             galleryView model
 
 
 wheel =
-    { title = "Wheel", body = [ div [ css [ height (px 900), width (px 900) ] ] [ colorWheel ] |> toUnstyled ] }
+    { title = "Wheel"
+    , body =
+        [ div [ css [ height (px 900), width (px 900) ] ]
+            [ Html.Styled.map ColorWheelMsg ColorWheel.view
+            ]
+            |> toUnstyled
+        ]
+    }
 
 
 
@@ -1078,6 +1086,13 @@ update msg model =
 
             DownloadSvg ->
                 ( model, downloadSvg () )
+
+            ColorWheelMsg subMsg ->
+                let
+                    pos =
+                        Debug.log "colorWheel clicked position" <| ColorWheel.update subMsg
+                in
+                ( model, Cmd.none )
 
             ResetDrawing ->
                 updateAndSaveImageAndGallery
