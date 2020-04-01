@@ -1,5 +1,6 @@
 module Colors exposing
     ( Color
+    , Range
     , allColors
     , black
     , darkBlue
@@ -10,12 +11,24 @@ module Colors exposing
     , fromHexString
     , gray
     , green_
+    , hsl
     , lightBlue
     , lightGray
     , offWhite
+    , pureBlue
+    , pureGreen
+    , pureRed
+    , rangeBlue
+    , rangeGreen
+    , rangeHue
+    , rangeLightness
+    , rangeRed
+    , rangeSaturation
     , red_
     , toCssColor
     , toHexString
+    , toHsla
+    , toRgba
     , toString
     , updateAlpha
     , updateBlue
@@ -49,7 +62,30 @@ type alias Color =
 
 
 
--- TODO remove the Hex variant use rtfeldman/hex to convert from or to hex notation
+-- RE-EXPORTS
+
+
+hsl : Float -> Float -> Float -> Color
+hsl =
+    Color.hsl
+
+
+toRgba : Color -> { red : Float, green : Float, blue : Float, alpha : Float }
+toRgba =
+    Color.toRgba
+
+
+toHsla : Color -> { hue : Float, saturation : Float, lightness : Float, alpha : Float }
+toHsla =
+    Color.toHsla
+
+
+toString : Color -> String
+toString =
+    toCssString
+
+
+
 -- CONVERTERS
 
 
@@ -67,15 +103,10 @@ toCssColor color =
     Css.rgba (to255 red) (to255 green) (to255 blue) alpha
 
 
-toString : Color -> String
-toString =
-    toCssString
-
-
 toHexString : Color -> String
 toHexString color =
     let
-        { red, green, blue, alpha } =
+        { red, green, blue } =
             toRgba color
 
         pad hexString =
@@ -188,6 +219,48 @@ updateBlue amount color =
     rgba red green (clamp 0 1 amount) alpha
 
 
+type alias Range =
+    { start : Color
+    , end : Color
+    }
+
+
+rangeRed : Color -> Range
+rangeRed color =
+    { start = updateRed 0 color
+    , end = updateRed 1 color
+    }
+
+
+rangeGreen : Color -> Range
+rangeGreen color =
+    { start = updateGreen 0 color
+    , end = updateGreen 1 color
+    }
+
+
+rangeBlue : Color -> Range
+rangeBlue color =
+    { start = updateBlue 0 color
+    , end = updateBlue 1 color
+    }
+
+
+pureRed : Float -> Color
+pureRed amount =
+    rgba (clamp 0 1 amount) 0 0 1
+
+
+pureGreen : Float -> Color
+pureGreen amount =
+    rgba 0 (clamp 0 1 amount) 0 1
+
+
+pureBlue : Float -> Color
+pureBlue amount =
+    rgba 0 0 (clamp 0 1 amount) 1
+
+
 updateAlpha : Float -> Color -> Color
 updateAlpha amount color =
     let
@@ -195,6 +268,27 @@ updateAlpha amount color =
             toRgba color
     in
     rgba red green blue (clamp 0 1 amount)
+
+
+rangeHue : Color -> Range
+rangeHue color =
+    { start = updateHue 0 color
+    , end = updateHue 1 color
+    }
+
+
+rangeSaturation : Color -> Range
+rangeSaturation color =
+    { start = updateSaturation 0 color
+    , end = updateSaturation 1 color
+    }
+
+
+rangeLightness : Color -> Range
+rangeLightness color =
+    { start = updateLightness 0 color
+    , end = updateLightness 1 color
+    }
 
 
 updateHue : Float -> Color -> Color

@@ -23,6 +23,7 @@ import Css
         , active
         , auto
         , backgroundColor
+        , backgroundImage
         , block
         , border
         , border3
@@ -35,6 +36,7 @@ import Css
         , boxShadow5
         , boxShadow6
         , boxSizing
+        , calc
         , color
         , contentBox
         , cursor
@@ -48,10 +50,12 @@ import Css
         , inlineBlock
         , inset
         , left
+        , linearGradient2
         , margin
         , margin2
         , margin3
         , minWidth
+        , minus
         , none
         , overflow
         , overflowX
@@ -66,6 +70,8 @@ import Css
         , sansSerif
         , scroll
         , solid
+        , stop
+        , toRight
         , transparent
         , vw
         , width
@@ -562,8 +568,77 @@ colorControls backgroundColor strokeColor =
     in
     controlBlock
         [ colorControl "BgColor" SetBackgroundColor "Change background color" backgroundColor
+        , rgbSliders SetBackgroundColor backgroundColor
+        , hslSliders SetBackgroundColor backgroundColor
         , br [] []
         , colorControl "StrokeColor" SetStrokeColor "Change stroke color" strokeColor
+        , rgbSliders SetStrokeColor strokeColor
+        , hslSliders SetStrokeColor strokeColor
+        , br [] []
+        ]
+
+
+rgbSliders : (Color -> msg) -> Color -> Html msg
+rgbSliders toMsg color =
+    let
+        { red, green, blue } =
+            Colors.toRgba color
+    in
+    div []
+        [ colorSlider (\input -> toMsg (Colors.updateRed input color)) red (Colors.rangeRed color)
+        , colorSlider (\input -> toMsg (Colors.updateGreen input color)) green (Colors.rangeGreen color)
+        , colorSlider (\input -> toMsg (Colors.updateBlue input color)) blue (Colors.rangeBlue color)
+        ]
+
+
+hslSliders : (Color -> msg) -> Color -> Html msg
+hslSliders toMsg color =
+    let
+        { hue, saturation, lightness } =
+            Colors.toHsla color
+    in
+    div []
+        [ colorSlider (\input -> toMsg (Colors.updateHue input color)) hue (Colors.rangeHue color)
+        , colorSlider (\input -> toMsg (Colors.updateSaturation input color)) saturation (Colors.rangeSaturation color)
+        , colorSlider (\input -> toMsg (Colors.updateLightness input color)) lightness (Colors.rangeLightness color)
+        ]
+
+
+{-| TODO move this into Colors.elm?
+-}
+colorSlider : (Float -> msg) -> Float -> Colors.Range -> Html msg
+colorSlider inputToMsg oldValue colorRange =
+    let
+        colorIconWidth =
+            px 10
+    in
+    div []
+        {--
+        [ span
+            [ css
+                [ backgroundColor (Colors.toCssColor colorRange)
+                , display inlineBlock
+                , width colorIconWidth
+                , height (px 10)
+                , margin colorIconWidth
+                ]
+            ]
+            []
+            --}
+        [ div
+            [ css
+                [ display inlineBlock
+                , width (calc (pct 90) minus colorIconWidth)
+                , height (px 30)
+                , backgroundImage <|
+                    linearGradient2 toRight
+                        (stop <| Colors.toCssColor colorRange.start)
+                        (stop <| Colors.toCssColor colorRange.end)
+                        []
+                ]
+            ]
+            -- put 30 px on slider height
+            [ sliderInput inputToMsg oldValue 0 1 0.0001 ]
         ]
 
 
@@ -580,7 +655,7 @@ videoControls angleChangeRate playingVideo =
     controlBlock
         [ span [ css [ display block ] ]
             [ text
-                ("Video Playback:"
+                ("Video Playback: "
                     ++ truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval))
                     ++ "x"
                 )
