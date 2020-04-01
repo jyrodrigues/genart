@@ -1,4 +1,4 @@
-module ColorWheel exposing (Model, Msg, getSvgPosition, initialModel, update, view)
+module ColorWheel exposing (Model, Msg, getElementDimensions, initialModel, update, view, withPrecision)
 
 import Browser.Dom exposing (Element)
 import Colors exposing (Color)
@@ -15,6 +15,7 @@ import Svg.Styled.Attributes
         , height
         , id
         , offset
+        , pointerEvents
         , r
         , stopColor
         , style
@@ -22,6 +23,7 @@ import Svg.Styled.Attributes
         , width
         )
 import Svg.Styled.Events exposing (on)
+import Svg.Styled.Lazy exposing (lazy)
 import Task
 
 
@@ -30,47 +32,76 @@ type alias Position =
 
 
 type alias Model =
+    -- TODO make it opaque
     { id : String
-    , clickPosition : Position
-    , svgPosition : Maybe Element
+    , mousePosition : Position
+    , color : Color
+    , elementDimensions : Maybe Element
+    , precision : Float
     }
 
 
 initialModel : String -> Model
 initialModel id_ =
-    Model id_ ( 0, 0 ) Nothing
+    Model id_ ( 0, 0 ) (makeColor ( 0, 0 )) Nothing 2
+
+
+withPrecision : Float -> Model -> Model
+withPrecision precision model =
+    { model | precision = precision }
 
 
 type Msg
     = MouseClicked Position
-    | GotSvgPosition (Result Browser.Dom.Error Element)
+    | GotElementDimensions (Result Browser.Dom.Error Element)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        MouseClicked ( x, y ) ->
-            case model.svgPosition of
-                Just svgPos ->
-                    let
-                        ( v, e ) =
-                            ( svgPos.viewport, svgPos.element )
+        MouseClicked relativePosition ->
+            ( { model | mousePosition = relativePosition, color = computeColor model relativePosition }, Cmd.none )
 
-                        relativePosition =
-                            ( x + v.x - e.x, y + v.y - e.y )
-                    in
-                    ( { model | clickPosition = relativePosition }, Cmd.none )
-
-                Nothing ->
-                    ( model, Cmd.none )
-
-        GotSvgPosition result ->
-            ( { model | svgPosition = Result.toMaybe result }, Cmd.none )
+        GotElementDimensions result ->
+            ( { model | elementDimensions = Result.toMaybe result }, Cmd.none )
 
 
-getSvgPosition : Model -> Cmd Msg
-getSvgPosition model =
-    Task.attempt GotSvgPosition (Browser.Dom.getElement model.id)
+computeColor : Model -> Position -> Color
+computeColor model ( x, y ) =
+    case model.elementDimensions of
+        Just dimensions ->
+            let
+                ( w, h ) =
+                    ( dimensions.element.width, dimensions.element.height )
+
+                clickedVec =
+                    toPolar ( (x - w / 2) / (w / 2), (y - h / 2) / (h / 2) )
+            in
+            makeColor clickedVec
+
+        Nothing ->
+            makeColor ( 0, 0 )
+
+
+mouseInfoDecoder : Decoder Position
+mouseInfoDecoder =
+    Decode.map2 Tuple.pair
+        (Decode.field "offsetX" Decode.float)
+        (Decode.field "offsetY" Decode.float)
+
+
+getElementDimensions : Model -> Cmd Msg
+getElementDimensions model =
+    Task.attempt GotElementDimensions (Browser.Dom.getElement model.id)
+
+
+
+-- COLOR
+
+
+makeColor : Position -> Color
+makeColor ( r, theta ) =
+    Colors.hsl (theta / (pi * 2)) 1 ((1 - r) * 0.5 + 0.5)
 
 
 
@@ -79,72 +110,96 @@ getSvgPosition model =
 
 view : Model -> Svg Msg
 view model =
+    lazy viewEager model.id
+
+
+viewEager : String -> Svg Msg
+viewEager id_ =
     svg
         -- TODO add xmlns="http://www.w3.org/2000/svg"
         [ viewBox "-1 -1 2 2"
         , height "100%"
         , width "100%"
         , style <|
-            "display: block; "
-                -- TODO remove those?
-                ++ "height: 100%; "
-                ++ "width: 100%; "
-        , id model.id
-        , on "click" (Decode.map MouseClicked clickPositionDecoder)
+            "display: block;"
+                ++ "border-radius: 50%;"
+                ++ "background-color: white;"
+        , id id_
+
+        -- TODO add stopPropagation
+        , on "mousedown" (Decode.map MouseClicked mouseInfoDecoder)
         ]
         pizza
 
 
 pizza : List (Svg msg)
 pizza =
-    List.range 0 359
-        |> List.concatMap (toFloat >> degrees >> pizzaSlice)
-
-
-pizzaSlice : Float -> List (Svg msg)
-pizzaSlice radians_ =
     let
-        ( x0, y0 ) =
-            fromPolar ( 1, radians_ )
+        precision =
+            1 / 4
+    in
+    List.range 1 (round <| 360 * precision)
+        |> List.map (toFloat >> (\theta -> theta / precision) >> degrees)
+        |> List.concatMap (pizzaSlice precision)
 
-        line =
-            -- Reverse y-coordinate to compensate SVG top-to-bottom axis direction
-            "l" ++ String.fromFloat x0 ++ " " ++ String.fromFloat y0
 
+pizzaSlice : Float -> Float -> List (Svg msg)
+pizzaSlice precision radians_ =
+    let
         endColor =
-            Colors.toString <| Colors.hsl (radians_ / (pi * 2)) 1 0.5
+            Colors.toString <| makeColor ( 1, radians_ )
 
         startColor =
-            Colors.toString <| Colors.hsl (radians_ / (pi * 2)) 1 1
+            Colors.toString <| makeColor ( 0, radians_ )
 
         id_ =
             "colorId_" ++ String.fromFloat radians_
     in
     [ toppings startColor endColor id_
     , path
-        [ d ("M 0 0" ++ line ++ dough radians_ ++ "z")
+        [ d (betterDough precision radians_)
         , fill <| "url(#" ++ id_ ++ ")"
+
+        --, Svg.Styled.Attributes.strokeWidth "0.001"
+        --, Svg.Styled.Attributes.stroke "black"
+        -- N.B. This is important to allow the svg being always the target of
+        --      the click, so that offsetX and offsetY are meaningful.
+        --      (Otherwise any pizza slice could be the target and the basis
+        --      for the offset calculation; not what we want.)
+        , pointerEvents "none"
         ]
         []
     ]
 
 
-dough : Float -> PathSegmentString
-dough radians_ =
+betterDough : Float -> Float -> PathSegmentString
+betterDough precision radians_ =
     let
+        radius =
+            -- Greater than the pizza radius of 1: it'll be trimmed via border-radius 50%.
+            1.9
+
         sliceSize =
-            1.5
+            -- More than 1 degree because otherwise we would see white segments dividing the slices.
+            -- My guess is it's a floating point precision thing.
+            degrees (2 / precision)
 
-        controlPoint =
-            toPolar ( 1, tan (degrees (sliceSize / 2)) )
+        ( x1, y1 ) =
+            fromPolar ( radius, radians_ )
 
-        destination =
-            ( 1, degrees sliceSize )
+        ( x2, y2 ) =
+            fromPolar ( radius, radians_ + sliceSize )
 
-        position ( r, theta ) =
-            fromPolar ( r, theta + radians_ )
+        moveTo =
+            "M 0 0"
+
+        lineTo1 =
+            "L" ++ String.fromFloat x1 ++ " " ++ String.fromFloat y1
+
+        lineTo2 =
+            "L" ++ String.fromFloat x2 ++ " " ++ String.fromFloat y2
     in
-    toAbsoluteValue <| segmentToString <| Q (position controlPoint) (position destination)
+    moveTo ++ lineTo1 ++ lineTo2 ++ "Z"
 
 
 toppings : String -> String -> String -> Svg msg
@@ -155,15 +210,3 @@ toppings startColor endColor id_ =
             , stop [ offset "100%", stopColor endColor ] []
             ]
         ]
-
-
-
--- EVENTS
--- DECODER
-
-
-clickPositionDecoder : Decoder Position
-clickPositionDecoder =
-    Decode.map2 Tuple.pair
-        (Decode.field "clientX" Decode.float)
-        (Decode.field "clientY" Decode.float)

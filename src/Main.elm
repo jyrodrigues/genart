@@ -374,7 +374,7 @@ init localStorage url navKey =
     , Cmd.batch
         ([ getImgDivPosition
          , saveEncodedModelToLocalStorage (encodeModel model)
-         , Cmd.map ColorWheelMsg (ColorWheel.getSvgPosition model.colorWheel)
+         , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
          ]
             ++ updateUrl
         )
@@ -444,7 +444,7 @@ view model =
 wheel model =
     { title = "Wheel"
     , body =
-        [ global [ body [ width (px 4000) ] ] |> toUnstyled
+        [ global [ body [ width (px 4000), backgroundColor (Colors.toCssColor model.image.backgroundColor) ] ] |> toUnstyled
         , div [ css [ height (px 1000), width (px 1000), display inlineBlock ] ] [] |> toUnstyled
         , div [ css [ height (px 900), width (px 900), display inlineBlock ] ]
             [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
@@ -1100,9 +1100,14 @@ update msg model =
             ColorWheelMsg subMsg ->
                 let
                     ( updatedColorWheel, subCmd ) =
-                        ColorWheel.update subMsg model.colorWheel
+                         ColorWheel.update subMsg model.colorWheel
                 in
-                ( { model | colorWheel = updatedColorWheel }, Cmd.none )
+                ( { model
+                    | colorWheel = updatedColorWheel
+                    , image = Image.withBackgroundColor updatedColorWheel.color model.image
+                  }
+                , Cmd.none
+                )
 
             ResetDrawing ->
                 updateAndSaveImageAndGallery
