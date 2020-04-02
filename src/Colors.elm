@@ -12,6 +12,7 @@ module Colors exposing
     , gray
     , green_
     , hsl
+    , hsv
     , lightBlue
     , lightGray
     , offWhite
@@ -28,6 +29,7 @@ module Colors exposing
     , toCssColor
     , toHexString
     , toHsla
+    , toHsva
     , toRgba
     , toString
     , updateAlpha
@@ -120,6 +122,129 @@ toHexString color =
         ++ (pad <| Hex.toString <| to255 red)
         ++ (pad <| Hex.toString <| to255 green)
         ++ (pad <| Hex.toString <| to255 blue)
+
+
+
+-- HSV
+
+
+{-| hue radians, saturation [0~1], value [0~1], alpha [0~1]
+
+-- From <https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB>
+
+-}
+hsv : Float -> Float -> Float -> Color
+hsv hue_ s v =
+    let
+        hue =
+            inDegrees (floatModBy (2 * pi) hue_)
+
+        c =
+            v * s
+
+        h_ =
+            hue / 60
+
+        x =
+            Debug.log "x" <| c * (1 - abs (floatModBy 2 h_ - 1))
+
+        ( r1, g1, b1 ) =
+            if 0 <= h_ && h_ <= 1 then
+                ( c, x, 0 )
+
+            else if 1 < h_ && h_ <= 2 then
+                ( x, c, 0 )
+
+            else if 2 < h_ && h_ <= 3 then
+                ( 0, c, x )
+
+            else if 3 < h_ && h_ <= 4 then
+                ( 0, x, c )
+
+            else if 4 < h_ && h_ <= 5 then
+                ( x, 0, c )
+
+            else if 5 < h_ && h_ <= 6 then
+                ( c, 0, x )
+
+            else
+                ( 0, 0, 0 )
+
+        m =
+            v - c
+
+        ( r, g, b ) =
+            Debug.log "r g b" ( r1 + m, g1 + m, b1 + m )
+    in
+    Color.rgb r g b
+
+
+inDegrees : Float -> Float
+inDegrees radians =
+    radians / degrees 1
+
+
+floatModBy : Float -> Float -> Float
+floatModBy modulus x =
+    x - modulus * toFloat (floor (x / modulus))
+
+
+{-| -- from <https://en.wikipedia.org/wiki/HSL_and_HSV#General_approach>
+-}
+toHsva : Color -> { h : Float, s : Float, v : Float, a : Float }
+toHsva color =
+    let
+        { red, green, blue, alpha } =
+            toRgba color
+
+        max_ =
+            max red (max green blue)
+
+        min_ =
+            min red (min green blue)
+
+        c =
+            max_ - min_
+
+        h_ =
+            if c == 0 then
+                0
+
+            else if max_ == red then
+                let
+                    almost =
+                        (green - blue) / c
+                in
+                if almost < 0 then
+                    almost + 6
+
+                else
+                    almost
+
+            else if max_ == green then
+                (blue - red) / c + 2
+
+            else if max_ == blue then
+                (red - green) / c + 4
+
+            else
+                -- Will never happen.
+                0
+
+        h =
+            degrees (h_ * 60)
+
+        v =
+            max_
+
+        s =
+            if v == 0 then
+                0
+
+            else
+                c / v
+    in
+    { h = h, s = s, v = v, a = alpha }
 
 
 

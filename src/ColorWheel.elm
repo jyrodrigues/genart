@@ -2,6 +2,9 @@ module ColorWheel exposing (Model, Msg, getElementDimensions, initialModel, upda
 
 import Browser.Dom exposing (Element)
 import Colors exposing (Color)
+import Css exposing (backgroundColor, borderRadius, hidden, overflow, pct)
+import Html.Styled exposing (div)
+import Html.Styled.Attributes exposing (css)
 import Json.Decode as Decode exposing (Decoder)
 import LSystem.Image exposing (PathSegment(..), PathSegmentString, segmentToString, toAbsoluteValue)
 import Svg.Styled exposing (Svg, defs, path, radialGradient, stop, svg)
@@ -11,19 +14,21 @@ import Svg.Styled.Attributes
         , cy
         , d
         , fill
+        , filter
         , gradientUnits
         , height
         , id
         , offset
         , pointerEvents
         , r
+        , scale
         , stopColor
         , style
         , viewBox
         , width
         )
 import Svg.Styled.Events exposing (on)
-import Svg.Styled.Lazy exposing (lazy)
+import Svg.Styled.Lazy exposing (lazy2)
 import Task
 
 
@@ -43,7 +48,7 @@ type alias Model =
 
 initialModel : String -> Model
 initialModel id_ =
-    Model id_ ( 0, 0 ) (makeColor ( 0, 0 )) Nothing 2
+    Model id_ ( 0, 0 ) (makeColor ( 0, 0 )) Nothing 1
 
 
 withPrecision : Float -> Model -> Model
@@ -101,7 +106,7 @@ getElementDimensions model =
 
 makeColor : Position -> Color
 makeColor ( r, theta ) =
-    Colors.hsl (theta / (pi * 2)) 1 ((1 - r) * 0.5 + 0.5)
+    Colors.hsv theta r 1
 
 
 
@@ -110,34 +115,35 @@ makeColor ( r, theta ) =
 
 view : Model -> Svg Msg
 view model =
-    lazy viewEager model.id
+    lazy2 viewEager model.id model.precision
 
 
-viewEager : String -> Svg Msg
-viewEager id_ =
-    svg
-        -- TODO add xmlns="http://www.w3.org/2000/svg"
-        [ viewBox "-1 -1 2 2"
-        , height "100%"
-        , width "100%"
-        , style <|
-            "display: block;"
-                ++ "border-radius: 50%;"
-                ++ "background-color: white;"
-        , id id_
+viewEager : String -> Float -> Svg Msg
+viewEager id_ precision =
+    div [ css [ borderRadius (pct 50), overflow hidden, backgroundColor (Colors.toCssColor Colors.black) ] ]
+        [ svg
+            -- TODO add xmlns="http://www.w3.org/2000/svg"
+            [ viewBox "-1 -1 2 2"
+            , height "100%"
+            , width "100%"
+            , style <|
+                "display: block;"
+                    ++ "background-color: white;"
+                    ++ "transform: scale(1.01);"
+                    -- TODO change opacity to simulate Value change (the V in HSV)
+                    ++ ("opacity: " ++ String.fromFloat 1 ++ ";")
+            , filter "blur(3px)"
+            , id id_
 
-        -- TODO add stopPropagation
-        , on "mousedown" (Decode.map MouseClicked mouseInfoDecoder)
+            -- TODO add stopPropagation
+            , on "mousedown" (Decode.map MouseClicked mouseInfoDecoder)
+            ]
+            (pizza precision)
         ]
-        pizza
 
 
-pizza : List (Svg msg)
-pizza =
-    let
-        precision =
-            1 / 4
-    in
+pizza : Float -> List (Svg msg)
+pizza precision =
     List.range 1 (round <| 360 * precision)
         |> List.map (toFloat >> (\theta -> theta / precision) >> degrees)
         |> List.concatMap (pizzaSlice precision)
@@ -177,12 +183,12 @@ betterDough precision radians_ =
     let
         radius =
             -- Greater than the pizza radius of 1: it'll be trimmed via border-radius 50%.
-            1.9
+            1.1
 
         sliceSize =
             -- More than 1 degree because otherwise we would see white segments dividing the slices.
             -- My guess is it's a floating point precision thing.
-            degrees (2 / precision)
+            degrees (1.1 * precision)
 
         ( x1, y1 ) =
             fromPolar ( radius, radians_ )
