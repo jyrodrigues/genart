@@ -2,7 +2,7 @@ module ColorWheel exposing (Model, Msg, getElementDimensions, initialModel, upda
 
 import Browser.Dom exposing (Element)
 import Colors exposing (Color)
-import Css exposing (backgroundColor, backgroundImage, block, borderRadius, display, hidden, overflow, pct, url)
+import Css exposing (backgroundColor, backgroundImage, block, borderRadius, display, hidden, overflow, pct, px, url)
 import Html.Styled exposing (Html, div)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events
@@ -70,13 +70,13 @@ initialModel id_ =
 
     -- For Development
     , mousePosition = ( 0, 0 )
-    , dynamic = False
+    , dynamic = True
 
     -- Magic optimal value after profiling performance on FF75 and Chrome
     --, numberOfSlices = 97
     --, blur = 8
-    , numberOfSlices = 6
-    , blur = 0
+    , numberOfSlices = 100
+    , blur = 2
     }
 
 
@@ -251,6 +251,7 @@ viewStaticEager id_ mouseTracking color =
             , borderRadius (pct 50)
             , overflow hidden
             , backgroundColor (Colors.toCssColor Colors.black)
+            , Css.position Css.relative
             ]
         ]
         [ div
@@ -273,45 +274,78 @@ viewStaticEager id_ mouseTracking color =
              ]
                 ++ tracking
             )
-            [ crosshair (scale * x) (scale * y) 0.05 ]
+            []
+        , div
+            [ css
+                [ Css.position Css.absolute
+                , Css.left (pct ((scale * x) * 50 + 50))
+                , Css.top (pct ((scale * y) * 50 + 50))
+                , Css.height (px 15)
+                , Css.width (px 15)
+                , Css.pointerEvents Css.none
+                ]
+            ]
+            [ crosshair opacity ]
         ]
 
 
-crosshair : Float -> Float -> Float -> Svg msg
-crosshair x y radius =
+crosshair : Float -> Svg msg
+crosshair opacity =
     let
-        fStr =
-            String.fromFloat
-
         strokeWidth_ =
-            radius / 10
+            String.fromInt 8
+
+        color =
+            if opacity > 0.5 then
+                Colors.black
+
+            else
+                Colors.white
+
+        strokeColor =
+            Colors.toString <| Colors.updateAlpha 0.52 color
+
+        size =
+            90
+
+        viewBox_ =
+            "0 0 " ++ String.fromInt size ++ " " ++ String.fromInt size
+
+        center =
+            String.fromInt (size // 2)
+
+        radius =
+            String.fromInt (size // 3)
+
+        sizeStr =
+            String.fromInt size
     in
-    svg [ viewBox "-1 -1 2 2", height "100%", width "100%", pointerEvents "none" ]
+    svg [ viewBox viewBox_, height "15px", width "15px", pointerEvents "none" ]
         [ circle
-            [ cx (fStr x)
-            , cy (fStr y)
-            , r (fStr radius)
+            [ cx center
+            , cy center
+            , r radius
             , fill "none"
-            , stroke (Colors.toString <| Colors.updateAlpha 0.9 Colors.black)
-            , strokeWidth (fStr strokeWidth_)
+            , stroke strokeColor
+            , strokeWidth strokeWidth_
             ]
             []
         , line
-            [ x1 (fStr (x - 2 * radius))
-            , x2 (fStr (x + 2 * radius))
-            , y1 (fStr y)
-            , y2 (fStr y)
-            , stroke (Colors.toString <| Colors.updateAlpha 0.9 Colors.black)
-            , strokeWidth (fStr strokeWidth_)
+            [ x1 "0"
+            , x2 sizeStr
+            , y1 center
+            , y2 center
+            , stroke strokeColor
+            , strokeWidth strokeWidth_
             ]
             []
         , line
-            [ x1 (fStr x)
-            , x2 (fStr x)
-            , y1 (fStr (y - 2 * radius))
-            , y2 (fStr (y + 2 * radius))
-            , stroke (Colors.toString <| Colors.updateAlpha 0.9 Colors.black)
-            , strokeWidth (fStr strokeWidth_)
+            [ x1 center
+            , x2 center
+            , y1 "0"
+            , y2 sizeStr
+            , stroke strokeColor
+            , strokeWidth strokeWidth_
             ]
             []
         ]
@@ -454,14 +488,14 @@ viewDynamicEager id_ numberOfSlices mouseTracking blur color =
         , div
             [ css
                 [ Css.position Css.absolute
-                , Css.top Css.zero
-                , Css.left Css.zero
-                , Css.height (pct 100)
-                , Css.width (pct 100)
+                , Css.left (pct ((scale * x) * 50 + 50))
+                , Css.top (pct ((scale * y) * 50 + 50))
+                , Css.height (px 15)
+                , Css.width (px 15)
                 , Css.pointerEvents Css.none
                 ]
             ]
-            [ crosshair (scale * x) (scale * y) 0.05 ]
+            [ crosshair value ]
         ]
 
 
