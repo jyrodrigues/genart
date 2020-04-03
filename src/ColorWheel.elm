@@ -1,4 +1,4 @@
-module ColorWheel exposing (Model, Msg, getElementDimensions, initialModel, update, view, withPrecision)
+module ColorWheel exposing (Model, Msg, getElementDimensions, initialModel, update, view)
 
 import Browser.Dom exposing (Element)
 import Colors exposing (Color)
@@ -47,11 +47,13 @@ type alias Position =
 type alias Model =
     -- TODO make it opaque
     { id : String
-    , precision : Float
     , elementDimensions : Maybe Element
     , mouseTracking : Bool
-    , mousePosition : Position
     , color : Color
+
+    -- For Development
+    , mousePosition : Position
+    , precision : Float
     , blur : Float
     , dynamic : Bool
     }
@@ -62,32 +64,28 @@ type Msg
     | GotMousePosition Position
     | StartedMouseTracking
     | StoppedMouseTracking
+    | SetOpacity Float
+      -- For Development
     | SetPrecision Float
     | SetBlur Float
-    | SetOpacity Float
     | ToggledDynamic
 
 
 initialModel : String -> Model
 initialModel id_ =
     { id = id_
+    , elementDimensions = Nothing
+    , mouseTracking = False
+    , color = makeColor ( 0, 0 )
+
+    -- For Development
+    , mousePosition = ( 0, 0 )
+    , dynamic = False
 
     -- Magic optimal value after profiling performance on FF75 and Chrome
     , precision = 0.27
-    , elementDimensions = Nothing
-    , mouseTracking = False
-    , mousePosition = ( 0, 0 )
-    , color = makeColor ( 0, 0 )
-
-    -- Magic optimal value after profiling performance on FF75 and Chrome
     , blur = 8
-    , dynamic = False
     }
-
-
-withPrecision : Float -> Model -> Model
-withPrecision precision model =
-    { model | precision = precision }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -105,12 +103,6 @@ update msg model =
         StoppedMouseTracking ->
             ( { model | mouseTracking = False }, Cmd.none )
 
-        SetPrecision p ->
-            ( { model | precision = p }, Cmd.none )
-
-        SetBlur b ->
-            ( { model | blur = b }, Cmd.none )
-
         SetOpacity opacity ->
             let
                 { h, s } =
@@ -121,8 +113,22 @@ update msg model =
             in
             ( { model | color = color }, Cmd.none )
 
+        --
+        --
+        --
+        {--| For Development --}
+        SetPrecision p ->
+            ( { model | precision = p }, Cmd.none )
+
+        SetBlur b ->
+            ( { model | blur = b }, Cmd.none )
+
         ToggledDynamic ->
             ( { model | dynamic = not model.dynamic }, Cmd.none )
+
+
+
+-- COLOR
 
 
 computeColor : Model -> Position -> Color
@@ -140,22 +146,6 @@ computeColor model ( x, y ) =
 
         Nothing ->
             model.color
-
-
-mouseInfoDecoder : Decoder Position
-mouseInfoDecoder =
-    Decode.map2 Tuple.pair
-        (Decode.field "offsetX" Decode.float)
-        (Decode.field "offsetY" Decode.float)
-
-
-getElementDimensions : Model -> Cmd Msg
-getElementDimensions model =
-    Task.attempt GotElementDimensions (Browser.Dom.getElement model.id)
-
-
-
--- COLOR
 
 
 updateColor : Position -> Color -> Color
@@ -323,6 +313,80 @@ crosshair x y radius =
         ]
 
 
+sliderInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Svg msg
+sliderInput msg oldValue min_ max_ step_ =
+    let
+        onInputCallback stringValue =
+            case String.toFloat stringValue of
+                Just newValue ->
+                    msg newValue
+
+                Nothing ->
+                    msg oldValue
+    in
+    Html.Styled.input
+        [ Html.Styled.Attributes.type_ "range"
+        , Html.Styled.Attributes.min (String.fromFloat min_)
+        , Html.Styled.Attributes.max (String.fromFloat max_)
+        , Html.Styled.Attributes.step (String.fromFloat step_)
+        , Html.Styled.Attributes.value <| String.fromFloat oldValue
+        , Html.Styled.Events.onInput onInputCallback
+        , css [ display block, Css.width (pct 100) ]
+        ]
+        []
+
+
+
+-- TASK AND
+-- MOUSE
+-- DECODER
+
+
+getElementDimensions : Model -> Cmd Msg
+getElementDimensions model =
+    Task.attempt GotElementDimensions (Browser.Dom.getElement model.id)
+
+
+mouseInfoDecoder : Decoder Position
+mouseInfoDecoder =
+    Decode.map2 Tuple.pair
+        (Decode.field "offsetX" Decode.float)
+        (Decode.field "offsetY" Decode.float)
+
+
+
+-- HELPERS
+
+
+strTruncateFromFloat : Int -> Float -> String
+strTruncateFromFloat precision float =
+    let
+        floatString =
+            String.fromFloat float
+
+        truncate string =
+            if String.length string <= precision then
+                string
+
+            else
+                String.dropRight (String.length string - precision) string
+    in
+    case String.split "." floatString of
+        integer :: [] ->
+            integer
+
+        integer :: [ decimal ] ->
+            integer ++ "." ++ truncate decimal
+
+        _ ->
+            floatString
+
+
+
+-- DYNAMIC VIEW (FOR DEVELOPMENT)
+-- VIEW
+
+
 viewDynamic : Model -> Svg Msg
 viewDynamic model =
     lazy5 viewDynamicEager model.id model.precision model.mouseTracking model.blur model.color
@@ -352,8 +416,7 @@ viewDynamicEager id_ precision mouseTracking blur color =
             [ borderRadius (pct 50)
             , overflow hidden
             , backgroundColor (Colors.toCssColor Colors.black)
-            , Css.position
-                Css.relative
+            , Css.position Css.relative
             ]
         ]
         [ svg
@@ -394,6 +457,10 @@ viewDynamicEager id_ precision mouseTracking blur color =
         ]
 
 
+
+-- TODO precision dictate number of slices and precisely size them
+
+
 pizza : Float -> Svg msg
 pizza precision =
     Svg.Styled.g []
@@ -413,7 +480,7 @@ pizzaSlice precision radians_ =
             Colors.toString <| makeColor ( 0, radians_ )
 
         id_ =
-            "colorId_" ++ String.fromFloat radians_
+            "colorId_" ++ strTruncateFromFloat 2 radians_
     in
     [ toppings startColor endColor id_
     , path
@@ -454,10 +521,10 @@ betterDough precision radians_ =
             "M 0 0"
 
         lineTo1 =
-            "L" ++ String.fromFloat x1 ++ " " ++ String.fromFloat y1
+            "L" ++ strTruncateFromFloat 4 x1 ++ " " ++ strTruncateFromFloat 4 y1
 
         lineTo2 =
-            "L" ++ String.fromFloat x2 ++ " " ++ String.fromFloat y2
+            "L" ++ strTruncateFromFloat 4 x2 ++ " " ++ strTruncateFromFloat 4 y2
     in
     moveTo ++ lineTo1 ++ lineTo2 ++ "Z"
 
@@ -470,26 +537,3 @@ toppings startColor endColor id_ =
             , stop [ offset "100%", stopColor endColor ] []
             ]
         ]
-
-
-sliderInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Svg msg
-sliderInput msg oldValue min_ max_ step_ =
-    let
-        onInputCallback stringValue =
-            case String.toFloat stringValue of
-                Just newValue ->
-                    msg newValue
-
-                Nothing ->
-                    msg oldValue
-    in
-    Html.Styled.input
-        [ Html.Styled.Attributes.type_ "range"
-        , Html.Styled.Attributes.min (String.fromFloat min_)
-        , Html.Styled.Attributes.max (String.fromFloat max_)
-        , Html.Styled.Attributes.step (String.fromFloat step_)
-        , Html.Styled.Attributes.value <| String.fromFloat oldValue
-        , Html.Styled.Events.onInput onInputCallback
-        , css [ display block, Css.width (pct 100) ]
-        ]
-        []
