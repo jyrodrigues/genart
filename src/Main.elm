@@ -444,13 +444,16 @@ view model =
 wheel model =
     { title = "Wheel"
     , body =
-        [ global [ body [ width (px 4000), backgroundColor (Colors.toCssColor model.image.backgroundColor) ] ] |> toUnstyled
-        , div [ css [ height (px 1000), width (px 1000), display inlineBlock ] ] [] |> toUnstyled
-        , div [ css [ height (px 900), width (px 900), display inlineBlock ] ]
+        [ div [ css [ height (px 400), width (px 400), display inlineBlock ] ]
             [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
             ]
-            |> toUnstyled
+        , div [ css [ height (px 200), width (px 200), display inlineBlock ] ]
+            [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
+            ]
+        , button [ onClick DownloadSvg ] [ text "Download Image" ]
+        , global [ body [ backgroundColor (Colors.toCssColor model.image.backgroundColor) ] ]
         ]
+            |> List.map toUnstyled
     }
 
 
@@ -1100,7 +1103,7 @@ update msg model =
             ColorWheelMsg subMsg ->
                 let
                     ( updatedColorWheel, subCmd ) =
-                         ColorWheel.update subMsg model.colorWheel
+                        ColorWheel.update subMsg model.colorWheel
                 in
                 ( { model
                     | colorWheel = updatedColorWheel

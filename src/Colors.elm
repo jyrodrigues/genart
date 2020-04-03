@@ -39,6 +39,7 @@ module Colors exposing
     , updateLightness
     , updateRed
     , updateSaturation
+    , white
     )
 
 import Color exposing (Color, hsla, rgb255, rgba, toCssString, toHsla, toRgba)
@@ -146,7 +147,7 @@ hsv hue_ s v =
             hue / 60
 
         x =
-            Debug.log "x" <| c * (1 - abs (floatModBy 2 h_ - 1))
+            c * (1 - abs (floatModBy 2 h_ - 1))
 
         ( r1, g1, b1 ) =
             if 0 <= h_ && h_ <= 1 then
@@ -174,7 +175,7 @@ hsv hue_ s v =
             v - c
 
         ( r, g, b ) =
-            Debug.log "r g b" ( r1 + m, g1 + m, b1 + m )
+            ( r1 + m, g1 + m, b1 + m )
     in
     Color.rgb r g b
 
@@ -503,6 +504,11 @@ darkGray =
 black : Color
 black =
     rgba 0 0 0 1
+
+
+white : Color
+white =
+    rgba 1 1 1 1
 
 
 offWhite : Color
