@@ -242,7 +242,10 @@ viewStaticEager id_ mouseTracking color =
             fromPolar (toPolarPosition color)
 
         scale =
-            1.01
+            1.0
+
+        crosshairSize =
+            15
     in
     div
         [ css
@@ -275,22 +278,12 @@ viewStaticEager id_ mouseTracking color =
                 ++ tracking
             )
             []
-        , div
-            [ css
-                [ Css.position Css.absolute
-                , Css.left (pct ((scale * x) * 50 + 50))
-                , Css.top (pct ((scale * y) * 50 + 50))
-                , Css.height (px 15)
-                , Css.width (px 15)
-                , Css.pointerEvents Css.none
-                ]
-            ]
-            [ crosshair opacity ]
+        , crosshair (scale * x) (scale * y) (scale * crosshairSize) opacity
         ]
 
 
-crosshair : Float -> Svg msg
-crosshair opacity =
+crosshair : Float -> Float -> Float -> Float -> Svg msg
+crosshair x y finalSize opacity =
     let
         strokeWidth_ =
             String.fromInt 8
@@ -320,34 +313,45 @@ crosshair opacity =
         sizeStr =
             String.fromInt size
     in
-    svg [ viewBox viewBox_, height "15px", width "15px", pointerEvents "none" ]
-        [ circle
-            [ cx center
-            , cy center
-            , r radius
-            , fill "none"
-            , stroke strokeColor
-            , strokeWidth strokeWidth_
+    div
+        [ css
+            [ Css.position Css.absolute
+            , Css.left (Css.calc (pct (x * 50 + 50)) Css.minus (px (finalSize / 2)))
+            , Css.top (Css.calc (pct (y * 50 + 50)) Css.minus (px (finalSize / 2)))
+            , Css.height (px finalSize)
+            , Css.width (px finalSize)
+            , Css.pointerEvents Css.none
             ]
-            []
-        , line
-            [ x1 "0"
-            , x2 sizeStr
-            , y1 center
-            , y2 center
-            , stroke strokeColor
-            , strokeWidth strokeWidth_
+        ]
+        [ svg [ viewBox viewBox_, height "15px", width "15px", pointerEvents "none" ]
+            [ circle
+                [ cx center
+                , cy center
+                , r radius
+                , fill "none"
+                , stroke strokeColor
+                , strokeWidth strokeWidth_
+                ]
+                []
+            , line
+                [ x1 "0"
+                , x2 sizeStr
+                , y1 center
+                , y2 center
+                , stroke strokeColor
+                , strokeWidth strokeWidth_
+                ]
+                []
+            , line
+                [ x1 center
+                , x2 center
+                , y1 "0"
+                , y2 sizeStr
+                , stroke strokeColor
+                , strokeWidth strokeWidth_
+                ]
+                []
             ]
-            []
-        , line
-            [ x1 center
-            , x2 center
-            , y1 "0"
-            , y2 sizeStr
-            , stroke strokeColor
-            , strokeWidth strokeWidth_
-            ]
-            []
         ]
 
 
@@ -454,7 +458,10 @@ viewDynamicEager id_ numberOfSlices mouseTracking blur color =
             fromPolar (toPolarPosition color)
 
         scale =
-            1.01
+            1.0
+
+        crosshairSize =
+            15
     in
     div
         [ css
@@ -485,17 +492,7 @@ viewDynamicEager id_ numberOfSlices mouseTracking blur color =
                 ++ tracking
             )
             [ lazy pizza numberOfSlices ]
-        , div
-            [ css
-                [ Css.position Css.absolute
-                , Css.left (pct ((scale * x) * 50 + 50))
-                , Css.top (pct ((scale * y) * 50 + 50))
-                , Css.height (px 15)
-                , Css.width (px 15)
-                , Css.pointerEvents Css.none
-                ]
-            ]
-            [ crosshair value ]
+        , crosshair (scale * x) (scale * y) (scale * crosshairSize) value
         ]
 
 
