@@ -298,7 +298,9 @@ initialModel image gallery url navKey =
     , imgDivStart = ( 0, 0 )
 
     -- ColorWheel
-    , colorWheel = ColorWheel.initialModel "ColorWheel1"
+    , colorWheel =
+        ColorWheel.initialModel "ColorWheel1"
+            |> ColorWheel.trackMouseOutsideWheel True
 
     -- Browser Focus
     , focus = KeyboardEditing
@@ -1528,7 +1530,13 @@ subscriptions model =
             else
                 Sub.none
     in
-    Sub.batch [ keyPressSub, panSubs, playingVideoSub, midiEvent GotMidiEvent ]
+    Sub.batch
+        [ keyPressSub
+        , panSubs
+        , playingVideoSub
+        , midiEvent GotMidiEvent
+        , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
+        ]
 
 
 framesInterval : Float

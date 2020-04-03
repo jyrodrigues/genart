@@ -1,6 +1,7 @@
-module ColorWheel exposing (Model, Msg, getElementDimensions, initialModel, update, view)
+module ColorWheel exposing (Model, Msg, getElementDimensions, initialModel, subscriptions, trackMouseOutsideWheel, update, view)
 
 import Browser.Dom exposing (Element)
+import Browser.Events
 import Colors exposing (Color)
 import Css exposing (backgroundColor, backgroundImage, block, borderRadius, display, hidden, overflow, pct, px, url)
 import Html.Styled exposing (Html, div)
@@ -58,6 +59,9 @@ type alias Model =
     , numberOfSlices : Float
     , blur : Float
     , dynamic : Bool
+
+    -- Config
+    , trackMouseOutsideWheel : Bool
     }
 
 
@@ -77,6 +81,9 @@ initialModel id_ =
     --, blur = 8
     , numberOfSlices = 100
     , blur = 2
+
+    -- Config
+    , trackMouseOutsideWheel = False
     }
 
 
@@ -131,6 +138,27 @@ update msg model =
             ( { model | dynamic = not model.dynamic }, Cmd.none )
 
 
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    if model.mouseTracking then
+        Sub.batch
+            [ Browser.Events.onMouseMove (Decode.map GotMousePosition mouseInfoDecoder)
+            , Browser.Events.onMouseUp (Decode.succeed StoppedMouseTracking)
+            ]
+
+    else
+        Sub.none
+
+
+
+-- CONFIG
+
+
+trackMouseOutsideWheel : Bool -> Model -> Model
+trackMouseOutsideWheel shouldTrack model =
+    { model | trackMouseOutsideWheel = shouldTrack }
+
+
 
 -- COLOR
 
@@ -145,6 +173,7 @@ computeColor model ( x, y ) =
 
                 clickedVec =
                     toPolar ( (x - w / 2) / (w / 2), (y - h / 2) / (h / 2) )
+                        |> Tuple.mapFirst (clamp 0 1)
             in
             updateColor clickedVec model.color
 
@@ -222,17 +251,23 @@ view model =
 
 viewStatic : Model -> Svg Msg
 viewStatic model =
-    lazy3 viewStaticEager model.id model.mouseTracking model.color
+    lazy4 viewStaticEager model.id model.mouseTracking model.color model.trackMouseOutsideWheel
 
 
-viewStaticEager : String -> Bool -> Color -> Svg Msg
-viewStaticEager id_ mouseTracking color =
+viewStaticEager : String -> Bool -> Color -> Bool -> Svg Msg
+viewStaticEager id_ mouseTracking color isTrackingMouseOutsideWheel =
     let
+        trackingOutside =
+            if isTrackingMouseOutsideWheel then
+                []
+
+            else
+                [ onMouseOut StoppedMouseTracking ]
+
         tracking =
             if mouseTracking then
-                [ on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder)
-                , onMouseOut StoppedMouseTracking
-                ]
+                on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder)
+                    :: trackingOutside
 
             else
                 []
@@ -440,15 +475,29 @@ strTruncateFromFloat precision float =
 
 viewDynamic : Model -> Svg Msg
 viewDynamic model =
-    lazy5 viewDynamicEager model.id (floor model.numberOfSlices) model.mouseTracking model.blur model.color
+    lazy6 viewDynamicEager
+        model.id
+        (floor model.numberOfSlices)
+        model.mouseTracking
+        model.blur
+        model.color
+        model.trackMouseOutsideWheel
 
 
-viewDynamicEager : String -> Int -> Bool -> Float -> Color -> Svg Msg
-viewDynamicEager id_ numberOfSlices mouseTracking blur color =
+viewDynamicEager : String -> Int -> Bool -> Float -> Color -> Bool -> Svg Msg
+viewDynamicEager id_ numberOfSlices mouseTracking blur color isTrackingMouseOutsideWheel =
     let
+        trackingOutside =
+            if isTrackingMouseOutsideWheel then
+                []
+
+            else
+                [ onMouseOut StoppedMouseTracking ]
+
         tracking =
             if mouseTracking then
-                [ on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder) ]
+                on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder)
+                    :: trackingOutside
 
             else
                 []
