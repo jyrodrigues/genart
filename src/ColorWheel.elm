@@ -37,7 +37,7 @@ import Svg.Styled.Attributes
         , y1
         , y2
         )
-import Svg.Styled.Events exposing (on, onMouseDown, onMouseUp, stopPropagationOn)
+import Svg.Styled.Events exposing (on, onMouseDown, onMouseOut, onMouseUp, stopPropagationOn)
 import Svg.Styled.Lazy exposing (lazy, lazy2, lazy3, lazy4, lazy5, lazy6)
 import Task
 
@@ -230,7 +230,9 @@ viewStaticEager id_ mouseTracking color =
     let
         tracking =
             if mouseTracking then
-                [ on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder) ]
+                [ on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder)
+                , onMouseOut StoppedMouseTracking
+                ]
 
             else
                 []
