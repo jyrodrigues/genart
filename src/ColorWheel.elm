@@ -20,6 +20,7 @@ import Svg.Styled.Attributes
         , height
         , id
         , offset
+        , opacity
         , pointerEvents
         , r
         , scale
@@ -28,6 +29,7 @@ import Svg.Styled.Attributes
         , strokeLinecap
         , strokeWidth
         , style
+        , transform
         , viewBox
         , width
         , x1
@@ -53,22 +55,10 @@ type alias Model =
 
     -- For Development
     , mousePosition : Position
-    , precision : Float
+    , numberOfSlices : Float
     , blur : Float
     , dynamic : Bool
     }
-
-
-type Msg
-    = GotElementDimensions (Result Browser.Dom.Error Element)
-    | GotMousePosition Position
-    | StartedMouseTracking
-    | StoppedMouseTracking
-    | SetOpacity Float
-      -- For Development
-    | SetPrecision Float
-    | SetBlur Float
-    | ToggledDynamic
 
 
 initialModel : String -> Model
@@ -83,9 +73,23 @@ initialModel id_ =
     , dynamic = False
 
     -- Magic optimal value after profiling performance on FF75 and Chrome
-    , precision = 0.27
-    , blur = 8
+    --, numberOfSlices = 97
+    --, blur = 8
+    , numberOfSlices = 6
+    , blur = 0
     }
+
+
+type Msg
+    = GotElementDimensions (Result Browser.Dom.Error Element)
+    | GotMousePosition Position
+    | StartedMouseTracking
+    | StoppedMouseTracking
+    | SetOpacity Float
+      -- For Development
+    | SetNumberOfSlices Float
+    | SetBlur Float
+    | ToggledDynamic
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -117,8 +121,8 @@ update msg model =
         --
         --
         {--| For Development --}
-        SetPrecision p ->
-            ( { model | precision = p }, Cmd.none )
+        SetNumberOfSlices n ->
+            ( { model | numberOfSlices = n }, Cmd.none )
 
         SetBlur b ->
             ( { model | blur = b }, Cmd.none )
@@ -198,8 +202,8 @@ view model =
             ]
         ]
         [ view_ model
-        , Html.Styled.text (String.fromFloat model.precision)
-        , sliderInput SetPrecision model.precision 0.01 1 0.01
+        , Html.Styled.text (String.fromFloat model.numberOfSlices)
+        , sliderInput SetNumberOfSlices model.numberOfSlices 1 180 1
         , Html.Styled.text (String.fromFloat model.blur)
         , sliderInput SetBlur model.blur 0 40 1
         , Html.Styled.text (String.fromFloat v)
@@ -361,8 +365,15 @@ mouseInfoDecoder =
 strTruncateFromFloat : Int -> Float -> String
 strTruncateFromFloat precision float =
     let
+        tens =
+            toFloat (10 ^ precision)
+
+        truncatedFloat =
+            -- Prevent bugs where string representation is "7.1234134e-15" turned into "7.1234"
+            toFloat (floor (float * tens)) / tens
+
         floatString =
-            String.fromFloat float
+            String.fromFloat truncatedFloat
 
         truncate string =
             if String.length string <= precision then
@@ -389,11 +400,11 @@ strTruncateFromFloat precision float =
 
 viewDynamic : Model -> Svg Msg
 viewDynamic model =
-    lazy5 viewDynamicEager model.id model.precision model.mouseTracking model.blur model.color
+    lazy5 viewDynamicEager model.id (floor model.numberOfSlices) model.mouseTracking model.blur model.color
 
 
-viewDynamicEager : String -> Float -> Bool -> Float -> Color -> Svg Msg
-viewDynamicEager id_ precision mouseTracking blur color =
+viewDynamicEager : String -> Int -> Bool -> Float -> Color -> Svg Msg
+viewDynamicEager id_ numberOfSlices mouseTracking blur color =
     let
         tracking =
             if mouseTracking then
@@ -402,7 +413,7 @@ viewDynamicEager id_ precision mouseTracking blur color =
             else
                 []
 
-        opacity =
+        value =
             .v (Colors.toHsva color)
 
         ( x, y ) =
@@ -424,13 +435,10 @@ viewDynamicEager id_ precision mouseTracking blur color =
             ([ viewBox "-1 -1 2 2"
              , height "100%"
              , width "100%"
-             , style <|
-                "display: block;"
-                    ++ "background-color: white;"
-                    ++ "transform: scale(1.01);"
-                    ++ "boder-radius: 50%;"
-                    -- TODO change opacity to simulate Value change (the V in HSV)
-                    ++ ("opacity: " ++ String.fromFloat opacity ++ ";")
+             , style <| "display: block;" ++ "background-color: white;" ++ "boder-radius: 50%;"
+
+             --, transform "scale(1.01)"
+             , opacity <| String.fromFloat value
              , filter <| "blur(" ++ String.fromFloat blur ++ "px)"
              , id id_
              , stopPropagationOn "click"
@@ -442,7 +450,7 @@ viewDynamicEager id_ precision mouseTracking blur color =
              ]
                 ++ tracking
             )
-            [ lazy pizza precision ]
+            [ lazy pizza numberOfSlices ]
         , div
             [ css
                 [ Css.position Css.absolute
@@ -457,34 +465,35 @@ viewDynamicEager id_ precision mouseTracking blur color =
         ]
 
 
-
--- TODO precision dictate number of slices and precisely size them
-
-
-pizza : Float -> Svg msg
-pizza precision =
+pizza : Int -> Svg msg
+pizza numberOfSlices =
     Svg.Styled.g []
-        (List.range 1 (ceiling <| 360 * precision)
-            |> List.map (toFloat >> (\theta -> theta / precision) >> degrees)
-            |> List.concatMap (pizzaSlice precision)
+        (List.range 0 (numberOfSlices - 1)
+            |> List.concatMap (pizzaSlice numberOfSlices)
         )
 
 
-pizzaSlice : Float -> Float -> List (Svg msg)
-pizzaSlice precision radians_ =
+pizzaSlice : Int -> Int -> List (Svg msg)
+pizzaSlice totalNumberOfSlices sliceNumber =
     let
+        sizeAngle =
+            (2 * pi) / toFloat totalNumberOfSlices
+
+        rotationAngle =
+            toFloat sliceNumber * sizeAngle
+
         endColor =
-            Colors.toString <| makeColor ( 1, radians_ )
+            Colors.toString <| makeColor ( 1, rotationAngle )
 
         startColor =
-            Colors.toString <| makeColor ( 0, radians_ )
+            Colors.toString <| makeColor ( 0, rotationAngle )
 
         id_ =
-            "colorId_" ++ strTruncateFromFloat 2 radians_
+            "colorId_" ++ String.fromInt sliceNumber
     in
     [ toppings startColor endColor id_
     , path
-        [ d (betterDough precision radians_)
+        [ d (betterDough sizeAngle rotationAngle)
         , fill <| "url(#" ++ id_ ++ ")"
 
         --, Svg.Styled.Attributes.strokeWidth "0.001"
@@ -500,22 +509,27 @@ pizzaSlice precision radians_ =
 
 
 betterDough : Float -> Float -> PathSegmentString
-betterDough precision radians_ =
+betterDough sizeAngle rotationAngle =
     let
+        _ =
+            ( sizeAngle, rotationAngle )
+
         radius =
             -- Greater than the pizza radius of 1: it'll be trimmed via border-radius 50%.
-            3
+            1
 
         sliceSize =
-            -- More than 1 degree because otherwise we would see white segments dividing the slices.
-            -- My guess is it's a floating point precision thing.
-            degrees (1.1 * (1 / precision))
+            -- More than it's supposed size  because otherwise we would see white segments
+            -- dividing the slices. My guess is it's a floating point precision thing.
+            sizeAngle + 0.02
 
         ( x1, y1 ) =
-            fromPolar ( radius, radians_ )
+            ( radius, rotationAngle )
+                |> fromPolar
 
         ( x2, y2 ) =
-            fromPolar ( radius, radians_ + sliceSize )
+            ( radius, rotationAngle + sliceSize )
+                |> fromPolar
 
         moveTo =
             "M 0 0"
@@ -523,10 +537,19 @@ betterDough precision radians_ =
         lineTo1 =
             "L" ++ strTruncateFromFloat 4 x1 ++ " " ++ strTruncateFromFloat 4 y1
 
-        lineTo2 =
-            "L" ++ strTruncateFromFloat 4 x2 ++ " " ++ strTruncateFromFloat 4 y2
+        ( ctrlX, ctrlY ) =
+            ( radius, radius * tan (sliceSize / 2) )
+                |> toPolar
+                |> Tuple.mapSecond ((+) rotationAngle)
+                |> fromPolar
+
+        quadraticBezier =
+            "Q"
+                ++ (strTruncateFromFloat 4 ctrlX ++ " " ++ strTruncateFromFloat 4 ctrlY)
+                ++ " "
+                ++ (strTruncateFromFloat 4 x2 ++ " " ++ strTruncateFromFloat 4 y2)
     in
-    moveTo ++ lineTo1 ++ lineTo2 ++ "Z"
+    moveTo ++ lineTo1 ++ quadraticBezier ++ "Z"
 
 
 toppings : String -> String -> String -> Svg msg

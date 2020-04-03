@@ -444,10 +444,7 @@ view model =
 wheel model =
     { title = "Wheel"
     , body =
-        [ div [ css [ height (px 400), width (px 400), display inlineBlock ] ]
-            [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
-            ]
-        , div [ css [ height (px 200), width (px 200), display inlineBlock ] ]
+        [ div [ css [ height (px 200), width (px 200), display inlineBlock ] ]
             [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
             ]
         , button [ onClick DownloadSvg ] [ text "Download Image" ]
