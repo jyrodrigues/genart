@@ -44,7 +44,7 @@ elmApp.ports.saveEncodedModelToLocalStorage.subscribe(function(encodedModel) {
 
 elmApp.ports.downloadSvg.subscribe(function() {
     //saveSvg(document.getElementById("MainSVG"), "hybridcode.svg");
-    saveSvg(document.getElementById("ColorWheel1"), "colorwheel.svg");
+    saveSvg(document.getElementById("MainSVG"), "colorwheel.svg");
 });
 
 

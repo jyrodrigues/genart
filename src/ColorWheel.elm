@@ -103,7 +103,12 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GotMousePosition relativePosition ->
-            ( { model | mousePosition = relativePosition, color = computeColor model relativePosition }, Cmd.none )
+            ( { model
+                | mousePosition = relativePosition
+                , color = computeColor model relativePosition
+              }
+            , Cmd.none
+            )
 
         GotElementDimensions result ->
             ( { model | elementDimensions = Result.toMaybe result }, Cmd.none )
@@ -255,72 +260,56 @@ viewStatic model =
 
 
 viewStaticEager : String -> Bool -> Color -> Bool -> Svg Msg
-viewStaticEager id_ mouseTracking color isTrackingMouseOutsideWheel =
+viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel =
     let
-        trackingOutside =
-            if isTrackingMouseOutsideWheel then
-                []
-
-            else
-                [ onMouseOut StoppedMouseTracking ]
-
-        tracking =
-            if mouseTracking then
-                on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder)
-                    :: trackingOutside
-
-            else
-                []
-
-        opacity =
+        value =
             .v (Colors.toHsva color)
 
-        ( x, y ) =
-            fromPolar (toPolarPosition color)
-
-        scale =
-            1.0
-
-        crosshairSize =
-            15
-    in
-    div
-        [ css
-            [ Css.height (pct 100)
-            , Css.width (pct 100)
-            , borderRadius (pct 50)
-            , overflow hidden
-            , backgroundColor (Colors.toCssColor Colors.black)
-            , Css.position Css.relative
+        outerDivAttributes =
+            [ css
+                [ borderRadius (pct 50)
+                , overflow hidden
+                , backgroundColor (Colors.toCssColor Colors.black)
+                , Css.position Css.relative
+                , Css.height (pct 100)
+                , Css.width (pct 100)
+                ]
+            , id id_
             ]
-        ]
-        [ div
-            ([ css
+
+        divEventListeners =
+            [ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
+            , ( True, onMouseDown StartedMouseTracking )
+            , ( True, onMouseUp StoppedMouseTracking )
+            , ( not mouseTrackingOutsideWheel, onMouseOut StoppedMouseTracking )
+            , ( mouseTracking, on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder) )
+            ]
+                |> List.filter Tuple.first
+                |> List.map Tuple.second
+
+        innerDivAttributes =
+            [ css
                 [ Css.height (pct 100)
                 , Css.width (pct 100)
                 , backgroundColor (Colors.toCssColor Colors.white)
                 , backgroundImage (url "dist/colorwheel.svg")
-                , Css.transform (Css.scale scale)
                 , Css.borderRadius (pct 50)
-                , Css.opacity (Css.num opacity)
+                , Css.opacity (Css.num value)
                 ]
-             , id id_
-             , stopPropagationOn "click"
-                (Decode.map (\msg -> ( msg, True ))
-                    (Decode.map GotMousePosition mouseInfoDecoder)
-                )
-             , onMouseDown StartedMouseTracking
-             , onMouseUp StoppedMouseTracking
-             ]
-                ++ tracking
-            )
-            []
-        , crosshair (scale * x) (scale * y) (scale * crosshairSize) opacity
+            , id (id_ ++ "static")
+            ]
+
+        ( x, y ) =
+            fromPolar (toPolarPosition color)
+    in
+    div outerDivAttributes
+        [ div (innerDivAttributes ++ divEventListeners) []
+        , crosshair x y value
         ]
 
 
-crosshair : Float -> Float -> Float -> Float -> Svg msg
-crosshair x y finalSize opacity =
+crosshair : Float -> Float -> Float -> Svg msg
+crosshair x y opacity =
     let
         strokeWidth_ =
             String.fromInt 8
@@ -334,6 +323,9 @@ crosshair x y finalSize opacity =
 
         strokeColor =
             Colors.toString <| Colors.updateAlpha 0.52 color
+
+        finalSize =
+            15
 
         size =
             90
@@ -360,7 +352,7 @@ crosshair x y finalSize opacity =
             , Css.pointerEvents Css.none
             ]
         ]
-        [ svg [ viewBox viewBox_, height "15px", width "15px", pointerEvents "none" ]
+        [ svg [ viewBox viewBox_ ]
             [ circle
                 [ cx center
                 , cy center
@@ -484,79 +476,88 @@ viewDynamic model =
         model.trackMouseOutsideWheel
 
 
+alwaysStopPropagation : Decoder a -> Decoder ( a, Bool )
+alwaysStopPropagation =
+    Decode.map (\msg -> ( msg, True ))
+
+
 viewDynamicEager : String -> Int -> Bool -> Float -> Color -> Bool -> Svg Msg
-viewDynamicEager id_ numberOfSlices mouseTracking blur color isTrackingMouseOutsideWheel =
+viewDynamicEager id_ numberOfSlices mouseTracking blur color mouseTrackingOutsideWheel =
     let
-        trackingOutside =
-            if isTrackingMouseOutsideWheel then
-                []
-
-            else
-                [ onMouseOut StoppedMouseTracking ]
-
-        tracking =
-            if mouseTracking then
-                on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder)
-                    :: trackingOutside
-
-            else
-                []
+        scale =
+            2
 
         value =
             .v (Colors.toHsva color)
 
+        divAttributes =
+            [ css
+                [ borderRadius (pct 50)
+                , overflow hidden
+                , backgroundColor (Colors.toCssColor Colors.black)
+                , Css.position Css.relative
+
+                --, Css.height (pct 100)
+                --, Css.width (pct 100)
+                ]
+            , id id_
+            ]
+
+        svgAttributes =
+            -- TODO add xmlns="http://www.w3.org/2000/svg"
+            [ viewBox "-1 -1 2 2"
+            , height "100%"
+            , width "100%"
+            , opacity (String.fromFloat value)
+            , filter ("blur(" ++ String.fromFloat blur ++ "px)")
+            , style <|
+                ""
+                    ++ "display: block;"
+                    ++ "background-color: white;"
+                    ++ "boder-radius: 50%;"
+                    ++ ("transform: scale(" ++ String.fromInt scale ++ ");")
+                    -- N.B. We need that the scaled element do *not* react to mouse events
+                    -- otherwise it would affect `offsetX` and `offsetY` from which we are
+                    -- calculating the mouse position and therefore the selected color!
+                    --
+                    -- Test here: https://jsfiddle.net/dn9jkr7a/1/
+                    ++ "pointer-events: none;"
+
+            -- TODO change this name or remove it entirely
+            , id "MainSVG"
+            ]
+
+        divEventListeners =
+            [ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
+            , ( True, onMouseDown StartedMouseTracking )
+            , ( True, onMouseUp StoppedMouseTracking )
+            , ( not mouseTrackingOutsideWheel, onMouseOut StoppedMouseTracking )
+            , ( mouseTracking, on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder) )
+            ]
+                |> List.filter Tuple.first
+                |> List.map Tuple.second
+
         ( x, y ) =
             fromPolar (toPolarPosition color)
-
-        scale =
-            1.0
-
-        crosshairSize =
-            15
     in
-    div
-        [ css
-            [ borderRadius (pct 50)
-            , overflow hidden
-            , backgroundColor (Colors.toCssColor Colors.black)
-            , Css.position Css.relative
+    div (divAttributes ++ divEventListeners)
+        [ div [ css [ Css.height (pct 100), Css.width (pct 100) ] ]
+            [ svg svgAttributes [ lazy2 pizza numberOfSlices scale ]
+            , crosshair x y value
             ]
         ]
-        [ svg
-            -- TODO add xmlns="http://www.w3.org/2000/svg"
-            ([ viewBox "-1 -1 2 2"
-             , height "100%"
-             , width "100%"
-             , style <| "display: block;" ++ "background-color: white;" ++ "boder-radius: 50%;"
-
-             --, transform "scale(1.01)"
-             , opacity <| String.fromFloat value
-             , filter <| "blur(" ++ String.fromFloat blur ++ "px)"
-             , id id_
-             , stopPropagationOn "click"
-                (Decode.map (\msg -> ( msg, True ))
-                    (Decode.map GotMousePosition mouseInfoDecoder)
-                )
-             , onMouseDown StartedMouseTracking
-             , onMouseUp StoppedMouseTracking
-             ]
-                ++ tracking
-            )
-            [ lazy pizza numberOfSlices ]
-        , crosshair (scale * x) (scale * y) (scale * crosshairSize) value
-        ]
 
 
-pizza : Int -> Svg msg
-pizza numberOfSlices =
+pizza : Int -> Float -> Svg msg
+pizza numberOfSlices scale =
     Svg.Styled.g []
         (List.range 0 (numberOfSlices - 1)
-            |> List.concatMap (pizzaSlice numberOfSlices)
+            |> List.concatMap (pizzaSlice numberOfSlices scale)
         )
 
 
-pizzaSlice : Int -> Int -> List (Svg msg)
-pizzaSlice totalNumberOfSlices sliceNumber =
+pizzaSlice : Int -> Float -> Int -> List (Svg msg)
+pizzaSlice totalNumberOfSlices scale sliceNumber =
     let
         sizeAngle =
             (2 * pi) / toFloat totalNumberOfSlices
@@ -573,7 +574,7 @@ pizzaSlice totalNumberOfSlices sliceNumber =
         id_ =
             "colorId_" ++ String.fromInt sliceNumber
     in
-    [ toppings startColor endColor id_
+    [ toppings startColor endColor id_ scale
     , path
         [ d (betterDough sizeAngle rotationAngle)
         , fill <| "url(#" ++ id_ ++ ")"
@@ -634,10 +635,10 @@ betterDough sizeAngle rotationAngle =
     moveTo ++ lineTo1 ++ quadraticBezier ++ "Z"
 
 
-toppings : String -> String -> String -> Svg msg
-toppings startColor endColor id_ =
+toppings : String -> String -> String -> Float -> Svg msg
+toppings startColor endColor id_ scale =
     defs []
-        [ radialGradient [ id id_, cx "0", cy "0", r "1", gradientUnits "userSpaceOnUse" ]
+        [ radialGradient [ id id_, cx "0", cy "0", r (String.fromFloat (1 / scale)), gradientUnits "userSpaceOnUse" ]
             [ stop [ offset "0%", stopColor startColor ] []
             , stop [ offset "100%", stopColor endColor ] []
             ]
