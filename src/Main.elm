@@ -128,6 +128,9 @@ port saveEncodedModelToLocalStorage : Encode.Value -> Cmd msg
 port downloadSvg : () -> Cmd msg
 
 
+port downloadSvgAsPng : () -> Cmd msg
+
+
 port midiEvent : (Encode.Value -> msg) -> Sub msg
 
 
@@ -170,6 +173,7 @@ type Msg
     | SetStrokeWidth Float
       -- Download
     | DownloadSvg
+    | DownloadSvgAsPng
       -- Focus
     | SetFocus Focus
       -- URL
@@ -436,9 +440,9 @@ view : Model -> Browser.Document Msg
 view model =
     case model.viewingPage of
         EditorPage ->
-            --editorView model
             wheel model
 
+        --editorView model
         GalleryPage ->
             galleryView model
 
@@ -450,6 +454,7 @@ wheel model =
             [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
             ]
         , button [ onClick DownloadSvg ] [ text "Download Image" ]
+        , button [ onClick DownloadSvgAsPng ] [ text "Download Image as PNG" ]
         , global [ body [ backgroundColor (Colors.toCssColor model.image.backgroundColor) ] ]
         ]
             |> List.map toUnstyled
@@ -552,7 +557,7 @@ controlPanel model =
             ]
         ]
         [ infoAndBasicControls model
-        , colorControls model.image.backgroundColor model.image.strokeColor
+        , colorControls model.image.backgroundColor model.image.strokeColor model.colorWheel
         , videoControls model.videoAngleChangeRate model.playingVideo
         , turnAngleControl model.image.turnAngle
         , strokeWidthControl model.image.strokeWidth
@@ -575,8 +580,8 @@ infoAndBasicControls model =
         ]
 
 
-colorControls : Color -> Color -> Html Msg
-colorControls backgroundColor strokeColor =
+colorControls : Color -> Color -> ColorWheel.Model -> Html Msg
+colorControls backgroundColor strokeColor colorWheel =
     let
         colorControl inputId msg inputLabel color =
             div []
@@ -601,6 +606,7 @@ colorControls backgroundColor strokeColor =
         , rgbSliders SetStrokeColor strokeColor
         , hslSliders SetStrokeColor strokeColor
         , br [] []
+        , div [ css [ width (pct 100), height (vw 15) ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
         ]
 
 
@@ -1098,6 +1104,9 @@ update msg model =
 
             DownloadSvg ->
                 ( model, downloadSvg () )
+
+            DownloadSvgAsPng ->
+                ( model, downloadSvgAsPng () )
 
             ColorWheelMsg subMsg ->
                 let
