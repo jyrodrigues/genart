@@ -48,10 +48,8 @@ elmApp.ports.downloadSvg.subscribe(function() {
 });
 
 elmApp.ports.downloadSvgAsPng.subscribe(function() {
-    console.log(document.getElementById("MainSVG").getBoundingClientRect());
-    var a = document.getElementById("MainSVG");
-    console.log(a.getBoundingClientRect());
-    downloadSvgAsPng(a, "colorwheel.png");
+    var svgElement = document.getElementById("MainSVG");
+    downloadSvgAsPng(svgElement, "colorwheel.png");
 });
 
 
@@ -82,6 +80,13 @@ function saveSvg(svgEl, name) {
  *
  */
 
+function downloadSvgAsPng(svgElement, filename) {
+    var canvas = document.createElement('canvas');
+    svgToCanvas(svgElement, canvas, function() {
+        downloadCanvas(canvas, filename);
+    });
+}
+
 /** SVG TO CANVAS - Extracted from http://www.graphicalweb.org/2010/papers/62-From_SVG_to_Canvas_and_Back/#svg_to_canvas */
 
 function svgToCanvas(svgOriginalElement, canvasElement, callback, size) {
@@ -97,12 +102,12 @@ function svgToCanvas(svgOriginalElement, canvasElement, callback, size) {
         return;
     }
 
+    var boundingClientRect = svgOriginalElement.getBoundingClientRect();
+
+    // TODO clone only if necessary?
+    // Cloning so that we don't change the width and height of the original element.
     var deepClone = true;
     var svgElement = svgOriginalElement.cloneNode(deepClone);
-
-    console.log(svgOriginalElement.getBoundingClientRect())
-    console.log(svgElement.getBoundingClientRect())
-    return;
 
     /**
      * Setting "absolute" size to SVG, since relative sizes (like percentage)
@@ -133,7 +138,6 @@ function svgToCanvas(svgOriginalElement, canvasElement, callback, size) {
         ) {
             svgElement.setAttribute('width', svgBoundingBoxSize.width);
         }
-        // If height is relative, we make it absolute.
         var heightUnitType = svgElement.height.baseVal.unitType;
         if (heightUnitType === SVGLength.SVG_LENGTHTYPE_UNKNOWN
             || heightUnitType === SVGLength.SVG_LENGTHTYPE_PERCENTAGE
@@ -141,7 +145,7 @@ function svgToCanvas(svgOriginalElement, canvasElement, callback, size) {
             svgElement.setAttribute('height', svgBoundingBoxSize.height);
         }
     } catch (e) {
-        console.warn(logPrefix + "This browser doesn't have support for the SVGLength interface", e);
+        //console.warn(logPrefix + "This browser doesn't have support for the SVGLength interface", e);
 
         /**
          * Test if height is set in percentage (e.g. "80%"); if so then change to absolute
@@ -151,13 +155,12 @@ function svgToCanvas(svgOriginalElement, canvasElement, callback, size) {
          * informative the other method and more involved in Web standards, something I
          * think every developer should know more about. That's the reason we keep it there.
          */
-        var boundingClientRect = svgElement.getBoundingClientRect();
         var regexPercentageValue = RegExp("^([0-9]+|[0-9]*\.[0-9]+)%$");
         if (regexPercentageValue.test(svgElement.attributes.width.value)) {
-            svgElement.attributes.width = boundingClientRect.width;
+            svgElement.setAttribute("width", boundingClientRect.width);
         }
         if (regexPercentageValue.test(svgElement.attributes.height.value)) {
-            svgElement.attributes.height = boundingClientRect.height;
+            svgElement.setAttribute("height",boundingClientRect.height);
         }
     }
 
@@ -166,8 +169,9 @@ function svgToCanvas(svgOriginalElement, canvasElement, callback, size) {
     var ctx = canvasElement.getContext('2d');
 
 
-    ctx.canvas.width = 600;
-    ctx.canvas.height = 600;
+    // TODO test if this will always work (using boundingClientRect).
+    ctx.canvas.width = boundingClientRect.width;
+    ctx.canvas.height = boundingClientRect.height;
 
     // This is just a JavaScript (HTML) image.
     var img = new Image();
@@ -215,13 +219,6 @@ function downloadCanvas(canvasElement, filename) {
         } else {
             console.warn(logPrefix + "Download not supported. No \"document.createEvent\" or \"domElement.click\" available.");
         }
-    });
-}
-
-function downloadSvgAsPng(svgElement, filename) {
-    var canvas = document.createElement('canvas');
-    svgToCanvas(svgElement, function() {
-        downloadCanvas(canvas, filename);
     });
 }
 

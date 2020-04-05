@@ -3,7 +3,22 @@ module ColorWheel exposing (Model, Msg, getElementDimensions, initialModel, subs
 import Browser.Dom exposing (Element)
 import Browser.Events
 import Colors exposing (Color)
-import Css exposing (backgroundColor, backgroundImage, block, borderRadius, display, hidden, overflow, pct, px, url)
+import Css
+    exposing
+        ( backgroundColor
+        , backgroundImage
+        , backgroundPosition
+        , backgroundRepeat
+        , block
+        , borderRadius
+        , center
+        , display
+        , hidden
+        , overflow
+        , pct
+        , px
+        , url
+        )
 import Html.Styled exposing (Html, div)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events
@@ -74,7 +89,7 @@ initialModel id_ =
 
     -- For Development
     , mousePosition = ( 0, 0 )
-    , dynamic = True
+    , dynamic = False
 
     -- Magic optimal value after profiling performance on FF75 and Chrome
     --, numberOfSlices = 97
@@ -292,7 +307,9 @@ viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel =
                 [ Css.height (pct 100)
                 , Css.width (pct 100)
                 , backgroundColor (Colors.toCssColor Colors.white)
-                , backgroundImage (url "dist/colorwheel.svg")
+                , backgroundRepeat Css.round
+                , backgroundPosition center
+                , backgroundImage (url "dist/colorwheel.png")
                 , Css.borderRadius (pct 50)
                 , Css.opacity (Css.num value)
                 ]
