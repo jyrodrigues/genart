@@ -7,11 +7,11 @@ import Css
     exposing
         ( backgroundColor
         , backgroundImage
-        , backgroundPosition
         , backgroundRepeat
+        , backgroundSize
         , block
         , borderRadius
-        , center
+        , cover
         , display
         , hidden
         , overflow
@@ -308,7 +308,7 @@ viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel =
                 , Css.width (pct 100)
                 , backgroundColor (Colors.toCssColor Colors.white)
                 , backgroundRepeat Css.round
-                , backgroundPosition center
+                , backgroundSize cover
                 , backgroundImage (url "dist/colorwheel.png")
                 , Css.borderRadius (pct 50)
                 , Css.opacity (Css.num value)
