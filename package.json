@@ -11,7 +11,7 @@
     "bundle": "webpack",
     "serve": "webpack-dev-server",
     "clean": "rm -rf ./dist",
-    "copy": "cp _redirects dist/",
+    "copy": "cp _redirects dist/ && cp src/colorwheel.jpeg dist/",
     "build": "npm run bundle && npm run copy",
     "test": "elm-test"
   },

@@ -128,7 +128,7 @@ port saveEncodedModelToLocalStorage : Encode.Value -> Cmd msg
 port downloadSvg : () -> Cmd msg
 
 
-port downloadSvgAsPng : () -> Cmd msg
+port downloadSvgAsJpeg : () -> Cmd msg
 
 
 port midiEvent : (Encode.Value -> msg) -> Sub msg
@@ -173,7 +173,7 @@ type Msg
     | SetStrokeWidth Float
       -- Download
     | DownloadSvg
-    | DownloadSvgAsPng
+    | DownloadSvgAsJpeg
       -- Focus
     | SetFocus Focus
       -- URL
@@ -454,7 +454,7 @@ wheel model =
             [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
             ]
         , button [ onClick DownloadSvg ] [ text "Download Image" ]
-        , button [ onClick DownloadSvgAsPng ] [ text "Download Image as PNG" ]
+        , button [ onClick DownloadSvgAsJpeg ] [ text "Download Image as JPEG" ]
         , global [ body [ backgroundColor (Colors.toCssColor model.image.backgroundColor) ] ]
         ]
             |> List.map toUnstyled
@@ -1105,8 +1105,8 @@ update msg model =
             DownloadSvg ->
                 ( model, downloadSvg () )
 
-            DownloadSvgAsPng ->
-                ( model, downloadSvgAsPng () )
+            DownloadSvgAsJpeg ->
+                ( model, downloadSvgAsJpeg () )
 
             ColorWheelMsg subMsg ->
                 let
