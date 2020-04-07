@@ -15,15 +15,16 @@ import Css
         , display
         , hidden
         , overflow
+        , paddingTop
         , pct
         , px
         , url
         )
-import Html.Styled exposing (Html, div)
+import Html.Styled exposing (div)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events
 import Json.Decode as Decode exposing (Decoder)
-import LSystem.Image exposing (PathSegment(..), PathSegmentString, segmentToString, toAbsoluteValue)
+import LSystem.Image exposing (PathSegment(..), PathSegmentString)
 import Svg.Styled exposing (Svg, circle, defs, line, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
     exposing
@@ -39,13 +40,10 @@ import Svg.Styled.Attributes
         , opacity
         , pointerEvents
         , r
-        , scale
         , stopColor
         , stroke
-        , strokeLinecap
         , strokeWidth
         , style
-        , transform
         , viewBox
         , width
         , x1
@@ -54,7 +52,7 @@ import Svg.Styled.Attributes
         , y2
         )
 import Svg.Styled.Events exposing (on, onMouseDown, onMouseOut, onMouseUp, stopPropagationOn)
-import Svg.Styled.Lazy exposing (lazy, lazy2, lazy3, lazy4, lazy5, lazy6)
+import Svg.Styled.Lazy exposing (lazy2, lazy5, lazy6)
 import Task
 
 
@@ -77,6 +75,7 @@ type alias Model =
 
     -- Config
     , trackMouseOutsideWheel : Bool
+    , sameHeightAsWidth : Bool
     }
 
 
@@ -99,6 +98,7 @@ initialModel id_ =
 
     -- Config
     , trackMouseOutsideWheel = False
+    , sameHeightAsWidth = True
     }
 
 
@@ -271,28 +271,37 @@ view model =
 
 viewStatic : Model -> Svg Msg
 viewStatic model =
-    lazy4 viewStaticEager model.id model.mouseTracking model.color model.trackMouseOutsideWheel
+    lazy5 viewStaticEager model.id model.mouseTracking model.color model.trackMouseOutsideWheel model.sameHeightAsWidth
 
 
-viewStaticEager : String -> Bool -> Color -> Bool -> Svg Msg
-viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel =
+viewStaticEager : String -> Bool -> Color -> Bool -> Bool -> Svg Msg
+viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel sameHeightAsWidth =
     let
         value =
             .v (Colors.toHsva color)
 
+        outerWidthAndHeight =
+            if sameHeightAsWidth then
+                Css.batch []
+
+            else
+                Css.batch
+                    [ Css.height (pct 100)
+                    , Css.width (pct 100)
+                    ]
+
         outerDivAttributes =
             [ css
-                [ borderRadius (pct 50)
+                [ outerWidthAndHeight
+                , borderRadius (pct 50)
                 , overflow hidden
                 , backgroundColor (Colors.toCssColor Colors.black)
                 , Css.position Css.relative
-                , Css.height (pct 100)
-                , Css.width (pct 100)
                 ]
             , id id_
             ]
 
-        divEventListeners =
+        innerDivEventListeners =
             [ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
             , ( True, onMouseDown StartedMouseTracking )
             , ( True, onMouseUp StoppedMouseTracking )
@@ -302,10 +311,20 @@ viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel =
                 |> List.filter Tuple.first
                 |> List.map Tuple.second
 
+        innerHeight =
+            Css.batch <|
+                if sameHeightAsWidth then
+                    -- N.B. Padding in percentage is computed based on width value, so we force the height to be
+                    -- the same as the width. This *would* affect its children's positions, but there are none here.
+                    [ paddingTop (pct 100) ]
+
+                else
+                    [ Css.height (pct 100) ]
+
         innerDivAttributes =
             [ css
-                [ Css.height (pct 100)
-                , Css.width (pct 100)
+                [ Css.width (pct 100)
+                , innerHeight
                 , backgroundColor (Colors.toCssColor Colors.white)
                 , backgroundRepeat Css.round
                 , backgroundSize cover
@@ -320,7 +339,7 @@ viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel =
             fromPolar (toPolarPosition color)
     in
     div outerDivAttributes
-        [ div (innerDivAttributes ++ divEventListeners) []
+        [ div (innerDivAttributes ++ innerDivEventListeners) []
         , crosshair x y value
         ]
 
