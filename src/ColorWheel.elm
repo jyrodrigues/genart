@@ -1,4 +1,14 @@
-module ColorWheel exposing (Model, Msg, getElementDimensions, initialModel, subscriptions, trackMouseOutsideWheel, update, view)
+module ColorWheel exposing
+    ( Model
+    , Msg
+    , getElementDimensions
+    , initialModel
+    , subscriptions
+    , trackMouseOutsideWheel
+    , update
+    , view
+    , withColor
+    )
 
 import Browser.Dom exposing (Element)
 import Browser.Events
@@ -14,10 +24,13 @@ import Css
         , cover
         , display
         , hidden
+        , inlineBlock
+        , linearGradient2
         , overflow
         , paddingTop
         , pct
         , px
+        , toRight
         , url
         )
 import Html.Styled exposing (div)
@@ -179,6 +192,11 @@ trackMouseOutsideWheel shouldTrack model =
     { model | trackMouseOutsideWheel = shouldTrack }
 
 
+withColor : Color -> Model -> Model
+withColor color model =
+    { model | color = color }
+
+
 
 -- COLOR
 
@@ -251,12 +269,38 @@ view model =
             ]
         ]
         [ view_ model
+        , gradientSliderInput SetOpacity v 0.0001 1.0001 0.01 (Colors.rangeValue model.color)
+        ]
+
+
+viewForDevelopment : Model -> Svg Msg
+viewForDevelopment model =
+    let
+        { v } =
+            Colors.toHsva model.color
+
+        view_ =
+            if model.dynamic then
+                viewDynamic
+
+            else
+                viewStatic
+    in
+    div
+        [ css
+            [ Css.height (pct 100)
+            , Css.width (pct 100)
+            ]
+        ]
+        [ view_ model
+        , Html.Styled.text (String.fromFloat v)
+        , gradientSliderInput SetOpacity v 0.0001 1.0001 0.01 (Colors.rangeValue model.color)
         , Html.Styled.text (String.fromFloat model.numberOfSlices)
         , sliderInput SetNumberOfSlices model.numberOfSlices 1 180 1
         , Html.Styled.text (String.fromFloat model.blur)
         , sliderInput SetBlur model.blur 0 40 1
         , Html.Styled.text (String.fromFloat v)
-        , sliderInput SetOpacity v 0 1 0.01
+        , sliderInput SetOpacity v 0.0001 1.0001 0.01
         , Html.Styled.button [ Html.Styled.Events.onClick ToggledDynamic ]
             [ Html.Styled.text
                 (if model.dynamic then
@@ -420,6 +464,27 @@ crosshair x y opacity =
         ]
 
 
+gradientSliderInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Colors.Range -> Svg msg
+gradientSliderInput inputToMsg oldValue min_ max_ step_ colorRange =
+    div
+        [ css
+            [ display inlineBlock
+            , Css.width (pct 100)
+            , Css.height (px 30)
+            , backgroundImage <|
+                linearGradient2 toRight
+                    (Css.stop <| Colors.toCssColor colorRange.start)
+                    (Css.stop <| Colors.toCssColor colorRange.end)
+                    []
+            , Css.borderColor <| Colors.toCssColor Colors.gray
+            , Css.borderRadius (px 3)
+            , Css.marginTop (px 10)
+            ]
+        ]
+        -- put 30 px on slider height
+        [ sliderInput inputToMsg oldValue min_ max_ step_ ]
+
+
 sliderInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Svg msg
 sliderInput msg oldValue min_ max_ step_ =
     let
@@ -438,7 +503,9 @@ sliderInput msg oldValue min_ max_ step_ =
         , Html.Styled.Attributes.step (String.fromFloat step_)
         , Html.Styled.Attributes.value <| String.fromFloat oldValue
         , Html.Styled.Events.onInput onInputCallback
-        , css [ display block, Css.width (pct 100) ]
+
+        -- TODO Change height to a variable based on the wrappig div height.
+        , css [ display block, Css.width (pct 100), Css.height (px 27) ]
         ]
         []
 

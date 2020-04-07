@@ -13,6 +13,7 @@ module Colors exposing
     , green_
     , hsl
     , hsv
+    , hsva
     , lightBlue
     , lightGray
     , offWhite
@@ -25,6 +26,7 @@ module Colors exposing
     , rangeLightness
     , rangeRed
     , rangeSaturation
+    , rangeValue
     , red_
     , toCssColor
     , toHexString
@@ -39,6 +41,7 @@ module Colors exposing
     , updateLightness
     , updateRed
     , updateSaturation
+    , updateValue
     , white
     )
 
@@ -129,13 +132,18 @@ toHexString color =
 -- HSV
 
 
+hsv : Float -> Float -> Float -> Color
+hsv h s v =
+    hsva h s v 1
+
+
 {-| hue radians, saturation [0~1], value [0~1], alpha [0~1]
 
 -- From <https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB>
 
 -}
-hsv : Float -> Float -> Float -> Color
-hsv hue_ s v =
+hsva : Float -> Float -> Float -> Float -> Color
+hsva hue_ s v a =
     let
         hue =
             inDegrees (floatModBy (2 * pi) hue_)
@@ -177,7 +185,7 @@ hsv hue_ s v =
         ( r, g, b ) =
             ( r1 + m, g1 + m, b1 + m )
     in
-    Color.rgb r g b
+    Color.rgba r g b a
 
 
 inDegrees : Float -> Float
@@ -417,6 +425,13 @@ rangeLightness color =
     }
 
 
+rangeValue : Color -> Range
+rangeValue color =
+    { start = updateValue 0 color
+    , end = updateValue 1 color
+    }
+
+
 updateHue : Float -> Color -> Color
 updateHue amount color =
     let
@@ -442,6 +457,15 @@ updateLightness amount color =
             toHsla color
     in
     hsla hue saturation (clamp 0 1 amount) alpha
+
+
+updateValue : Float -> Color -> Color
+updateValue v color =
+    let
+        { h, s, a } =
+            toHsva color
+    in
+    hsva h s v a
 
 
 

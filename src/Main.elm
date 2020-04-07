@@ -305,6 +305,7 @@ initialModel image gallery url navKey =
     , colorWheel =
         ColorWheel.initialModel "ColorWheel1"
             |> ColorWheel.trackMouseOutsideWheel True
+            |> ColorWheel.withColor image.backgroundColor
 
     -- Browser Focus
     , focus = KeyboardEditing
@@ -440,9 +441,9 @@ view : Model -> Browser.Document Msg
 view model =
     case model.viewingPage of
         EditorPage ->
-            wheel model
+            --wheel model
+            editorView model
 
-        --editorView model
         GalleryPage ->
             galleryView model
 
@@ -1113,12 +1114,11 @@ update msg model =
                     ( updatedColorWheel, subCmd ) =
                         ColorWheel.update subMsg model.colorWheel
                 in
-                ( { model
-                    | colorWheel = updatedColorWheel
-                    , image = Image.withBackgroundColor updatedColorWheel.color model.image
-                  }
-                , Cmd.none
-                )
+                updateAndSaveImageAndGallery
+                    { model
+                        | colorWheel = updatedColorWheel
+                        , image = Image.withBackgroundColor updatedColorWheel.color model.image
+                    }
 
             ResetDrawing ->
                 updateAndSaveImageAndGallery
