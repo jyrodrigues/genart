@@ -80,7 +80,7 @@ import Css
         )
 import Css.Global exposing (body, global)
 import Css.Media as Media exposing (withMedia)
-import Html.Styled exposing (Html, br, button, div, h2, input, label, p, span, text, toUnstyled)
+import Html.Styled exposing (Html, br, button, div, h2, h3, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
 import Html.Styled.Events
     exposing
@@ -164,6 +164,7 @@ type Msg
     | MouseMoved Position
     | Zoom Float Float ShiftKey Position
       -- Colors
+    | SetColorTarget ColorTarget
     | SetBackgroundColor Color
     | SetStrokeColor Color
     | ColorWheelMsg ColorWheel.Msg
@@ -210,6 +211,7 @@ type alias Model =
 
     -- ColorWheel
     , colorWheel : ColorWheel.Model
+    , colorTarget : ColorTarget
 
     -- Browser Focus
     , focus : Focus
@@ -278,6 +280,11 @@ type SlowMotion
     | Slowly Float
 
 
+type ColorTarget
+    = Stroke
+    | Background
+
+
 
 -- IMPLEMENTATION, LOGIC, FUNCTIONS
 -- MODEL
@@ -306,6 +313,7 @@ initialModel image gallery url navKey =
         ColorWheel.initialModel "ColorWheel1"
             |> ColorWheel.trackMouseOutsideWheel True
             |> ColorWheel.withColor image.backgroundColor
+    , colorTarget = Background
 
     -- Browser Focus
     , focus = KeyboardEditing
@@ -607,7 +615,12 @@ colorControls backgroundColor strokeColor colorWheel =
         , rgbSliders SetStrokeColor strokeColor
         , hslSliders SetStrokeColor strokeColor
         , br [] []
-        , div [ css [ width (pct 100), height (vw 15) ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
+        , div [ css [ width (pct 100), height (vw 15) ] ]
+            [ h3 [] [ text "Change color for:" ]
+            , button [ onClick (SetColorTarget Stroke) ] [ text "Stroke" ]
+            , button [ onClick (SetColorTarget Background) ] [ text "Background" ]
+            , Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel)
+            ]
         ]
 
 
@@ -1113,11 +1126,19 @@ update msg model =
                 let
                     ( updatedColorWheel, subCmd ) =
                         ColorWheel.update subMsg model.colorWheel
+
+                    image =
+                        case model.colorTarget of
+                            Stroke ->
+                                Image.withStrokeColor updatedColorWheel.color model.image
+
+                            Background ->
+                                Image.withBackgroundColor updatedColorWheel.color model.image
                 in
                 updateAndSaveImageAndGallery
                     { model
                         | colorWheel = updatedColorWheel
-                        , image = Image.withBackgroundColor updatedColorWheel.color model.image
+                        , image = image
                     }
 
             ResetDrawing ->
@@ -1168,6 +1189,18 @@ update msg model =
                             else
                                 model.editingIndex
                     }
+
+            SetColorTarget target ->
+                let
+                    colorWheel =
+                        case target of
+                            Stroke ->
+                                model.colorWheel |> ColorWheel.withColor model.image.strokeColor
+
+                            Background ->
+                                model.colorWheel |> ColorWheel.withColor model.image.backgroundColor
+                in
+                ( { model | colorTarget = target, colorWheel = colorWheel }, Cmd.none )
 
             SetBackgroundColor color ->
                 updateAndSaveImageAndGallery <| { model | image = Image.withBackgroundColor color model.image }
