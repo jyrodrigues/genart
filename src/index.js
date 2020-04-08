@@ -52,6 +52,11 @@ elmApp.ports.downloadSvgAsJpeg.subscribe(function() {
     downloadSvgAsJpeg(svgElement, "colorwheel.jpeg");
 });
 
+elmApp.ports.requestFullscreen.subscribe(function() {
+    var mainImage = document.getElementById("MainSVG");
+    console.log(mainImage.requestFullscreen());
+});
+
 
 
 

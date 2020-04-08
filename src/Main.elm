@@ -131,6 +131,9 @@ port downloadSvg : () -> Cmd msg
 port downloadSvgAsJpeg : () -> Cmd msg
 
 
+port requestFullscreen : () -> Cmd msg
+
+
 port midiEvent : (Encode.Value -> msg) -> Sub msg
 
 
@@ -184,6 +187,8 @@ type Msg
     | TogglePlayingVideo
     | SetVideoAngleChangeRate Float
     | ReverseAngleChangeDirection
+      -- Fullscreen
+    | FullscreenRequested
       -- MIDI
     | GotMidiEvent Encode.Value
 
@@ -579,13 +584,12 @@ infoAndBasicControls : Model -> Html Msg
 infoAndBasicControls model =
     controlBlock
         [ button [ onClick (ViewingPage GalleryPage) ] [ text "Go to Gallery" ]
+        , button [ onClick SavedToGallery ] [ text "Save to Gallery" ]
+        , button [ onClick FullscreenRequested ] [ text "Enter Fullscreen" ]
+        , button [ onClick DownloadSvg ] [ text "Download Image" ]
         , button [ onClick ResetDrawing ] [ text "ResetDrawing" ]
-        , button [ onClick (DuplicateAndAppendBlock model.editingIndex) ] [ text "Duplicate selected block" ]
-        , button [ onClick DropLastBlock ] [ text "Delete top block" ]
         , p [] [ text (Image.imageStepsLenthString model.image) ]
         , p [] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
-        , button [ onClick DownloadSvg ] [ text "Download Image" ]
-        , button [ onClick SavedToGallery ] [ text "Save to Gallery" ]
         ]
 
 
@@ -607,15 +611,7 @@ colorControls backgroundColor strokeColor colorWheel =
                 ]
     in
     controlBlock
-        [ colorControl "BgColor" SetBackgroundColor "Change background color" backgroundColor
-        , rgbSliders SetBackgroundColor backgroundColor
-        , hslSliders SetBackgroundColor backgroundColor
-        , br [] []
-        , colorControl "StrokeColor" SetStrokeColor "Change stroke color" strokeColor
-        , rgbSliders SetStrokeColor strokeColor
-        , hslSliders SetStrokeColor strokeColor
-        , br [] []
-        , div [ css [ width (pct 100), height (vw 15) ] ]
+        [ div [ css [ width (pct 100) ] ]
             [ h3 [] [ text "Change color for:" ]
             , button [ onClick (SetColorTarget Stroke) ] [ text "Stroke" ]
             , button [ onClick (SetColorTarget Background) ] [ text "Background" ]
@@ -1121,6 +1117,9 @@ update msg model =
 
             DownloadSvgAsJpeg ->
                 ( model, downloadSvgAsJpeg () )
+
+            FullscreenRequested ->
+                ( model, requestFullscreen () )
 
             ColorWheelMsg subMsg ->
                 let
