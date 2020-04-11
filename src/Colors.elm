@@ -22,6 +22,7 @@ module Colors exposing
     , pureBlue
     , pureGreen
     , pureRed
+    , random
     , rangeBlue
     , rangeGreen
     , rangeHue
@@ -52,6 +53,7 @@ import Css
 import Hex
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
+import Random
 
 
 
@@ -614,3 +616,13 @@ allColors =
     , rgb255 123 158 135
     , rgb255 94 116 127
     ]
+
+
+
+-- RANDOM
+
+
+random : Random.Generator Color
+random =
+    Random.float 0 (2 * pi)
+        |> Random.map (\hue -> hsv hue 1 1)

@@ -18,6 +18,8 @@ module LSystem.Core exposing
     , fromList
     , getBlockAtIndex
     , length
+    , randomComposition
+    , replaceBlankBlocks
     , stepsLength
     , toList
     )
@@ -25,6 +27,7 @@ module LSystem.Core exposing
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import ListExtra
+import Random
 
 
 
@@ -180,6 +183,21 @@ appendBlock block (Composition base_ blocks_) =
     Composition base_ (ListExtra.pushLast block blocks_)
 
 
+replaceBlankBlocks : Composition -> Composition
+replaceBlankBlocks composition =
+    composition
+        |> toList
+        |> List.map
+            (\block ->
+                if Tuple.first (stepsLength (Composition block [])) == 0 then
+                    D :: block
+
+                else
+                    block
+            )
+        |> fromList
+
+
 
 -- COMPOSITION CONVERSIONS
 
@@ -267,6 +285,23 @@ stepToChar step =
 
         S ->
             'S'
+
+
+
+-- RANDOM
+
+
+randomComposition : Random.Generator Composition
+randomComposition =
+    Random.int 1 50
+        |> Random.andThen (\lenth_ -> Random.list lenth_ randomStep)
+        |> Random.list 4
+        |> Random.map fromList
+
+
+randomStep : Random.Generator Step
+randomStep =
+    Random.weighted ( 5, D ) [ ( 3, L ), ( 3, R ), ( 1, S ) ]
 
 
 

@@ -127,6 +127,7 @@ import LSystem.Image as Image
         )
 import ListExtra
 import Midi exposing (adjustInputForStrokeWidth)
+import Random
 import Svg.Styled exposing (Svg)
 import Task
 import Time
@@ -209,6 +210,9 @@ type Msg
     | ReverseAngleChangeDirection
       -- Fullscreen
     | FullscreenRequested
+      -- Random
+    | RandomRequested
+    | GotRandomImage PartialImage
       -- MIDI
     | GotMidiEvent Encode.Value
       -- Sometimes there is nothing to do
@@ -627,6 +631,7 @@ infoAndBasicControls =
         , primaryButtonHalf FullscreenRequested "Full"
         , primaryButtonHalf DownloadSvg "Down"
         , primaryButtonHalf ResetDrawing "Reset"
+        , primaryBbuttonHalf RandomRequested "Rand"
         ]
 
 
@@ -1034,6 +1039,12 @@ update msg model =
             UrlChanged url ->
                 -- Called via replaceUrl (and indirectly via click on internal links/href, see LinkClicked above)
                 ( { model | viewingPage = mapRouteToPage (parseUrl url) }, Cmd.none )
+
+            RandomRequested ->
+                ( model, Random.generate GotRandomImage Image.random )
+
+            GotRandomImage partialImage ->
+                ( { model | image = Image.withImage partialImage model.image } |> modelWithEditIndexLast, Cmd.none )
 
             DownloadSvg ->
                 ( model, downloadSvg () )
