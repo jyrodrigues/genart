@@ -1,5 +1,6 @@
 module Colors exposing
     ( Color
+    , Range
     , allColors
     , black
     , darkBlue
@@ -10,12 +11,28 @@ module Colors exposing
     , fromHexString
     , gray
     , green_
+    , hsl
+    , hsv
+    , hsva
     , lightBlue
     , lightGray
     , offWhite
+    , pureBlue
+    , pureGreen
+    , pureRed
+    , rangeBlue
+    , rangeGreen
+    , rangeHue
+    , rangeLightness
+    , rangeRed
+    , rangeSaturation
+    , rangeValue
     , red_
     , toCssColor
     , toHexString
+    , toHsla
+    , toHsva
+    , toRgba
     , toString
     , updateAlpha
     , updateBlue
@@ -24,6 +41,8 @@ module Colors exposing
     , updateLightness
     , updateRed
     , updateSaturation
+    , updateValue
+    , white
     )
 
 import Color exposing (Color, hsla, rgb255, rgba, toCssString, toHsla, toRgba)
@@ -49,7 +68,30 @@ type alias Color =
 
 
 
--- TODO remove the Hex variant use rtfeldman/hex to convert from or to hex notation
+-- RE-EXPORTS
+
+
+hsl : Float -> Float -> Float -> Color
+hsl =
+    Color.hsl
+
+
+toRgba : Color -> { red : Float, green : Float, blue : Float, alpha : Float }
+toRgba =
+    Color.toRgba
+
+
+toHsla : Color -> { hue : Float, saturation : Float, lightness : Float, alpha : Float }
+toHsla =
+    Color.toHsla
+
+
+toString : Color -> String
+toString =
+    toCssString
+
+
+
 -- CONVERTERS
 
 
@@ -67,15 +109,10 @@ toCssColor color =
     Css.rgba (to255 red) (to255 green) (to255 blue) alpha
 
 
-toString : Color -> String
-toString =
-    toCssString
-
-
 toHexString : Color -> String
 toHexString color =
     let
-        { red, green, blue, alpha } =
+        { red, green, blue } =
             toRgba color
 
         pad hexString =
@@ -89,6 +126,134 @@ toHexString color =
         ++ (pad <| Hex.toString <| to255 red)
         ++ (pad <| Hex.toString <| to255 green)
         ++ (pad <| Hex.toString <| to255 blue)
+
+
+
+-- HSV
+
+
+hsv : Float -> Float -> Float -> Color
+hsv h s v =
+    hsva h s v 1
+
+
+{-| hue radians, saturation [0~1], value [0~1], alpha [0~1]
+
+-- From <https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB>
+
+-}
+hsva : Float -> Float -> Float -> Float -> Color
+hsva hue_ s v a =
+    let
+        hue =
+            inDegrees (floatModBy (2 * pi) hue_)
+
+        c =
+            v * s
+
+        h_ =
+            hue / 60
+
+        x =
+            c * (1 - abs (floatModBy 2 h_ - 1))
+
+        ( r1, g1, b1 ) =
+            if 0 <= h_ && h_ <= 1 then
+                ( c, x, 0 )
+
+            else if 1 < h_ && h_ <= 2 then
+                ( x, c, 0 )
+
+            else if 2 < h_ && h_ <= 3 then
+                ( 0, c, x )
+
+            else if 3 < h_ && h_ <= 4 then
+                ( 0, x, c )
+
+            else if 4 < h_ && h_ <= 5 then
+                ( x, 0, c )
+
+            else if 5 < h_ && h_ <= 6 then
+                ( c, 0, x )
+
+            else
+                ( 0, 0, 0 )
+
+        m =
+            v - c
+
+        ( r, g, b ) =
+            ( r1 + m, g1 + m, b1 + m )
+    in
+    Color.rgba r g b a
+
+
+inDegrees : Float -> Float
+inDegrees radians =
+    radians / degrees 1
+
+
+floatModBy : Float -> Float -> Float
+floatModBy modulus x =
+    x - modulus * toFloat (floor (x / modulus))
+
+
+{-| -- from <https://en.wikipedia.org/wiki/HSL_and_HSV#General_approach>
+-}
+toHsva : Color -> { h : Float, s : Float, v : Float, a : Float }
+toHsva color =
+    let
+        { red, green, blue, alpha } =
+            toRgba color
+
+        max_ =
+            max red (max green blue)
+
+        min_ =
+            min red (min green blue)
+
+        c =
+            max_ - min_
+
+        h_ =
+            if c == 0 then
+                0
+
+            else if max_ == red then
+                let
+                    almost =
+                        (green - blue) / c
+                in
+                if almost < 0 then
+                    almost + 6
+
+                else
+                    almost
+
+            else if max_ == green then
+                (blue - red) / c + 2
+
+            else if max_ == blue then
+                (red - green) / c + 4
+
+            else
+                -- Will never happen.
+                0
+
+        h =
+            degrees (h_ * 60)
+
+        v =
+            max_
+
+        s =
+            if v == 0 then
+                0
+
+            else
+                c / v
+    in
+    { h = h, s = s, v = v, a = alpha }
 
 
 
@@ -188,6 +353,48 @@ updateBlue amount color =
     rgba red green (clamp 0 1 amount) alpha
 
 
+type alias Range =
+    { start : Color
+    , end : Color
+    }
+
+
+rangeRed : Color -> Range
+rangeRed color =
+    { start = updateRed 0 color
+    , end = updateRed 1 color
+    }
+
+
+rangeGreen : Color -> Range
+rangeGreen color =
+    { start = updateGreen 0 color
+    , end = updateGreen 1 color
+    }
+
+
+rangeBlue : Color -> Range
+rangeBlue color =
+    { start = updateBlue 0 color
+    , end = updateBlue 1 color
+    }
+
+
+pureRed : Float -> Color
+pureRed amount =
+    rgba (clamp 0 1 amount) 0 0 1
+
+
+pureGreen : Float -> Color
+pureGreen amount =
+    rgba 0 (clamp 0 1 amount) 0 1
+
+
+pureBlue : Float -> Color
+pureBlue amount =
+    rgba 0 0 (clamp 0 1 amount) 1
+
+
 updateAlpha : Float -> Color -> Color
 updateAlpha amount color =
     let
@@ -195,6 +402,34 @@ updateAlpha amount color =
             toRgba color
     in
     rgba red green blue (clamp 0 1 amount)
+
+
+rangeHue : Color -> Range
+rangeHue color =
+    { start = updateHue 0 color
+    , end = updateHue 1 color
+    }
+
+
+rangeSaturation : Color -> Range
+rangeSaturation color =
+    { start = updateSaturation 0 color
+    , end = updateSaturation 1 color
+    }
+
+
+rangeLightness : Color -> Range
+rangeLightness color =
+    { start = updateLightness 0 color
+    , end = updateLightness 1 color
+    }
+
+
+rangeValue : Color -> Range
+rangeValue color =
+    { start = updateValue 0 color
+    , end = updateValue 1 color
+    }
 
 
 updateHue : Float -> Color -> Color
@@ -222,6 +457,15 @@ updateLightness amount color =
             toHsla color
     in
     hsla hue saturation (clamp 0 1 amount) alpha
+
+
+updateValue : Float -> Color -> Color
+updateValue v color =
+    let
+        { h, s, a } =
+            toHsva color
+    in
+    hsva h s v a
 
 
 
@@ -284,6 +528,11 @@ darkGray =
 black : Color
 black =
     rgba 0 0 0 1
+
+
+white : Color
+white =
+    rgba 1 1 1 1
 
 
 offWhite : Color

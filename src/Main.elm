@@ -16,6 +16,7 @@ import Browser
 import Browser.Dom exposing (Element)
 import Browser.Events
 import Browser.Navigation as Nav
+import ColorWheel
 import Colors exposing (Color, offWhite, toCssColor)
 import Css
     exposing
@@ -23,6 +24,7 @@ import Css
         , active
         , auto
         , backgroundColor
+        , backgroundImage
         , block
         , border
         , border3
@@ -35,6 +37,7 @@ import Css
         , boxShadow5
         , boxShadow6
         , boxSizing
+        , calc
         , color
         , contentBox
         , cursor
@@ -48,10 +51,12 @@ import Css
         , inlineBlock
         , inset
         , left
+        , linearGradient2
         , margin
         , margin2
         , margin3
         , minWidth
+        , minus
         , none
         , overflow
         , overflowX
@@ -66,13 +71,16 @@ import Css
         , sansSerif
         , scroll
         , solid
+        , stop
+        , toRight
         , transparent
         , vw
         , width
         , zero
         )
+import Css.Global exposing (body, global)
 import Css.Media as Media exposing (withMedia)
-import Html.Styled exposing (Html, br, button, div, h2, input, label, p, span, text, toUnstyled)
+import Html.Styled exposing (Html, br, button, div, h2, h3, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, for, id, type_, value)
 import Html.Styled.Events
     exposing
@@ -84,6 +92,7 @@ import Html.Styled.Events
         , onMouseUp
         , preventDefaultOn
         )
+import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy)
 import Icons exposing (withColor, withCss, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
@@ -120,6 +129,12 @@ port saveEncodedModelToLocalStorage : Encode.Value -> Cmd msg
 port downloadSvg : () -> Cmd msg
 
 
+port downloadSvgAsJpeg : () -> Cmd msg
+
+
+port requestFullscreen : () -> Cmd msg
+
+
 port midiEvent : (Encode.Value -> msg) -> Sub msg
 
 
@@ -148,19 +163,23 @@ type Msg
     | DuplicateToEdit Int
       -- Pan and Zoom
     | GotImgDivPosition (Result Browser.Dom.Error Element)
+    | WindowResized Int Int
     | PanStarted Position
     | PanEnded
     | MouseMoved Position
     | Zoom Float Float ShiftKey Position
       -- Colors
+    | SetColorTarget ColorTarget
     | SetBackgroundColor Color
     | SetStrokeColor Color
+    | ColorWheelMsg ColorWheel.Msg
       -- Angle
     | SetTurnAngle Float
       -- Stroke width
     | SetStrokeWidth Float
       -- Download
     | DownloadSvg
+    | DownloadSvgAsJpeg
       -- Focus
     | SetFocus Focus
       -- URL
@@ -170,6 +189,8 @@ type Msg
     | TogglePlayingVideo
     | SetVideoAngleChangeRate Float
     | ReverseAngleChangeDirection
+      -- Fullscreen
+    | FullscreenRequested
       -- MIDI
     | GotMidiEvent Encode.Value
 
@@ -194,6 +215,10 @@ type alias Model =
     -- Main Image Div Coordinates
     , imgDivCenter : Position
     , imgDivStart : Position
+
+    -- ColorWheel
+    , colorWheel : ColorWheel.Model
+    , colorTarget : ColorTarget
 
     -- Browser Focus
     , focus : Focus
@@ -262,6 +287,11 @@ type SlowMotion
     | Slowly Float
 
 
+type ColorTarget
+    = Stroke
+    | Background
+
+
 
 -- IMPLEMENTATION, LOGIC, FUNCTIONS
 -- MODEL
@@ -284,6 +314,13 @@ initialModel image gallery url navKey =
     -- Main Image Div Coordinates
     , imgDivCenter = ( 0, 0 )
     , imgDivStart = ( 0, 0 )
+
+    -- ColorWheel
+    , colorWheel =
+        ColorWheel.initialModel "ColorWheel1"
+            |> ColorWheel.trackMouseOutsideWheel True
+            |> ColorWheel.withColor image.backgroundColor
+    , colorTarget = Background
 
     -- Browser Focus
     , focus = KeyboardEditing
@@ -359,6 +396,7 @@ init localStorage url navKey =
     , Cmd.batch
         ([ getImgDivPosition
          , saveEncodedModelToLocalStorage (encodeModel model)
+         , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
          ]
             ++ updateUrl
         )
@@ -418,10 +456,25 @@ view : Model -> Browser.Document Msg
 view model =
     case model.viewingPage of
         EditorPage ->
+            --wheel model
             editorView model
 
         GalleryPage ->
             galleryView model
+
+
+wheel model =
+    { title = "Wheel"
+    , body =
+        [ div [ css [ height (pct 50), width (pct 50), margin (px 100), display inlineBlock ] ]
+            [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
+            ]
+        , button [ onClick DownloadSvg ] [ text "Download Image" ]
+        , button [ onClick DownloadSvgAsJpeg ] [ text "Download Image as JPEG" ]
+        , global [ body [ backgroundColor (Colors.toCssColor model.image.backgroundColor) ] ]
+        ]
+            |> List.map toUnstyled
+    }
 
 
 
@@ -520,7 +573,7 @@ controlPanel model =
             ]
         ]
         [ infoAndBasicControls model
-        , colorControls model.image.backgroundColor model.image.strokeColor
+        , colorControls model.image.backgroundColor model.image.strokeColor model.colorWheel
         , videoControls model.videoAngleChangeRate model.playingVideo
         , turnAngleControl model.image.turnAngle
         , strokeWidthControl model.image.strokeWidth
@@ -533,18 +586,17 @@ infoAndBasicControls : Model -> Html Msg
 infoAndBasicControls model =
     controlBlock
         [ button [ onClick (ViewingPage GalleryPage) ] [ text "Go to Gallery" ]
+        , button [ onClick SavedToGallery ] [ text "Save to Gallery" ]
+        , button [ onClick FullscreenRequested ] [ text "Enter Fullscreen" ]
+        , button [ onClick DownloadSvg ] [ text "Download Image" ]
         , button [ onClick ResetDrawing ] [ text "ResetDrawing" ]
-        , button [ onClick (DuplicateAndAppendBlock model.editingIndex) ] [ text "Duplicate selected block" ]
-        , button [ onClick DropLastBlock ] [ text "Delete top block" ]
         , p [] [ text (Image.imageStepsLenthString model.image) ]
         , p [] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
-        , button [ onClick DownloadSvg ] [ text "Download Image" ]
-        , button [ onClick SavedToGallery ] [ text "Save to Gallery" ]
         ]
 
 
-colorControls : Color -> Color -> Html Msg
-colorControls backgroundColor strokeColor =
+colorControls : Color -> Color -> ColorWheel.Model -> Html Msg
+colorControls backgroundColor strokeColor colorWheel =
     let
         colorControl inputId msg inputLabel color =
             div []
@@ -561,9 +613,76 @@ colorControls backgroundColor strokeColor =
                 ]
     in
     controlBlock
-        [ colorControl "BgColor" SetBackgroundColor "Change background color" backgroundColor
-        , br [] []
-        , colorControl "StrokeColor" SetStrokeColor "Change stroke color" strokeColor
+        [ div [ css [ width (pct 100) ] ]
+            [ h3 [] [ text "Change color for:" ]
+            , button [ onClick (SetColorTarget Stroke) ] [ text "Stroke" ]
+            , button [ onClick (SetColorTarget Background) ] [ text "Background" ]
+            , Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel)
+            ]
+        ]
+
+
+rgbSliders : (Color -> msg) -> Color -> Html msg
+rgbSliders toMsg color =
+    let
+        { red, green, blue } =
+            Colors.toRgba color
+    in
+    div []
+        [ colorSlider (\input -> toMsg (Colors.updateRed input color)) red (Colors.rangeRed color)
+        , colorSlider (\input -> toMsg (Colors.updateGreen input color)) green (Colors.rangeGreen color)
+        , colorSlider (\input -> toMsg (Colors.updateBlue input color)) blue (Colors.rangeBlue color)
+        ]
+
+
+hslSliders : (Color -> msg) -> Color -> Html msg
+hslSliders toMsg color =
+    let
+        { hue, saturation, lightness } =
+            Colors.toHsla color
+    in
+    div []
+        [ colorSlider (\input -> toMsg (Colors.updateHue input color)) hue (Colors.rangeHue color)
+        , colorSlider (\input -> toMsg (Colors.updateSaturation input color)) saturation (Colors.rangeSaturation color)
+        , colorSlider (\input -> toMsg (Colors.updateLightness input color)) lightness (Colors.rangeLightness color)
+        ]
+
+
+{-| TODO move this into Colors.elm?
+-}
+colorSlider : (Float -> msg) -> Float -> Colors.Range -> Html msg
+colorSlider inputToMsg oldValue colorRange =
+    let
+        colorIconWidth =
+            px 10
+    in
+    div []
+        {--
+        [ span
+            [ css
+                [ backgroundColor (Colors.toCssColor colorRange)
+                , display inlineBlock
+                , width colorIconWidth
+                , height (px 10)
+                , margin colorIconWidth
+                ]
+            ]
+            []
+            --}
+        [ div
+            [ css
+                [ display inlineBlock
+                , width (calc (pct 90) minus colorIconWidth)
+                , height (px 30)
+                , backgroundImage <|
+                    linearGradient2 toRight
+                        (stop <| Colors.toCssColor colorRange.start)
+                        (stop <| Colors.toCssColor colorRange.end)
+                        []
+                ]
+            ]
+            -- put 30 px on slider height
+            [ sliderInput inputToMsg oldValue 0 1 0.0001 ]
         ]
 
 
@@ -580,13 +699,14 @@ videoControls angleChangeRate playingVideo =
     controlBlock
         [ span [ css [ display block ] ]
             [ text
-                ("Video Playback:"
-                    ++ String.fromFloat (angleChangeRate * 1000 / framesInterval)
+                ("Video Playback: "
+                    ++ truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval))
                     ++ "x"
                 )
             ]
         , button [ onClick TogglePlayingVideo ] [ text playPauseText ]
         , button [ onClick ReverseAngleChangeDirection ] [ text "Reverse" ]
+
         -- Magic values:
         -- min: 0.00005 * 20 = 0.001 degrees/second
         -- max: 2 * 20 = 40 degrees/second
@@ -628,7 +748,8 @@ turnAngleControl turnAngle =
 strokeWidthControl : Float -> Html Msg
 strokeWidthControl width =
     controlBlock
-        [ text ("Line width: " ++ String.fromFloat width)
+        [ text ("Line width: " ++ truncateFloatString 6 (String.fromFloat width))
+
         -- Magic values:
         -- min: 0.0001px
         -- max: 4px
@@ -682,6 +803,7 @@ sliderExponentialInput msg oldValue minValue centerValue maxValue centerAt =
         exponent =
             if centerAt == 1 then
                 1 / 1.0e-8
+
             else
                 1 / (1 - centerAt)
 
@@ -771,6 +893,27 @@ controlBlock =
     div [ css [ padding (px 10), borderBottom3 (px 1) solid (toCssColor Colors.black), fontFamily Css.monospace ] ]
 
 
+truncateFloatString : Int -> String -> String
+truncateFloatString precision floatString =
+    let
+        truncate string =
+            if String.length string <= precision then
+                string
+
+            else
+                String.dropRight (String.length string - precision) string
+    in
+    case String.split "." floatString of
+        integer :: [] ->
+            integer
+
+        integer :: [ decimal ] ->
+            integer ++ "." ++ truncate decimal
+
+        _ ->
+            floatString
+
+
 compositionBlocksList : Model -> Html Msg
 compositionBlocksList model =
     let
@@ -807,7 +950,7 @@ primaryButton msg btnText =
             [ color lightGray
             , backgroundColor transparent
             , border3 (px 2) solid lightGray
-            , borderRadius (px 3)
+            , borderRadius (px 6)
             , height (px 32)
             , width (pct 50)
             , minWidth (px 150)
@@ -896,9 +1039,6 @@ blockBox editingIndex strokeColor index blockSvg =
         ]
 
 
-{-| N.B. This function has 7 arguments because otherwise it wouldn't be lazily evaluated since `lazy*` woks via
-reference equality and not deep equality.
--}
 mainImg : Image -> Html Msg
 mainImg image =
     fixedDiv
@@ -914,7 +1054,15 @@ mainImg image =
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ drawImage (Just "MainSVG") Nothing False image
+        [ Keyed.node "div"
+            [ id "MainImgKeyedWrapper"
+            , css
+                [ width (pct 100)
+                , height (pct 100)
+                , backgroundColor (toCssColor image.backgroundColor)
+                ]
+            ]
+            [ ( "_MainImg", drawImage (Just "MainSVG") Nothing False image ) ]
         ]
 
 
@@ -977,6 +1125,31 @@ update msg model =
             DownloadSvg ->
                 ( model, downloadSvg () )
 
+            DownloadSvgAsJpeg ->
+                ( model, downloadSvgAsJpeg () )
+
+            FullscreenRequested ->
+                ( model, requestFullscreen () )
+
+            ColorWheelMsg subMsg ->
+                let
+                    ( updatedColorWheel, subCmd ) =
+                        ColorWheel.update subMsg model.colorWheel
+
+                    image =
+                        case model.colorTarget of
+                            Stroke ->
+                                Image.withStrokeColor updatedColorWheel.color model.image
+
+                            Background ->
+                                Image.withBackgroundColor updatedColorWheel.color model.image
+                in
+                updateAndSaveImageAndGallery
+                    { model
+                        | colorWheel = updatedColorWheel
+                        , image = image
+                    }
+
             ResetDrawing ->
                 updateAndSaveImageAndGallery
                     { model
@@ -1025,6 +1198,18 @@ update msg model =
                             else
                                 model.editingIndex
                     }
+
+            SetColorTarget target ->
+                let
+                    colorWheel =
+                        case target of
+                            Stroke ->
+                                model.colorWheel |> ColorWheel.withColor model.image.strokeColor
+
+                            Background ->
+                                model.colorWheel |> ColorWheel.withColor model.image.backgroundColor
+                in
+                ( { model | colorTarget = target, colorWheel = colorWheel }, Cmd.none )
 
             SetBackgroundColor color ->
                 updateAndSaveImageAndGallery <| { model | image = Image.withBackgroundColor color model.image }
@@ -1078,6 +1263,14 @@ update msg model =
 
                     Err _ ->
                         ( model, Cmd.none )
+
+            WindowResized _ _ ->
+                ( model
+                , Cmd.batch
+                    [ getImgDivPosition
+                    , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
+                    ]
+                )
 
             TogglePlayingVideo ->
                 let
@@ -1396,7 +1589,14 @@ subscriptions model =
             else
                 Sub.none
     in
-    Sub.batch [ keyPressSub, panSubs, playingVideoSub, midiEvent GotMidiEvent ]
+    Sub.batch
+        [ keyPressSub
+        , panSubs
+        , playingVideoSub
+        , midiEvent GotMidiEvent
+        , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
+        , Browser.Events.onResize WindowResized
+        ]
 
 
 framesInterval : Float

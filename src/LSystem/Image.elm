@@ -2,6 +2,12 @@ module LSystem.Image exposing
     ( Boundaries
     , Image
     , PartialImage
+    ,  PathSegment(..)
+       -- Remove (extract from this module)
+
+    ,  PathSegmentString
+       -- Remove (extract from this module)
+
     , Polygon(..)
     , Position
     , SvgPathAndBoundaries
@@ -26,6 +32,12 @@ module LSystem.Image exposing
     , queryParser
     , resetBaseTo
     , resetImageComposition
+    ,  segmentToString
+       -- Remove (extract from this module)
+
+    ,  toAbsoluteValue
+       -- Remove (extract from this module)
+
     , toQuery
     , updateSvgPathAndBoundaries
     , withBackgroundColor
@@ -511,7 +523,7 @@ keyFor =
     Important:
 
     Using uppercase letters only because Elm forces us when creating types,
-    *BUT* every case (but `M`) represents lowercase counterparts from the
+    *BUT* every case represents lowercase counterparts from the
     SVG specification!
 
 
@@ -577,16 +589,6 @@ updateSvgPathAndBoundaries image =
             withSvgPathAndBoundaries (Just (imageToSvgPathString image)) image
 
 
-{-|
-
-    This function call takes a lot of time/resources/cpu and it's one of the main
-    reasons for frame drops (low FPS) when composition is too large.
-
-    What does it means to be too large?
-
-    Memoize this function!
-
--}
 imageToSvgPathString : Image -> SvgPathAndBoundaries
 imageToSvgPathString { composition, turnAngle } =
     let
@@ -627,6 +629,17 @@ baseEverything =
     up this function (as it once was: one step to get a list of PathSegments
     and another to create a string from those)
 
+
+    Note about `pathString ++ segmentToString ...`:
+    There could be a space in between but we should follow W3C SVG Recommendation:
+
+       "Superfluous white space and separators such as commas can be eliminated
+        (e.g., "M 100 100 L 200 200" contains unnecessary spaces and could be
+        expressed more compactly as "M100 100L200 200")."
+
+    From: https://web.archive.org/web/20200331042341/www.w3.org/TR/SVG/paths.html
+    (yes, a link from archive.org)
+
 -}
 processCompositionStep : Float -> Step -> EverythingInOnePass -> EverythingInOnePass
 processCompositionStep turnAngleSize step { pathString, angle, position, boundaries } =
@@ -645,14 +658,14 @@ processCompositionStep turnAngleSize step { pathString, angle, position, boundar
     case step of
         Core.D ->
             EverythingInOnePass
-                (pathString ++ " " ++ segmentToString (L nextPositionDelta_))
+                (pathString ++ segmentToString (L nextPositionDelta_))
                 angle
                 nextPosition
                 updatedBoundaries
 
         Core.S ->
             EverythingInOnePass
-                (pathString ++ " " ++ segmentToString (M nextPositionDelta_))
+                (pathString ++ segmentToString (M nextPositionDelta_))
                 angle
                 nextPosition
                 updatedBoundaries
@@ -672,38 +685,87 @@ processCompositionStep turnAngleSize step { pathString, angle, position, boundar
                 boundaries
 
 
+{-|
+
+    Note about `"m" ++ String.fromFloat dx ...`:
+    There could be a space in between but we should follow W3C SVG Recommendation:
+
+       "Superfluous white space and separators such as commas can be eliminated
+        (e.g., "M 100 100 L 200 200" contains unnecessary spaces and could be
+        expressed more compactly as "M100 100L200 200")."
+
+    From: https://web.archive.org/web/20200331042341/www.w3.org/TR/SVG/paths.html
+    (yes, a link from archive.org)
+
+-}
 segmentToString : PathSegment -> PathSegmentString
 segmentToString segment =
     case segment of
         M ( dx, dy ) ->
-            "m " ++ String.fromFloat dx ++ " " ++ String.fromFloat dy
+            "m" ++ String.fromFloat dx ++ " " ++ String.fromFloat dy
 
         L ( dx, dy ) ->
-            "l " ++ String.fromFloat dx ++ " " ++ String.fromFloat dy
+            "l" ++ String.fromFloat dx ++ " " ++ String.fromFloat dy
 
         H dx ->
-            ""
+            "h" ++ String.fromFloat dx
 
         V dy ->
-            ""
+            "v" ++ String.fromFloat dy
 
         Z ->
-            ""
+            "z"
 
         C ( dx1, dy1 ) ( dx2, dy2 ) ( dx, dy ) ->
-            ""
+            "c"
+                ++ (String.fromFloat dx1 ++ " " ++ String.fromFloat dy1)
+                ++ (" " ++ String.fromFloat dx2 ++ " " ++ String.fromFloat dy2)
+                ++ (" " ++ String.fromFloat dx ++ " " ++ String.fromFloat dy)
 
         S ( dx2, dy2 ) ( dx, dy ) ->
-            ""
+            "s"
+                ++ (String.fromFloat dx2 ++ " " ++ String.fromFloat dy2)
+                ++ (" " ++ String.fromFloat dx ++ " " ++ String.fromFloat dy)
 
         Q ( dx1, dy1 ) ( dx, dy ) ->
-            ""
+            "q"
+                ++ (String.fromFloat dx1 ++ " " ++ String.fromFloat dy1)
+                ++ (" " ++ String.fromFloat dx ++ " " ++ String.fromFloat dy)
 
         T ( dx, dy ) ->
-            ""
+            "t" ++ String.fromFloat dx ++ " " ++ String.fromFloat dy
 
         A ( rx, ry ) xAxisRotation largeArcFlag sweepFlag ( x, y ) ->
-            ""
+            "a"
+                ++ (String.fromFloat rx ++ " " ++ String.fromFloat ry)
+                ++ (" " ++ String.fromFloat (degrees xAxisRotation))
+                ++ (" "
+                        ++ (if largeArcFlag then
+                                "1"
+
+                            else
+                                "0"
+                           )
+                   )
+                ++ (" "
+                        ++ (if sweepFlag then
+                                "1"
+
+                            else
+                                "0"
+                           )
+                   )
+                ++ (" " ++ String.fromFloat x ++ " " ++ String.fromFloat y)
+
+
+toAbsoluteValue : PathSegmentString -> PathSegmentString
+toAbsoluteValue =
+    String.toUpper
+
+
+toRelativeValue : PathSegmentString -> PathSegmentString
+toRelativeValue =
+    String.toLower
 
 
 {-| TODO This `10` value here is scaling the drawing. It's probably related to the viewbox size. Extract it.

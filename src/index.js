@@ -3,6 +3,7 @@
 // Import index.html so it gets copied to dist
 import "./index.html";
 import { Elm } from "./Main.elm";
+import { downloadSvgAsJpeg, saveSvg } from "./ImageDownload.js"
 
 
 
@@ -42,30 +43,21 @@ elmApp.ports.saveEncodedModelToLocalStorage.subscribe(function(encodedModel) {
 });
 
 elmApp.ports.downloadSvg.subscribe(function() {
-    saveSvg(document.getElementById("MainSVG"), "hybridcode.svg");
+    //saveSvg(document.getElementById("MainSVG"), "hybridcode.svg");
+    saveSvg(document.getElementById("MainSVG"), "colorwheel.svg");
+});
+
+elmApp.ports.downloadSvgAsJpeg.subscribe(function() {
+    var svgElement = document.getElementById("MainSVG");
+    downloadSvgAsJpeg(svgElement, "colorwheel.jpeg");
+});
+
+elmApp.ports.requestFullscreen.subscribe(function() {
+    var mainImage = document.getElementById("MainImgKeyedWrapper");
+    console.log(mainImage.requestFullscreen());
 });
 
 
-
-/**
- * SVG DOWNLOAD
- *
- * https://stackoverflow.com/a/46403589
- */
-
-function saveSvg(svgEl, name) {
-    svgEl.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-    var svgData = svgEl.outerHTML;
-    var preface = '<?xml version="1.0" standalone="no"?>\r\n';
-    var svgBlob = new Blob([preface, svgData], {type:"image/svg+xml;charset=utf-8"});
-    var svgUrl = URL.createObjectURL(svgBlob);
-    var downloadLink = document.createElement("a");
-    downloadLink.href = svgUrl;
-    downloadLink.download = name;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-}
 
 
 
