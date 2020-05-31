@@ -496,21 +496,25 @@ sliderInput msg oldValue min_ max_ step_ =
                 Nothing ->
                     msg oldValue
     in
-    Html.Styled.input
-        [ Html.Styled.Attributes.type_ "range"
-        , Html.Styled.Attributes.min (String.fromFloat min_)
-        , Html.Styled.Attributes.max (String.fromFloat max_)
-        , Html.Styled.Attributes.step (String.fromFloat step_)
-        , Html.Styled.Attributes.value <| String.fromFloat oldValue
-        , Html.Styled.Events.onInput onInputCallback
+    Html.Styled.div
+        [ css [ Css.width (pct 97), overflow hidden, Css.margin2 Css.zero Css.auto ] ]
+        [ Html.Styled.input
+            [ Html.Styled.Attributes.type_ "range"
+            , Html.Styled.Attributes.min (String.fromFloat min_)
+            , Html.Styled.Attributes.max (String.fromFloat max_)
+            , Html.Styled.Attributes.step (String.fromFloat step_)
+            , Html.Styled.Attributes.value <| String.fromFloat oldValue
+            , Html.Styled.Events.onInput onInputCallback
 
-        -- TODO Change height to a variable based on the wrappig div height.
-        , css [ display block, Css.width (pct 100), Css.height (px 27) ]
+            -- TODO Change height to a variable based on the wrappig div height.
+            , css [ display block, Css.width (pct 100), Css.height (px 27) ]
+            ]
+            []
         ]
-        []
 
 
 
+-- CMD
 -- TASK AND
 -- MOUSE
 -- DECODER

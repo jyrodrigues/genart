@@ -163,6 +163,7 @@ type Msg
     | DuplicateToEdit Int
       -- Pan and Zoom
     | GotImgDivPosition (Result Browser.Dom.Error Element)
+    | WindowResized Int Int
     | PanStarted Position
     | PanEnded
     | MouseMoved Position
@@ -949,7 +950,7 @@ primaryButton msg btnText =
             [ color lightGray
             , backgroundColor transparent
             , border3 (px 2) solid lightGray
-            , borderRadius (px 3)
+            , borderRadius (px 6)
             , height (px 32)
             , width (pct 50)
             , minWidth (px 150)
@@ -1053,7 +1054,15 @@ mainImg image =
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ Keyed.node "div" [ id "MainImgKeyedWrapper", css [ width (pct 100), height (pct 100) ] ] [ ( "_MainImg", drawImage (Just "MainSVG") Nothing False image ) ]
+        [ Keyed.node "div"
+            [ id "MainImgKeyedWrapper"
+            , css
+                [ width (pct 100)
+                , height (pct 100)
+                , backgroundColor (toCssColor image.backgroundColor)
+                ]
+            ]
+            [ ( "_MainImg", drawImage (Just "MainSVG") Nothing False image ) ]
         ]
 
 
@@ -1254,6 +1263,14 @@ update msg model =
 
                     Err _ ->
                         ( model, Cmd.none )
+
+            WindowResized _ _ ->
+                ( model
+                , Cmd.batch
+                    [ getImgDivPosition
+                    , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
+                    ]
+                )
 
             TogglePlayingVideo ->
                 let
@@ -1578,6 +1595,7 @@ subscriptions model =
         , playingVideoSub
         , midiEvent GotMidiEvent
         , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
+        , Browser.Events.onResize WindowResized
         ]
 
 
