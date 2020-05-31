@@ -53,7 +53,7 @@ elmApp.ports.downloadSvgAsJpeg.subscribe(function() {
 });
 
 elmApp.ports.requestFullscreen.subscribe(function() {
-    var mainImage = document.getElementById("MainSVG");
+    var mainImage = document.getElementById("MainImgKeyedWrapper");
     console.log(mainImage.requestFullscreen());
 });
 

@@ -92,6 +92,7 @@ import Html.Styled.Events
         , onMouseUp
         , preventDefaultOn
         )
+import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy)
 import Icons exposing (withColor, withCss, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
@@ -1052,7 +1053,7 @@ mainImg image =
         , zoomOnWheel
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
-        [ drawImage (Just "MainSVG") Nothing False image
+        [ Keyed.node "div" [ id "MainImgKeyedWrapper", css [ width (pct 100), height (pct 100) ] ] [ ( "_MainImg", drawImage (Just "MainSVG") Nothing False image ) ]
         ]
 
 
