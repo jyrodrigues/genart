@@ -90,8 +90,14 @@ var midiOptions = {
     software: false,
 };
 
-navigator.requestMIDIAccess(midiOptions)
-    .then(onMIDISuccess, onMIDIFailure);
+if (navigator.requestMIDIAccess) {
+    navigator.requestMIDIAccess(midiOptions)
+        .then(onMIDISuccess, onMIDIFailure);
+} else {
+    console.log("Open this page on a MIDI compatible browser to use a MIDI device to control the app.");
+    console.log("Check here for compatibility: https://caniuse.com/#feat=mdn-api_midiaccess");
+}
+console.log("Currently only MINILAB MK2 is supported for MIDI input and control.");
 
 function onMIDISuccess(midiAccess) {
     console.log("MIDI Access Granted: midiAccess obj =", midiAccess);
