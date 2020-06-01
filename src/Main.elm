@@ -38,6 +38,7 @@ import Css
         , boxShadow6
         , boxSizing
         , calc
+        , center
         , color
         , contentBox
         , cursor
@@ -55,6 +56,7 @@ import Css
         , margin
         , margin2
         , margin3
+        , marginBottom
         , minWidth
         , minus
         , none
@@ -62,6 +64,7 @@ import Css
         , overflowX
         , overflowY
         , padding
+        , padding2
         , pct
         , pointer
         , position
@@ -72,6 +75,8 @@ import Css
         , scroll
         , solid
         , stop
+        , textAlign
+        , textDecoration
         , toRight
         , transparent
         , vw
@@ -80,8 +85,8 @@ import Css
         )
 import Css.Global exposing (body, global)
 import Css.Media as Media exposing (withMedia)
-import Html.Styled exposing (Html, br, button, div, h2, h3, input, label, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (css, for, id, type_, value)
+import Html.Styled exposing (Html, a, br, button, div, h2, h3, input, label, p, span, text, toUnstyled)
+import Html.Styled.Attributes exposing (css, for, href, id, type_, value)
 import Html.Styled.Events
     exposing
         ( on
@@ -463,6 +468,9 @@ view model =
             galleryView model
 
 
+{-| For development: view of colorwheel for testing and experimenting
+-}
+wheel : Model -> Browser.Document Msg
 wheel model =
     { title = "Wheel"
     , body =
@@ -487,24 +495,27 @@ galleryView model =
     , body =
         [ div
             [ css [ width (pct 100), height (pct 100), backgroundColor (toCssColor Colors.darkGray), overflow hidden ] ]
-            [ fixedDiv
-                [ css
-                    [ width (pct layout.controlPanel)
-                    , height (pct 100)
-                    , right zero
-                    ]
-                ]
-                [ button [ onClick (ViewingPage EditorPage), css [ margin (px 10) ] ] [ text "Back to editor" ] ]
-            , div
+            [ div
                 [ css
                     [ width (pct (layout.transformsList + layout.mainImg))
                     , height (pct 100)
                     , padding (px 10)
                     , boxSizing borderBox
                     , overflow scroll
+                    , display inlineBlock
                     ]
                 ]
                 (List.indexedMap imageBox model.gallery)
+            , fixedDiv
+                [ css
+                    [ width (pct layout.controlPanel)
+                    , height (pct 100)
+                    , display inlineBlock
+                    , padding (px 10)
+                    , boxSizing borderBox
+                    ]
+                ]
+                [ anchorButton (routeFor EditorPage) "Back to editor" ]
             ]
             |> toUnstyled
         ]
@@ -585,7 +596,9 @@ controlPanel model =
 infoAndBasicControls : Model -> Html Msg
 infoAndBasicControls model =
     controlBlock
-        [ button [ onClick (ViewingPage GalleryPage) ] [ text "Go to Gallery" ]
+        [ anchorButton (routeFor GalleryPage) "Go to Gallery"
+
+        --[ button [ onClick (ViewingPage GalleryPage) ] [ text "Go to Gallery" ]
         , button [ onClick SavedToGallery ] [ text "Save to Gallery" ]
         , button [ onClick FullscreenRequested ] [ text "Enter Fullscreen" ]
         , button [ onClick DownloadSvg ] [ text "Download Image" ]
@@ -1113,7 +1126,12 @@ update msg model =
             LinkClicked urlRequest ->
                 case urlRequest of
                     Browser.Internal url ->
-                        ( model, Nav.replaceUrl model.navKey (Url.toString url) )
+                        case url.path of
+                            "/" ->
+                                ( model, Nav.pushUrl model.navKey (routeFor EditorPage ++ Image.toQuery model.image) )
+
+                            _ ->
+                                ( model, Nav.pushUrl model.navKey (Url.toString url) )
 
                     Browser.External href ->
                         ( model, Nav.load href )
@@ -1622,9 +1640,22 @@ parseUrl url =
             NotFound
 
 
+{-| This function used on `galleryParser` makes it asymmetric with `editorParser`.
+--- Not sure if this is a good idea.
+-}
+routeFor : Page -> String
+routeFor page =
+    case page of
+        GalleryPage ->
+            "gallery"
+
+        EditorPage ->
+            "/"
+
+
 galleryParser : Parser (Route -> a) a
 galleryParser =
-    Parser.map Gallery (Parser.s "gallery")
+    Parser.map Gallery (Parser.s (routeFor GalleryPage))
 
 
 editorParser : Parser (Route -> a) a
@@ -1644,7 +1675,7 @@ replaceUrl key image =
 
             https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
     --}
-    Nav.replaceUrl key (Image.toQuery image)
+    Nav.replaceUrl key (routeFor EditorPage ++ Image.toQuery image)
 
 
 
@@ -1707,3 +1738,29 @@ midiEventDecoder =
         (Decode.at [ "data", "1" ] Decode.float)
         (Decode.at [ "data", "2" ] Decode.float)
 --}
+
+
+
+{--Components
+--}
+
+
+anchorButton : String -> String -> Html msg
+anchorButton href_ title =
+    a
+        [ href href_
+        , css
+            [ marginBottom (px 10)
+            , backgroundColor (Colors.toCssColor Colors.white)
+            , padding2 (px 6) (px 12)
+            , borderRadius (px 6)
+            , textDecoration none
+            , color (Colors.toCssColor Colors.darkGray)
+            , hover [ backgroundColor (Colors.toCssColor Colors.offWhite) ]
+            , active [ backgroundColor (Colors.toCssColor Colors.lightGray) ]
+            , fontFamily sansSerif
+            , display block
+            , textAlign center
+            ]
+        ]
+        [ text title ]
