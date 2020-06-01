@@ -372,7 +372,7 @@ viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel sameHeightAsWi
                 , backgroundColor (Colors.toCssColor Colors.white)
                 , backgroundRepeat Css.round
                 , backgroundSize cover
-                , backgroundImage (url "colorwheel.jpeg")
+                , backgroundImage (url "dist/colorwheel.jpeg")
                 , Css.borderRadius (pct 50)
                 , Css.opacity (Css.num value)
                 ]
