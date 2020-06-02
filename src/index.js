@@ -2,6 +2,7 @@
 
 // Import index.html so it gets copied to dist
 import "./index.html";
+import "./RangeInput.css";
 import { Elm } from "./Main.elm";
 import { downloadSvgAsJpeg, saveSvg } from "./ImageDownload.js"
 

@@ -1,11 +1,5 @@
 {
   "dependencies": {
-    "css-loader": "^1.0.0",
-    "elm-webpack-loader": "^5.0.0",
-    "file-loader": "^2.0.0",
-    "url-loader": "^1.1.1",
-    "webpack": "^4.17.1",
-    "webpack-dev-server": "^3.10.3"
   },
   "scripts": {
     "bundle": "webpack",
@@ -16,6 +10,13 @@
     "test": "elm-test"
   },
   "devDependencies": {
+    "css-loader": "^1.0.0",
+    "elm-webpack-loader": "^5.0.0",
+    "file-loader": "^2.0.0",
+    "style-loader": "^1.2.1",
+    "url-loader": "^1.1.1",
+    "webpack": "^4.17.1",
+    "webpack-dev-server": "^3.10.3",
     "elm-test": "^0.19.1-revision2",
     "webpack-cli": "^3.1.0"
   },
