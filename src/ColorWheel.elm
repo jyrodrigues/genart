@@ -1,6 +1,7 @@
 module ColorWheel exposing
     ( Model
     , Msg
+    , MsgType(..)
     , getElementDimensions
     , initialModel
     , subscriptions
@@ -127,7 +128,12 @@ type Msg
     | ToggledDynamic
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+type MsgType
+    = ColorChanged
+    | SameColor
+
+
+update : Msg -> Model -> ( Model, Cmd Msg, MsgType )
 update msg model =
     case msg of
         GotMousePosition relativePosition ->
@@ -136,16 +142,17 @@ update msg model =
                 , color = computeColor model relativePosition
               }
             , Cmd.none
+            , ColorChanged
             )
 
         GotElementDimensions result ->
-            ( { model | elementDimensions = Result.toMaybe result }, Cmd.none )
+            ( { model | elementDimensions = Result.toMaybe result }, Cmd.none, SameColor )
 
         StartedMouseTracking ->
-            ( { model | mouseTracking = True }, Cmd.none )
+            ( { model | mouseTracking = True }, Cmd.none, SameColor )
 
         StoppedMouseTracking ->
-            ( { model | mouseTracking = False }, Cmd.none )
+            ( { model | mouseTracking = False }, Cmd.none, SameColor )
 
         SetOpacity opacity ->
             let
@@ -155,20 +162,20 @@ update msg model =
                 color =
                     Colors.hsv h s opacity
             in
-            ( { model | color = color }, Cmd.none )
+            ( { model | color = color }, Cmd.none, ColorChanged )
 
         --
         --
         --
         {--| For Development --}
         SetNumberOfSlices n ->
-            ( { model | numberOfSlices = n }, Cmd.none )
+            ( { model | numberOfSlices = n }, Cmd.none, SameColor )
 
         SetBlur b ->
-            ( { model | blur = b }, Cmd.none )
+            ( { model | blur = b }, Cmd.none, SameColor )
 
         ToggledDynamic ->
-            ( { model | dynamic = not model.dynamic }, Cmd.none )
+            ( { model | dynamic = not model.dynamic }, Cmd.none, SameColor )
 
 
 subscriptions : Model -> Sub Msg
