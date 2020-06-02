@@ -1322,7 +1322,11 @@ update msg model =
                 ( { model | viewingPage = page }, Cmd.none )
 
             RemovedFromGallery index ->
-                updateAndSaveImageAndGallery <| { model | gallery = ListExtra.dropIndex index model.gallery }
+                let
+                    newModel =
+                        { model | gallery = ListExtra.dropIndex index model.gallery }
+                in
+                ( newModel, saveEncodedModelToLocalStorage (encodeModel newModel) )
 
             DuplicateToEdit index ->
                 let
