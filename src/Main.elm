@@ -1601,6 +1601,14 @@ processKey model keyPressed =
         "]" ->
             ( { model | image = Image.withStrokeWidth 1 model.image }, True )
 
+        -- CHANGE CURVE
+        --
+        "o" ->
+            ( { model | image = Image.withCurve Image.Curve model.image }, True )
+
+        "l" ->
+            ( { model | image = Image.withCurve Image.Line model.image }, True )
+
         -- CHANGE ANGLE
         --
         -- Almost a line

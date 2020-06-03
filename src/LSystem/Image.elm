@@ -2,6 +2,7 @@ module LSystem.Image exposing
     ( Boundaries
     , Image
     , PartialImage
+    , PathCurve(..)
     ,  PathSegment(..)
        -- Remove (extract from this module)
 
@@ -41,6 +42,7 @@ module LSystem.Image exposing
     , toQuery
     , updateSvgPathAndBoundaries
     , withBackgroundColor
+    , withCurve
     , withImage
     , withScale
     , withStrokeColor
@@ -53,6 +55,7 @@ module LSystem.Image exposing
 
 import Colors exposing (Color)
 import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Extra as DecodeExtra
 import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
 import ListExtra
@@ -74,6 +77,11 @@ type alias Scale =
 
 type alias Width =
     Float
+
+
+type PathCurve
+    = Line
+    | Curve
 
 
 type Polygon
@@ -104,6 +112,7 @@ type alias Image =
     , strokeWidth : Width
     , translate : Position
     , scale : Scale
+    , curve : PathCurve
     }
 
 
@@ -115,6 +124,7 @@ type alias PartialImage =
     , strokeWidth : Maybe Width
     , translate : Maybe Position
     , scale : Maybe Scale
+    , curve : Maybe PathCurve
     }
 
 
@@ -128,6 +138,7 @@ defaultImage =
     , strokeWidth = 1
     , translate = ( 0, 0 )
     , scale = 1
+    , curve = Line
     }
 
 
@@ -346,6 +357,14 @@ withScale scale image =
     { image | scale = scale }
 
 
+withCurve : PathCurve -> Image -> Image
+withCurve curve image =
+    { image
+        | curve = curve
+        , svgPathAndBoundaries = Nothing
+    }
+
+
 withImage : PartialImage -> Image -> Image
 withImage partial image =
     let
@@ -365,6 +384,7 @@ withImage partial image =
     , strokeWidth = Maybe.withDefault image.strokeWidth partial.strokeWidth
     , translate = Maybe.withDefault image.translate partial.translate
     , scale = Maybe.withDefault image.scale partial.scale
+    , curve = Maybe.withDefault image.curve partial.curve
     }
 
 
@@ -410,7 +430,7 @@ polygonAngle polygon =
 
 
 encodeImage : Image -> Encode.Value
-encodeImage { composition, turnAngle, backgroundColor, strokeColor, strokeWidth, translate, scale } =
+encodeImage { composition, turnAngle, backgroundColor, strokeColor, strokeWidth, translate, scale, curve } =
     Encode.object
         [ ( keyFor.composition, Core.encodeComposition composition )
         , ( keyFor.turnAngle, Encode.float turnAngle )
@@ -420,6 +440,7 @@ encodeImage { composition, turnAngle, backgroundColor, strokeColor, strokeWidth,
         , ( keyFor.translateX, Encode.float (Tuple.first translate) )
         , ( keyFor.translateY, Encode.float (Tuple.second translate) )
         , ( keyFor.scale, Encode.float scale )
+        , ( keyFor.curve, encodeCurve curve )
         ]
 
 
@@ -451,11 +472,65 @@ imageDecoder =
 
         succeed =
             Decode.succeed
+
+        curve =
+            Decode.field keyFor.curve curveDecoder
     in
     Decode.oneOf
-        [ Decode.map8 Image composition turnAngle (succeed Nothing) backgroundColor strokeColor strokeWidth translate scale
-        , Decode.map8 Image composition turnAngle (succeed Nothing) backgroundColor strokeColor (succeed 1) translate scale
+        [ Decode.succeed Image
+            |> DecodeExtra.andMap composition
+            |> DecodeExtra.andMap turnAngle
+            |> DecodeExtra.andMap (succeed Nothing)
+            |> DecodeExtra.andMap backgroundColor
+            |> DecodeExtra.andMap strokeColor
+            |> DecodeExtra.andMap strokeWidth
+            |> DecodeExtra.andMap translate
+            |> DecodeExtra.andMap scale
+            |> DecodeExtra.andMap curve
+        , Decode.succeed Image
+            |> DecodeExtra.andMap composition
+            |> DecodeExtra.andMap turnAngle
+            |> DecodeExtra.andMap (succeed Nothing)
+            |> DecodeExtra.andMap backgroundColor
+            |> DecodeExtra.andMap strokeColor
+            |> DecodeExtra.andMap strokeWidth
+            |> DecodeExtra.andMap translate
+            |> DecodeExtra.andMap scale
+            |> DecodeExtra.andMap (succeed Line)
+        , Decode.succeed Image
+            |> DecodeExtra.andMap composition
+            |> DecodeExtra.andMap turnAngle
+            |> DecodeExtra.andMap (succeed Nothing)
+            |> DecodeExtra.andMap backgroundColor
+            |> DecodeExtra.andMap strokeColor
+            |> DecodeExtra.andMap (succeed 1)
+            |> DecodeExtra.andMap translate
+            |> DecodeExtra.andMap scale
+            |> DecodeExtra.andMap (succeed Line)
         ]
+
+
+encodeCurve : PathCurve -> Encode.Value
+encodeCurve curve =
+    case curve of
+        Line ->
+            Encode.string "line"
+
+        Curve ->
+            Encode.string "curve"
+
+
+curveDecoder : Decoder PathCurve
+curveDecoder =
+    Decode.map
+        (\str ->
+            if str == "curve" then
+                Curve
+
+            else
+                Line
+        )
+        Decode.string
 
 
 
@@ -470,7 +545,7 @@ queryParser =
         parseQuery getKey decoder =
             Query.map (Maybe.andThen (Decode.decodeString decoder >> Result.toMaybe)) (Query.string (getKey keyFor))
     in
-    Query.map7 PartialImage
+    Query.map8 PartialImage
         (parseQuery .composition Core.compositionDecoder)
         (parseQuery .turnAngle Decode.float)
         (parseQuery .backgroundColor Colors.decoder)
@@ -481,6 +556,7 @@ queryParser =
             (parseQuery .translateY Decode.float)
         )
         (parseQuery .scale Decode.float)
+        (parseQuery .curve curveDecoder)
 
 
 toQuery : Image -> String
@@ -498,6 +574,7 @@ toQuery image =
         , query .translateX (Encode.float (Tuple.first image.translate))
         , query .translateY (Encode.float (Tuple.second image.translate))
         , query .scale (Encode.float image.scale)
+        , query .curve (encodeCurve image.curve)
         ]
 
 
@@ -510,6 +587,7 @@ keyFor =
     , translateX = "translateX"
     , translateY = "translateY"
     , scale = "scale"
+    , curve = "curve"
     }
 
 
@@ -590,16 +668,17 @@ updateSvgPathAndBoundaries image =
 
 
 imageToSvgPathString : Image -> SvgPathAndBoundaries
-imageToSvgPathString { composition, turnAngle } =
+imageToSvgPathString { composition, turnAngle, curve } =
     let
         finalEverything =
             Core.digestComposition composition
-                |> List.foldl (processCompositionStep turnAngle) baseEverything
+                |> List.foldl (processCompositionStep curve turnAngle) baseEverything
 
         ( lastX, lastY ) =
             finalEverything.position
     in
     -- Main path
+    -- TODO add initial Q value when curve==Curve
     ( "M 0 0 " ++ finalEverything.pathString
       -- Next step path
     , "M "
@@ -641,8 +720,8 @@ baseEverything =
     (yes, a link from archive.org)
 
 -}
-processCompositionStep : Float -> Step -> EverythingInOnePass -> EverythingInOnePass
-processCompositionStep turnAngleSize step { pathString, angle, position, boundaries } =
+processCompositionStep : PathCurve -> Float -> Step -> EverythingInOnePass -> EverythingInOnePass
+processCompositionStep pathCurve turnAngleSize step { pathString, angle, position, boundaries } =
     let
         nextPositionDelta_ =
             nextPositionDelta angle
@@ -654,11 +733,19 @@ processCompositionStep turnAngleSize step { pathString, angle, position, boundar
             { leftTop = ListExtra.pairExec min boundaries.leftTop nextPosition
             , rightBottom = ListExtra.pairExec max boundaries.rightBottom nextPosition
             }
+
+        curve =
+            case pathCurve of
+                Line ->
+                    L
+
+                Curve ->
+                    T
     in
     case step of
         Core.D ->
             EverythingInOnePass
-                (pathString ++ segmentToString (L nextPositionDelta_))
+                (pathString ++ segmentToString (curve nextPositionDelta_))
                 angle
                 nextPosition
                 updatedBoundaries
