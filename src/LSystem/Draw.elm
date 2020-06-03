@@ -282,6 +282,7 @@ drawImageEssentials essentials maybeId maybeMsg drawOriginAndNextStep displaceme
         ((drawPolyline drawingDisplaced1 strokeColor essentials.strokeWidth -180 :: originAndNextStep)
             ++ (drawPolyline drawingDisplaced2 strokeColor essentials.strokeWidth 60 :: originAndNextStep)
             ++ (drawPolyline drawing strokeColor essentials.strokeWidth 0 :: originAndNextStep)
+            ++ [ gradients strokeColor backgroundColor ]
         )
 
 
@@ -295,11 +296,11 @@ drawPolyline { path } strokeColor strokeWidth_ hueRotate =
         [ points <| path
         , stroke (Colors.toString strokeColor)
         , strokeWidth (String.fromFloat strokeWidth_ ++ "px")
-        , fill "none"
-        , style <| "filter: hue-rotate(" ++ String.fromFloat hueRotate ++ "deg)"
 
-        --, stroke "url(#RadialGradient1)"
-        --, fill "url(#RadialGradient2)"
+        --, fill "none"
+        , style <| "filter: hue-rotate(" ++ String.fromFloat hueRotate ++ "deg)"
+        , stroke "url(#RadialGradient1)"
+        , fill "url(#RadialGradient2)"
         ]
         []
 
