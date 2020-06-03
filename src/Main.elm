@@ -57,6 +57,7 @@ import Css
         , margin2
         , margin3
         , marginBottom
+        , marginTop
         , minWidth
         , minus
         , none
@@ -153,7 +154,8 @@ port midiEvent : (Encode.Value -> msg) -> Sub msg
 type Msg
     = ViewingPage Page
       -- Global keyboard listener
-    | KeyPress String
+    | EditorKeyPress String
+    | InputKeyPress String
       -- Main commands
     | AddSimpleBlock
     | ResetDrawing
@@ -180,6 +182,7 @@ type Msg
     | ColorWheelMsg ColorWheel.Msg
       -- Angle
     | SetTurnAngle Float
+    | SetTurnAngleInputValue String
       -- Stroke width
     | SetStrokeWidth Float
       -- Download
@@ -198,6 +201,8 @@ type Msg
     | FullscreenRequested
       -- MIDI
     | GotMidiEvent Encode.Value
+      -- Sometimes there is nothing to do
+    | NoOp
 
 
 
@@ -237,6 +242,9 @@ type alias Model =
     , slowMotion : SlowMotion
     , playingVideo : Bool
     , videoAngleChangeDirection : Float
+
+    -- Input controls value
+    , turnAngleInputValue : String
     }
 
 
@@ -283,8 +291,8 @@ type alias ShiftKey =
 
 
 type Focus
-    = KeyboardEditing
-    | TurnAngleInput
+    = EditorFocus
+    | TurnAngleInputFocus
 
 
 type SlowMotion
@@ -328,7 +336,7 @@ initialModel image gallery url navKey =
     , colorTarget = Stroke
 
     -- Browser Focus
-    , focus = KeyboardEditing
+    , focus = EditorFocus
 
     -- Url
     , url = url
@@ -339,6 +347,9 @@ initialModel image gallery url navKey =
     , slowMotion = NotSet
     , playingVideo = False
     , videoAngleChangeDirection = 1
+
+    -- Input controls value
+    , turnAngleInputValue = String.fromFloat image.turnAngle
     }
 
 
@@ -586,7 +597,7 @@ controlPanel model =
         [ infoAndBasicControls model
         , colorControls model.image.backgroundColor model.image.strokeColor model.colorWheel
         , videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion
-        , turnAngleControl model.image.turnAngle
+        , turnAngleControl model.turnAngleInputValue
         , strokeWidthControl model.image.strokeWidth
         , curatedSettings
         , controlsList
@@ -737,31 +748,19 @@ videoControls angleChangeRate playingVideo slowMotion =
         ]
 
 
-turnAngleControl : Float -> Html Msg
-turnAngleControl turnAngle =
-    let
-        onInputCallback stringValue =
-            if stringValue == "" then
-                SetTurnAngle 0
-
-            else
-                case String.toFloat stringValue of
-                    Just degrees ->
-                        SetTurnAngle degrees
-
-                    Nothing ->
-                        SetTurnAngle turnAngle
-    in
+turnAngleControl : String -> Html Msg
+turnAngleControl turnAngleInputValue =
     controlBlock
         [ label [ for "TurnAngle" ] [ text "Change angle" ]
         , input
             [ id "TurnAngle" -- See index.js, `id` only exists for use in there.
-            , type_ "number"
-            , value (String.fromFloat turnAngle)
-            , css [ display block, width (px 50) ]
-            , onInput onInputCallback
-            , onFocus (SetFocus TurnAngleInput)
-            , onBlur (SetFocus KeyboardEditing)
+            , type_ "text"
+            , value turnAngleInputValue
+            , css [ display block, width (pct 90), marginTop (px 10) ]
+            , onInput SetTurnAngleInputValue
+            , onKeyDown InputKeyPress
+            , onFocus (SetFocus TurnAngleInputFocus)
+            , onBlur (SetFocus EditorFocus)
             ]
             []
         ]
@@ -1199,12 +1198,15 @@ update msg model =
             DropLastBlock ->
                 updateAndSaveImageAndGallery <| dropLastBlock model
 
-            KeyPress keyString ->
+            EditorKeyPress keyString ->
                 let
                     ( newModel, shouldUpdate ) =
                         processKey model keyString
                 in
-                if shouldUpdate then
+                if keyString == "a" then
+                    ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.focus "TurnAngle") )
+
+                else if shouldUpdate then
                     updateAndSaveImageAndGallery newModel
 
                 else
@@ -1251,7 +1253,10 @@ update msg model =
             SetTurnAngle turn ->
                 let
                     newModel =
-                        { model | image = Image.withTurnAngle turn model.image }
+                        { model
+                            | image = Image.withTurnAngle turn model.image
+                            , turnAngleInputValue = String.fromFloat turn
+                        }
                 in
                 if model.playingVideo then
                     -- Don't update URL and Local Storage on each video step
@@ -1259,6 +1264,70 @@ update msg model =
 
                 else
                     updateAndSaveImageAndGallery newModel
+
+            SetTurnAngleInputValue stringValue ->
+                if stringValue == "" then
+                    updateAndSaveImageAndGallery
+                        { model
+                            | image = Image.withTurnAngle 0 model.image
+                            , turnAngleInputValue = stringValue
+                        }
+
+                else
+                    case String.toFloat stringValue of
+                        Just turn ->
+                            let
+                                newModel =
+                                    { model
+                                        | image = Image.withTurnAngle turn model.image
+                                        , turnAngleInputValue = stringValue
+                                    }
+                            in
+                            if model.playingVideo then
+                                -- Don't update URL and Local Storage on each video step
+                                ( newModel, Cmd.none )
+
+                            else
+                                updateAndSaveImageAndGallery newModel
+
+                        Nothing ->
+                            ( { model | turnAngleInputValue = stringValue }, Cmd.none )
+
+            InputKeyPress key ->
+                let
+                    turnAngleDelta =
+                        case model.slowMotion of
+                            NotSet ->
+                                model.videoAngleChangeDirection * model.videoAngleChangeRate
+
+                            Slowly by ->
+                                by * model.videoAngleChangeDirection * model.videoAngleChangeRate
+
+                    newTurnAngle op =
+                        op model.image.turnAngle turnAngleDelta
+
+                    newTurnAngleInputValue =
+                        String.fromFloat << newTurnAngle
+
+                    updateTurnAngle op =
+                        updateAndSaveImageAndGallery
+                            { model
+                                | image = Image.withTurnAngle (newTurnAngle op) model.image
+                                , turnAngleInputValue = newTurnAngleInputValue op
+                            }
+                in
+                case key of
+                    "Escape" ->
+                        ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.blur "TurnAngle") )
+
+                    "ArrowUp" ->
+                        updateTurnAngle (+)
+
+                    "ArrowDown" ->
+                        updateTurnAngle (-)
+
+                    _ ->
+                        ( model, Cmd.none )
 
             SetStrokeWidth width ->
                 updateAndSaveImageAndGallery <| { model | image = Image.withStrokeWidth width model.image }
@@ -1356,6 +1425,9 @@ update msg model =
                     -- TODO add throttle and then add updateAndSaveImageAndGallery
                     ( processMidi value model, Cmd.none )
 
+            NoOp ->
+                ( model, Cmd.none )
+
 
 processMidi : Encode.Value -> Model -> Model
 processMidi value model =
@@ -1367,16 +1439,20 @@ processMidi value model =
     case midiDecoded of
         Ok { command, noteMap, velocityPosition } ->
             if command == 176 && noteMap == 114 then
+                let
+                    turnAngle =
+                        -- Magic numbers, after testing with Arturia MiniLab mk2
+                        model.image.turnAngle
+                            + (velocityPosition - 64)
+                            * model.videoAngleChangeRate
+
+                    turnAngleInputValue =
+                        String.fromFloat turnAngle
+                in
                 -- Turn Angle
                 { model
-                    | image =
-                        model.image
-                            -- Magic numbers, after testing with Arturia MiniLab mk2
-                            |> Image.withTurnAngle
-                                (model.image.turnAngle
-                                    + (velocityPosition - 64)
-                                    * model.videoAngleChangeRate
-                                )
+                    | image = Image.withTurnAngle turnAngle model.image
+                    , turnAngleInputValue = turnAngleInputValue
                 }
 
             else if command == 176 && noteMap == 115 && velocityPosition == 0 then
@@ -1523,7 +1599,12 @@ processKey model keyPressed =
             ( { model | image = Image.appendStepAtIndex step model.editingIndex model.image }, True )
 
         updateAngle deg =
-            ( { model | image = Image.withTurnAngle deg model.image }, True )
+            ( { model
+                | image = Image.withTurnAngle deg model.image
+                , turnAngleInputValue = String.fromFloat deg
+              }
+            , True
+            )
     in
     case keyPressed of
         -- DRAW
@@ -1710,8 +1791,8 @@ subscriptions model =
                 Sub.none
 
         keyPressSub =
-            if model.focus == KeyboardEditing then
-                Browser.Events.onKeyDown keyPressDecoder
+            if model.focus == EditorFocus then
+                Browser.Events.onKeyDown (keyPressDecoder EditorKeyPress)
 
             else
                 Sub.none
@@ -1803,10 +1884,15 @@ replaceUrl key image =
 -- KEYBOARD, MOUSE and WHEEL
 
 
-keyPressDecoder : Decoder Msg
-keyPressDecoder =
-    Decode.map KeyPress
+keyPressDecoder : (String -> Msg) -> Decoder Msg
+keyPressDecoder msg =
+    Decode.map msg
         (Decode.field "key" Decode.string)
+
+
+onKeyDown : (String -> Msg) -> Html.Styled.Attribute Msg
+onKeyDown msg =
+    on "keydown" (keyPressDecoder msg)
 
 
 mouseMoveDecoder : Decoder Msg
