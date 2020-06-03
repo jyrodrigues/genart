@@ -585,7 +585,7 @@ controlPanel model =
         ]
         [ infoAndBasicControls model
         , colorControls model.image.backgroundColor model.image.strokeColor model.colorWheel
-        , videoControls model.videoAngleChangeRate model.playingVideo
+        , videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion
         , turnAngleControl model.image.turnAngle
         , strokeWidthControl model.image.strokeWidth
         , curatedSettings
@@ -699,8 +699,8 @@ colorSlider inputToMsg oldValue colorRange =
         ]
 
 
-videoControls : Float -> Bool -> Html Msg
-videoControls angleChangeRate playingVideo =
+videoControls : Float -> Bool -> SlowMotion -> Html Msg
+videoControls angleChangeRate playingVideo slowMotion =
     let
         playPauseText =
             if playingVideo then
@@ -708,6 +708,14 @@ videoControls angleChangeRate playingVideo =
 
             else
                 "Play"
+
+        slowMotionText =
+            case slowMotion of
+                NotSet ->
+                    ""
+
+                Slowly value ->
+                    " (slow motion " ++ String.fromFloat value ++ "x) "
     in
     controlBlock
         [ span [ css [ display block ] ]
@@ -715,6 +723,7 @@ videoControls angleChangeRate playingVideo =
                 ("Video Playback: "
                     ++ truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval))
                     ++ "x"
+                    ++ slowMotionText
                 )
             ]
         , button [ onClick TogglePlayingVideo ] [ text playPauseText ]
@@ -806,7 +815,6 @@ sliderExponentialInput : (Float -> msg) -> Float -> Float -> Float -> Float -> F
 sliderExponentialInput msg oldValue minValue centerValue maxValue centerAt =
     let
         {--
-            Based on `centerAt` and `maxValue`:
             Convert from linear (0 ~ 1) to exponential (0.000001 ~ 4)
 
             Take f(x) = a*b^x;
@@ -1512,32 +1520,128 @@ processKey : Model -> String -> ( Model, Bool )
 processKey model keyPressed =
     let
         appendStep step =
-            { model | image = Image.appendStepAtIndex step model.editingIndex model.image }
+            ( { model | image = Image.appendStepAtIndex step model.editingIndex model.image }, True )
+
+        updateAngle deg =
+            ( { model | image = Image.withTurnAngle deg model.image }, True )
     in
     case keyPressed of
+        -- DRAW
+        --
         "ArrowLeft" ->
-            ( appendStep L, True )
+            appendStep L
 
         "ArrowRight" ->
-            ( appendStep R, True )
+            appendStep R
 
         "ArrowUp" ->
-            ( appendStep D, True )
+            appendStep D
 
         "ArrowDown" ->
-            ( appendStep S, True )
-
-        " " ->
-            ( { model | image = Image.centralize model.image }, True )
+            appendStep S
 
         "Backspace" ->
             ( { model | image = Image.dropLastStepAtIndex model.editingIndex model.image }, True )
 
+        -- RESET POSITION AND ZOOM
+        --
+        "c" ->
+            ( { model | image = Image.centralize model.image }, True )
+
+        -- ITERATE / DEITERATE
+        --
         "i" ->
             ( duplicateAndAppendBlock model model.editingIndex, True )
 
         "d" ->
             ( dropLastBlock model, True )
+
+        -- VIDEO CONTROLS
+        --
+        -- Play / pause
+        " " ->
+            ( { model | playingVideo = not model.playingVideo }, True )
+
+        -- Slow motion
+        "s" ->
+            case model.slowMotion of
+                Slowly _ ->
+                    ( { model | slowMotion = NotSet }, True )
+
+                NotSet ->
+                    ( { model | slowMotion = Slowly 0.05 }, True )
+
+        -- Change turn angle direction
+        "r" ->
+            ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, True )
+
+        -- ZOOM
+        --
+        -- Zoom out large
+        "-" ->
+            ( applyZoom 30 model.imgDivCenter model, True )
+
+        -- Zoom out small
+        "_" ->
+            ( applyZoom 1 model.imgDivCenter model, True )
+
+        -- Zoom in Large
+        "=" ->
+            ( applyZoom -30 model.imgDivCenter model, True )
+
+        -- Zoom in small
+        "+" ->
+            ( applyZoom -1 model.imgDivCenter model, True )
+
+        -- STROKE WIDTH
+        --
+        "[" ->
+            ( { model | image = Image.withStrokeWidth 0.001 model.image }, True )
+
+        "]" ->
+            ( { model | image = Image.withStrokeWidth 1 model.image }, True )
+
+        -- CHANGE ANGLE
+        --
+        -- Almost a line
+        "0" ->
+            updateAngle 179
+
+        -- Triangle
+        "1" ->
+            updateAngle 120
+
+        -- Square
+        "2" ->
+            updateAngle 90
+
+        -- Pentagon
+        "3" ->
+            updateAngle 72
+
+        -- Hexagon
+        "4" ->
+            updateAngle 60
+
+        -- Heptagon
+        "5" ->
+            updateAngle 51
+
+        -- Octagon
+        "6" ->
+            updateAngle 45
+
+        -- 4-point star
+        "7" ->
+            updateAngle 135
+
+        -- X-point star
+        "8" ->
+            updateAngle 144
+
+        -- Y-point star
+        "9" ->
+            updateAngle 165
 
         _ ->
             ( model, False )
