@@ -31,6 +31,7 @@ module LSystem.Image exposing
     , polygonAngle
     , polygonBlock
     , queryParser
+    , random
     , resetBaseTo
     , resetImageComposition
     ,  segmentToString
@@ -59,6 +60,7 @@ import Json.Decode.Extra as DecodeExtra
 import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
 import ListExtra
+import Random
 import Url.Builder
 import Url.Parser.Query as Query
 
@@ -139,6 +141,19 @@ defaultImage =
     , translate = ( 0, 0 )
     , scale = 1
     , curve = Line
+    }
+
+
+emptyPartialImage : PartialImage
+emptyPartialImage =
+    { composition = Nothing
+    , turnAngle = Nothing
+    , backgroundColor = Nothing
+    , strokeColor = Nothing
+    , strokeWidth = Nothing
+    , translate = Nothing
+    , scale = Nothing
+    , curve = Nothing
     }
 
 
@@ -319,6 +334,11 @@ blockBlueprintString index image =
 -- WITH* PATTERN
 
 
+withComposition : Composition -> Image -> Image
+withComposition composition image =
+    { image | composition = composition }
+
+
 withBackgroundColor : Color -> Image -> Image
 withBackgroundColor color image =
     { image | backgroundColor = color }
@@ -386,6 +406,22 @@ withImage partial image =
     , scale = Maybe.withDefault image.scale partial.scale
     , curve = Maybe.withDefault image.curve partial.curve
     }
+
+
+
+-- RANDOM
+
+
+random : Random.Generator PartialImage
+random =
+    Random.pair Core.randomComposition Colors.random
+        |> Random.map
+            (\( composition, color ) ->
+                { emptyPartialImage
+                    | composition = Just (Core.replaceBlankBlocks composition)
+                    , strokeColor = Just color
+                }
+            )
 
 
 

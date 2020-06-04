@@ -127,6 +127,7 @@ import LSystem.Image as Image
         )
 import ListExtra
 import Midi exposing (adjustInputForStrokeWidth)
+import Random
 import Svg.Styled exposing (Svg)
 import Task
 import Time
@@ -209,6 +210,9 @@ type Msg
     | ReverseAngleChangeDirection
       -- Fullscreen
     | FullscreenRequested
+      -- Random
+    | RandomRequested
+    | GotRandomImage PartialImage
       -- MIDI
     | GotMidiEvent Encode.Value
       -- Sometimes there is nothing to do
@@ -627,6 +631,7 @@ infoAndBasicControls =
         , primaryButtonHalf FullscreenRequested "Full"
         , primaryButtonHalf DownloadSvg "Down"
         , primaryButtonHalf ResetDrawing "Reset"
+        , primaryButtonHalf RandomRequested "Rand"
         ]
 
 
@@ -1035,6 +1040,12 @@ update msg model =
                 -- Called via replaceUrl (and indirectly via click on internal links/href, see LinkClicked above)
                 ( { model | viewingPage = mapRouteToPage (parseUrl url) }, Cmd.none )
 
+            RandomRequested ->
+                ( model, Random.generate GotRandomImage Image.random )
+
+            GotRandomImage partialImage ->
+                ( { model | image = Image.withImage partialImage model.image } |> modelWithEditIndexLast, Cmd.none )
+
             DownloadSvg ->
                 ( model, downloadSvg () )
 
@@ -1093,6 +1104,9 @@ update msg model =
                 in
                 if keyString == "a" then
                     ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.focus "TurnAngle") )
+
+                else if keyString == "q" then
+                    ( model, Random.generate GotRandomImage Image.random )
 
                 else if shouldUpdate then
                     updateAndSaveImageAndGallery newModel
