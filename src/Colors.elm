@@ -318,10 +318,6 @@ validHex str ( r1, r2 ) ( g1, g2 ) ( b1, b2 ) ( a1, a2 ) =
 -}
 erroneousHex : String -> Color
 erroneousHex str =
-    let
-        _ =
-            Debug.log "erroneousHex string" str
-    in
     rgba 0 0 0 1
 
 

@@ -5,6 +5,7 @@ dist
 .idea
 *.swp
 .DS_Store
+.cache
 svg_results
 dna_samples
 
