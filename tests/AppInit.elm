@@ -22,6 +22,7 @@ import LSystem.Core as LCore exposing (Composition, Step(..))
 import LSystem.Image as Image
     exposing
         ( Image
+        , PathCurve(..)
         , defaultImage
         , encodeImage
         , imageDecoder
@@ -87,6 +88,13 @@ colorFuzzer =
             Fuzz.float
 
 
+pathCurveFuzzer : Fuzzer PathCurve
+pathCurveFuzzer =
+    [ Line, Curve ]
+        |> List.map Fuzz.constant
+        |> Fuzz.oneOf
+
+
 imageFuzzer : Fuzzer Image
 imageFuzzer =
     Fuzz.map5 Image
@@ -106,6 +114,8 @@ imageFuzzer =
         |> Fuzz.andMap (Fuzz.tuple ( Fuzz.float, Fuzz.float ))
         -- Scale
         |> Fuzz.andMap Fuzz.float
+        -- Path Curve
+        |> Fuzz.andMap pathCurveFuzzer
 
 
 
@@ -159,6 +169,7 @@ suite =
                                     , strokeWidth = Just fuzzyImage.strokeWidth
                                     , translate = Just fuzzyImage.translate
                                     , scale = Just fuzzyImage.scale
+                                    , curve = Just fuzzyImage.curve
                                     }
                                 )
 
