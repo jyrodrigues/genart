@@ -1,6 +1,7 @@
 module ColorWheel exposing
     ( Model
     , Msg
+    , MsgType(..)
     , getElementDimensions
     , initialModel
     , subscriptions
@@ -33,7 +34,7 @@ import Css
         , toRight
         , url
         )
-import Html.Styled exposing (div)
+import Html.Styled exposing (Html, div)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events
 import Json.Decode as Decode exposing (Decoder)
@@ -127,7 +128,12 @@ type Msg
     | ToggledDynamic
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+type MsgType
+    = ColorChanged
+    | SameColor
+
+
+update : Msg -> Model -> ( Model, Cmd Msg, MsgType )
 update msg model =
     case msg of
         GotMousePosition relativePosition ->
@@ -136,16 +142,17 @@ update msg model =
                 , color = computeColor model relativePosition
               }
             , Cmd.none
+            , ColorChanged
             )
 
         GotElementDimensions result ->
-            ( { model | elementDimensions = Result.toMaybe result }, Cmd.none )
+            ( { model | elementDimensions = Result.toMaybe result }, Cmd.none, SameColor )
 
         StartedMouseTracking ->
-            ( { model | mouseTracking = True }, Cmd.none )
+            ( { model | mouseTracking = True }, Cmd.none, SameColor )
 
         StoppedMouseTracking ->
-            ( { model | mouseTracking = False }, Cmd.none )
+            ( { model | mouseTracking = False }, Cmd.none, SameColor )
 
         SetOpacity opacity ->
             let
@@ -155,20 +162,20 @@ update msg model =
                 color =
                     Colors.hsv h s opacity
             in
-            ( { model | color = color }, Cmd.none )
+            ( { model | color = color }, Cmd.none, ColorChanged )
 
         --
         --
         --
         {--| For Development --}
         SetNumberOfSlices n ->
-            ( { model | numberOfSlices = n }, Cmd.none )
+            ( { model | numberOfSlices = n }, Cmd.none, SameColor )
 
         SetBlur b ->
-            ( { model | blur = b }, Cmd.none )
+            ( { model | blur = b }, Cmd.none, SameColor )
 
         ToggledDynamic ->
-            ( { model | dynamic = not model.dynamic }, Cmd.none )
+            ( { model | dynamic = not model.dynamic }, Cmd.none, SameColor )
 
 
 subscriptions : Model -> Sub Msg
@@ -341,6 +348,7 @@ viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel sameHeightAsWi
                 , overflow hidden
                 , backgroundColor (Colors.toCssColor Colors.black)
                 , Css.position Css.relative
+                , Css.border3 (px 1) Css.solid (Colors.toCssColor Colors.black)
                 ]
             , id id_
             ]
@@ -479,6 +487,9 @@ gradientSliderInput inputToMsg oldValue min_ max_ step_ colorRange =
             , Css.borderColor <| Colors.toCssColor Colors.gray
             , Css.borderRadius (px 3)
             , Css.marginTop (px 10)
+            , Css.padding3 (px 1) (px 4) Css.zero
+            , Css.boxSizing Css.borderBox
+            , Css.border3 (px 1) Css.solid (Colors.toCssColor Colors.black)
             ]
         ]
         -- put 30 px on slider height
@@ -749,4 +760,60 @@ toppings startColor endColor id_ scale =
             [ stop [ offset "0%", stopColor startColor ] []
             , stop [ offset "100%", stopColor endColor ] []
             ]
+        ]
+
+
+
+{--
+
+                COLOR SLIDERS
+
+--}
+
+
+rgbSliders : (Color -> msg) -> Color -> Html msg
+rgbSliders toMsg color =
+    let
+        { red, green, blue } =
+            Colors.toRgba color
+    in
+    div []
+        [ colorSlider (\input -> toMsg (Colors.updateRed input color)) red (Colors.rangeRed color)
+        , colorSlider (\input -> toMsg (Colors.updateGreen input color)) green (Colors.rangeGreen color)
+        , colorSlider (\input -> toMsg (Colors.updateBlue input color)) blue (Colors.rangeBlue color)
+        ]
+
+
+hslSliders : (Color -> msg) -> Color -> Html msg
+hslSliders toMsg color =
+    let
+        { hue, saturation, lightness } =
+            Colors.toHsla color
+    in
+    div []
+        [ colorSlider (\input -> toMsg (Colors.updateHue input color)) hue (Colors.rangeHue color)
+        , colorSlider (\input -> toMsg (Colors.updateSaturation input color)) saturation (Colors.rangeSaturation color)
+        , colorSlider (\input -> toMsg (Colors.updateLightness input color)) lightness (Colors.rangeLightness color)
+        ]
+
+
+{-| TODO move this into Colors.elm?
+-}
+colorSlider : (Float -> msg) -> Float -> Colors.Range -> Html msg
+colorSlider inputToMsg oldValue colorRange =
+    div []
+        [ div
+            [ css
+                [ display inlineBlock
+                , Css.width (pct 90)
+                , Css.height (px 30)
+                , backgroundImage <|
+                    linearGradient2 toRight
+                        (Css.stop <| Colors.toCssColor colorRange.start)
+                        (Css.stop <| Colors.toCssColor colorRange.end)
+                        []
+                ]
+            ]
+            -- put 30 px on slider height
+            [ sliderInput inputToMsg oldValue 0 1 0.0001 ]
         ]

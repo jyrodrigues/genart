@@ -37,12 +37,17 @@ import Css
         , boxShadow5
         , boxShadow6
         , boxSizing
+        , breakWord
         , calc
+        , center
         , color
         , contentBox
         , cursor
+        , default
         , display
+        , displayFlex
         , fixed
+        , flexWrap
         , fontFamily
         , fontSize
         , height
@@ -51,17 +56,23 @@ import Css
         , inlineBlock
         , inset
         , left
+        , lineHeight
         , linearGradient2
         , margin
         , margin2
         , margin3
+        , marginBottom
+        , marginTop
+        , maxWidth
         , minWidth
         , minus
         , none
         , overflow
+        , overflowWrap
         , overflowX
         , overflowY
         , padding
+        , padding2
         , pct
         , pointer
         , position
@@ -72,16 +83,20 @@ import Css
         , scroll
         , solid
         , stop
+        , textAlign
+        , textDecoration
         , toRight
         , transparent
+        , unset
         , vw
         , width
+        , wrap
         , zero
         )
 import Css.Global exposing (body, global)
 import Css.Media as Media exposing (withMedia)
-import Html.Styled exposing (Html, br, button, div, h2, h3, input, label, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (css, for, id, type_, value)
+import Html.Styled exposing (Html, a, br, button, div, h2, h3, input, label, p, span, text, toUnstyled)
+import Html.Styled.Attributes exposing (css, for, href, id, type_, value)
 import Html.Styled.Events
     exposing
         ( on
@@ -148,7 +163,8 @@ port midiEvent : (Encode.Value -> msg) -> Sub msg
 type Msg
     = ViewingPage Page
       -- Global keyboard listener
-    | KeyPress String
+    | EditorKeyPress String
+    | InputKeyPress String
       -- Main commands
     | AddSimpleBlock
     | ResetDrawing
@@ -175,6 +191,7 @@ type Msg
     | ColorWheelMsg ColorWheel.Msg
       -- Angle
     | SetTurnAngle Float
+    | SetTurnAngleInputValue String
       -- Stroke width
     | SetStrokeWidth Float
       -- Download
@@ -187,12 +204,15 @@ type Msg
     | LinkClicked Browser.UrlRequest
       -- Video
     | TogglePlayingVideo
+    | ToggleSlowMotion
     | SetVideoAngleChangeRate Float
     | ReverseAngleChangeDirection
       -- Fullscreen
     | FullscreenRequested
       -- MIDI
     | GotMidiEvent Encode.Value
+      -- Sometimes there is nothing to do
+    | NoOp
 
 
 
@@ -232,6 +252,9 @@ type alias Model =
     , slowMotion : SlowMotion
     , playingVideo : Bool
     , videoAngleChangeDirection : Float
+
+    -- Input controls value
+    , turnAngleInputValue : String
     }
 
 
@@ -278,8 +301,8 @@ type alias ShiftKey =
 
 
 type Focus
-    = KeyboardEditing
-    | TurnAngleInput
+    = EditorFocus
+    | TurnAngleInputFocus
 
 
 type SlowMotion
@@ -319,11 +342,11 @@ initialModel image gallery url navKey =
     , colorWheel =
         ColorWheel.initialModel "ColorWheel1"
             |> ColorWheel.trackMouseOutsideWheel True
-            |> ColorWheel.withColor image.backgroundColor
-    , colorTarget = Background
+            |> ColorWheel.withColor image.strokeColor
+    , colorTarget = Stroke
 
     -- Browser Focus
-    , focus = KeyboardEditing
+    , focus = EditorFocus
 
     -- Url
     , url = url
@@ -334,6 +357,9 @@ initialModel image gallery url navKey =
     , slowMotion = NotSet
     , playingVideo = False
     , videoAngleChangeDirection = 1
+
+    -- Input controls value
+    , turnAngleInputValue = String.fromFloat image.turnAngle
     }
 
 
@@ -463,6 +489,9 @@ view model =
             galleryView model
 
 
+{-| For development: view of colorwheel for testing and experimenting
+-}
+wheel : Model -> Browser.Document Msg
 wheel model =
     { title = "Wheel"
     , body =
@@ -487,24 +516,27 @@ galleryView model =
     , body =
         [ div
             [ css [ width (pct 100), height (pct 100), backgroundColor (toCssColor Colors.darkGray), overflow hidden ] ]
-            [ fixedDiv
-                [ css
-                    [ width (pct layout.controlPanel)
-                    , height (pct 100)
-                    , right zero
-                    ]
-                ]
-                [ button [ onClick (ViewingPage EditorPage), css [ margin (px 10) ] ] [ text "Back to editor" ] ]
-            , div
+            [ div
                 [ css
                     [ width (pct (layout.transformsList + layout.mainImg))
                     , height (pct 100)
                     , padding (px 10)
                     , boxSizing borderBox
                     , overflow scroll
+                    , display inlineBlock
                     ]
                 ]
                 (List.indexedMap imageBox model.gallery)
+            , fixedDiv
+                [ css
+                    [ width (pct layout.controlPanel)
+                    , height (pct 100)
+                    , display inlineBlock
+                    , padding (px 10)
+                    , boxSizing borderBox
+                    ]
+                ]
+                [ anchorButton (routeFor EditorPage) "Back to editor" ]
             ]
             |> toUnstyled
         ]
@@ -572,122 +604,47 @@ controlPanel model =
             , color (toCssColor offWhite)
             ]
         ]
-        [ infoAndBasicControls model
-        , colorControls model.image.backgroundColor model.image.strokeColor model.colorWheel
-        , videoControls model.videoAngleChangeRate model.playingVideo
-        , turnAngleControl model.image.turnAngle
+        [ infoAndBasicControls
+        , colorControls model.colorTarget model.colorWheel
+        , videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion
+        , turnAngleControl model.turnAngleInputValue
         , strokeWidthControl model.image.strokeWidth
         , curatedSettings
-        , controlsList
+
+        --, controlsList
+        , controlBlock "Info"
+            [ p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.imageStepsLenthString model.image) ]
+            , p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
+            ]
         ]
 
 
-infoAndBasicControls : Model -> Html Msg
-infoAndBasicControls model =
-    controlBlock
-        [ button [ onClick (ViewingPage GalleryPage) ] [ text "Go to Gallery" ]
-        , button [ onClick SavedToGallery ] [ text "Save to Gallery" ]
-        , button [ onClick FullscreenRequested ] [ text "Enter Fullscreen" ]
-        , button [ onClick DownloadSvg ] [ text "Download Image" ]
-        , button [ onClick ResetDrawing ] [ text "ResetDrawing" ]
-        , p [] [ text (Image.imageStepsLenthString model.image) ]
-        , p [] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
+infoAndBasicControls : Html Msg
+infoAndBasicControls =
+    controlBlockFlex
+        [ anchorButtonHalf (routeFor GalleryPage) "Gallery"
+        , primaryButtonHalf SavedToGallery "Save"
+        , primaryButtonHalf FullscreenRequested "Full"
+        , primaryButtonHalf DownloadSvg "Down"
+        , primaryButtonHalf ResetDrawing "Reset"
         ]
 
 
-colorControls : Color -> Color -> ColorWheel.Model -> Html Msg
-colorControls backgroundColor strokeColor colorWheel =
-    let
-        colorControl inputId msg inputLabel color =
-            div []
-                [ label [ for inputId ] [ text inputLabel ]
-                , input
-                    [ type_ "color"
-                    , id inputId
-                    , css [ display block ]
-                    , onInput (Colors.fromHexString >> msg)
-                    , value (Colors.toHexString color)
-                    ]
-                    []
-                , text (Colors.toString color)
-                ]
-    in
-    controlBlock
+colorControls : ColorTarget -> ColorWheel.Model -> Html Msg
+colorControls colorTarget colorWheel =
+    controlBlock "Color"
         [ div [ css [ width (pct 100) ] ]
-            [ h3 [] [ text "Change color for:" ]
-            , button [ onClick (SetColorTarget Stroke) ] [ text "Stroke" ]
-            , button [ onClick (SetColorTarget Background) ] [ text "Background" ]
-            , Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel)
-            ]
-        ]
-
-
-rgbSliders : (Color -> msg) -> Color -> Html msg
-rgbSliders toMsg color =
-    let
-        { red, green, blue } =
-            Colors.toRgba color
-    in
-    div []
-        [ colorSlider (\input -> toMsg (Colors.updateRed input color)) red (Colors.rangeRed color)
-        , colorSlider (\input -> toMsg (Colors.updateGreen input color)) green (Colors.rangeGreen color)
-        , colorSlider (\input -> toMsg (Colors.updateBlue input color)) blue (Colors.rangeBlue color)
-        ]
-
-
-hslSliders : (Color -> msg) -> Color -> Html msg
-hslSliders toMsg color =
-    let
-        { hue, saturation, lightness } =
-            Colors.toHsla color
-    in
-    div []
-        [ colorSlider (\input -> toMsg (Colors.updateHue input color)) hue (Colors.rangeHue color)
-        , colorSlider (\input -> toMsg (Colors.updateSaturation input color)) saturation (Colors.rangeSaturation color)
-        , colorSlider (\input -> toMsg (Colors.updateLightness input color)) lightness (Colors.rangeLightness color)
-        ]
-
-
-{-| TODO move this into Colors.elm?
--}
-colorSlider : (Float -> msg) -> Float -> Colors.Range -> Html msg
-colorSlider inputToMsg oldValue colorRange =
-    let
-        colorIconWidth =
-            px 10
-    in
-    div []
-        {--
-        [ span
-            [ css
-                [ backgroundColor (Colors.toCssColor colorRange)
-                , display inlineBlock
-                , width colorIconWidth
-                , height (px 10)
-                , margin colorIconWidth
+            [ div [ css [ displayFlex, flexWrap wrap ] ]
+                [ primaryButtonSelectable (colorTarget == Stroke) (SetColorTarget Stroke) "Stroke"
+                , primaryButtonSelectable (colorTarget == Background) (SetColorTarget Background) "Background"
                 ]
+            , div [ css [ padding2 (px 10) zero ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
             ]
-            []
-            --}
-        [ div
-            [ css
-                [ display inlineBlock
-                , width (calc (pct 90) minus colorIconWidth)
-                , height (px 30)
-                , backgroundImage <|
-                    linearGradient2 toRight
-                        (stop <| Colors.toCssColor colorRange.start)
-                        (stop <| Colors.toCssColor colorRange.end)
-                        []
-                ]
-            ]
-            -- put 30 px on slider height
-            [ sliderInput inputToMsg oldValue 0 1 0.0001 ]
         ]
 
 
-videoControls : Float -> Bool -> Html Msg
-videoControls angleChangeRate playingVideo =
+videoControls : Float -> Bool -> SlowMotion -> Html Msg
+videoControls angleChangeRate playingVideo slowMotion =
     let
         playPauseText =
             if playingVideo then
@@ -695,17 +652,28 @@ videoControls angleChangeRate playingVideo =
 
             else
                 "Play"
+
+        slowMotionText =
+            case slowMotion of
+                NotSet ->
+                    "Off"
+
+                Slowly value ->
+                    String.fromFloat value ++ "x"
     in
-    controlBlock
-        [ span [ css [ display block ] ]
-            [ text
-                ("Video Playback: "
-                    ++ truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval))
-                    ++ "x"
-                )
+    controlBlock "Video"
+        [ span [ css [ display block, marginBottom (px 10) ] ]
+            [ text (truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval)) ++ "x")
             ]
-        , button [ onClick TogglePlayingVideo ] [ text playPauseText ]
-        , button [ onClick ReverseAngleChangeDirection ] [ text "Reverse" ]
+        , div []
+            [ span [] [ text "Slow Motion: " ]
+            , span [] [ text slowMotionText ]
+            ]
+        , div [ css [ displayFlex, flexWrap wrap ] ]
+            [ primaryButton TogglePlayingVideo playPauseText
+            , primaryButton ToggleSlowMotion "Slow Motion"
+            , primaryButton ReverseAngleChangeDirection "Reverse"
+            ]
 
         -- Magic values:
         -- min: 0.00005 * 20 = 0.001 degrees/second
@@ -715,31 +683,30 @@ videoControls angleChangeRate playingVideo =
         ]
 
 
-turnAngleControl : Float -> Html Msg
-turnAngleControl turnAngle =
-    let
-        onInputCallback stringValue =
-            if stringValue == "" then
-                SetTurnAngle 0
-
-            else
-                case String.toFloat stringValue of
-                    Just degrees ->
-                        SetTurnAngle degrees
-
-                    Nothing ->
-                        SetTurnAngle turnAngle
-    in
-    controlBlock
-        [ label [ for "TurnAngle" ] [ text "Change angle" ]
-        , input
+turnAngleControl : String -> Html Msg
+turnAngleControl turnAngleInputValue =
+    controlBlock "Angle"
+        [ input
             [ id "TurnAngle" -- See index.js, `id` only exists for use in there.
-            , type_ "number"
-            , value (String.fromFloat turnAngle)
-            , css [ display block, width (px 50) ]
-            , onInput onInputCallback
-            , onFocus (SetFocus TurnAngleInput)
-            , onBlur (SetFocus KeyboardEditing)
+            , type_ "text"
+            , value (truncateFloatString 5 turnAngleInputValue)
+            , css
+                [ display block
+                , width (pct 90)
+                , marginTop (px 10)
+                , backgroundColor (Colors.toCssColor Colors.lightGray)
+                , color (Colors.toCssColor Colors.darkGray)
+
+                --, border3 (px 1) solid (Colors.toCssColor Colors.lightGray)
+                , border unset
+                , boxShadow6 inset zero zero (px 1) (px 1) (toCssColor Colors.darkGray)
+                , padding (px 6)
+                , fontSize (px 14)
+                ]
+            , onInput SetTurnAngleInputValue
+            , onKeyDown InputKeyPress
+            , onFocus (SetFocus TurnAngleInputFocus)
+            , onBlur (SetFocus EditorFocus)
             ]
             []
         ]
@@ -747,39 +714,15 @@ turnAngleControl turnAngle =
 
 strokeWidthControl : Float -> Html Msg
 strokeWidthControl width =
-    controlBlock
-        [ text ("Line width: " ++ truncateFloatString 6 (String.fromFloat width))
-
+    controlBlock "Line width"
         -- Magic values:
         -- min: 0.0001px
         -- max: 4px
         -- center: 1px at 90% of slider
+        [ span [ css [ display block ] ] [ text <| truncateFloatString 6 (String.fromFloat width) ]
         , sliderExponentialInput SetStrokeWidth width 0.0001 1 4 0.9
-        , button [ onClick (SetStrokeWidth 1) ] [ text "Reset" ]
+        , primaryButton (SetStrokeWidth 1) "Reset"
         ]
-
-
-sliderInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Html msg
-sliderInput msg oldValue min_ max_ step_ =
-    let
-        onInputCallback stringValue =
-            case String.toFloat stringValue of
-                Just newValue ->
-                    msg newValue
-
-                Nothing ->
-                    msg oldValue
-    in
-    input
-        [ type_ "range"
-        , Html.Styled.Attributes.min (String.fromFloat min_)
-        , Html.Styled.Attributes.max (String.fromFloat max_)
-        , Html.Styled.Attributes.step (String.fromFloat step_)
-        , value <| String.fromFloat oldValue
-        , onInput onInputCallback
-        , css [ display block, Css.width (pct 100) ]
-        ]
-        []
 
 
 {-|
@@ -793,7 +736,6 @@ sliderExponentialInput : (Float -> msg) -> Float -> Float -> Float -> Float -> F
 sliderExponentialInput msg oldValue minValue centerValue maxValue centerAt =
     let
         {--
-            Based on `centerAt` and `maxValue`:
             Convert from linear (0 ~ 1) to exponential (0.000001 ~ 4)
 
             Take f(x) = a*b^x;
@@ -849,27 +791,32 @@ sliderExponentialInput msg oldValue minValue centerValue maxValue centerAt =
         , Html.Styled.Attributes.step "0.0001"
         , value <| String.fromFloat <| magicReverse <| fromExponential oldValue
         , onInput onInputCallback
-        , css [ display block, Css.width (pct 100) ]
+        , css
+            [ display block
+            , Css.width (pct 100)
+            , height (px 27)
+            , cursor pointer
+            ]
         ]
         []
 
 
 curatedSettings : Html Msg
 curatedSettings =
-    controlBlock
-        [ span [ css [ display block ] ] [ text "Change Angle and Base" ]
-        , button [ onClick (BasePolygonChanged Triangle) ] [ text "Triangle" ]
-        , button [ onClick (BasePolygonChanged Square) ] [ text "Square" ]
-        , button [ onClick (BasePolygonChanged Pentagon) ] [ text "Pentagon" ]
-        , button [ onClick (BasePolygonChanged Hexagon) ] [ text "Hexagon" ]
+    controlBlock "Base"
+        [ div [ css [ displayFlex, flexWrap wrap ] ]
+            [ primaryButton (BasePolygonChanged Triangle) "Triangle"
+            , primaryButton (BasePolygonChanged Square) "Square"
+            , primaryButton (BasePolygonChanged Pentagon) "Pentagon"
+            , primaryButton (BasePolygonChanged Hexagon) "Hexagon"
+            ]
         ]
 
 
 controlsList : Html Msg
 controlsList =
-    controlBlock
-        [ h2 [] [ text "Controls" ]
-        , controlText "Arrow Up" "Draw"
+    controlBlock "Controls"
+        [ controlText "Arrow Up" "Draw"
         , controlText "Arrow Left/Right" "Turn"
         , controlText "Backspace" "Undo last 'Arrow' move on selected image block"
         , controlText "i" "Duplicate selected image block"
@@ -886,11 +833,6 @@ controlText command explanation =
         [ span [ css [ fontSize (px 14), backgroundColor (Css.hex "#555") ] ] [ text command ]
         , text <| ": " ++ explanation
         ]
-
-
-controlBlock : List (Html Msg) -> Html Msg
-controlBlock =
-    div [ css [ padding (px 10), borderBottom3 (px 1) solid (toCssColor Colors.black), fontFamily Css.monospace ] ]
 
 
 truncateFloatString : Int -> String -> String
@@ -931,80 +873,25 @@ compositionBlocksList model =
             , overflow scroll
             , boxSizing borderBox
             , borderRight3 (px 1) solid (toCssColor Colors.black)
+            , padding (px 10)
             ]
         ]
-        (primaryButton AddSimpleBlock "Add new block" :: compositionBlocks)
-
-
-primaryButton : Msg -> String -> Html Msg
-primaryButton msg btnText =
-    let
-        lightGray =
-            toCssColor Colors.lightGray
-
-        darkGray =
-            toCssColor Colors.darkGray
-    in
-    button
-        [ css
-            [ color lightGray
-            , backgroundColor transparent
-            , border3 (px 2) solid lightGray
-            , borderRadius (px 6)
-            , height (px 32)
-            , width (pct 50)
-            , minWidth (px 150)
-            , withMedia [ Media.all [ Media.maxWidth (px 1160), Media.minWidth (px 650) ] ]
-                [ minWidth (px 85)
-                , height (px 60)
-                ]
-            , withMedia [ Media.all [ Media.maxWidth (px 650) ] ]
-                [ minWidth (px 55)
-                , height (px 70)
-                ]
-            , margin2 (px 17) auto
-            , display block
-            , cursor pointer
-
-            -- TODO add font files and @font-face:
-            -- https://stackoverflow.com/questions/107936/how-to-add-some-non-standard-font-to-a-website
-            -- https://fonts.google.com/specimen/Roboto?selection.family=Roboto
-            -- Research best fallback option
-            --, fontFamilies [ "Roboto" ]
-            , fontFamily sansSerif
-            , fontSize (px 16)
-            , hover
-                [ border Css.unset
-                , backgroundColor lightGray
-                , color darkGray
-                , active [ boxShadow6 inset zero zero (px 2) (px 1) darkGray ]
-                ]
-            ]
-        , onClick msg
-        ]
-        [ text btnText ]
+        (primaryButtonStyled [ marginBottom (px 20) ] AddSimpleBlock "Add new block" :: compositionBlocks)
 
 
 blockBox : Int -> Color -> Int -> Svg Msg -> Html Msg
 blockBox editingIndex strokeColor index blockSvg =
     let
-        borderOnSelected =
-            if editingIndex == index then
-                [ border3 (px 3) solid (toCssColor strokeColor)
-                , boxSizing borderBox
-                ]
+        ( borderBottomWidth, borderWidthSelected, borderWidthHover ) =
+            ( 20, 3, 5 )
 
-            else
-                []
-    in
-    div
-        [ css
-            ([ height (vw 8)
-             , width (pct 85)
-             , margin3 zero auto (px 20)
-             , cursor pointer
-             , borderRadius (px 3)
-             , hover
+        style =
+            [ height (vw 8)
+            , width (pct 100)
+            , margin3 zero auto (px 20)
+            , cursor pointer
+            , borderRadius (px 3)
+            , hover
                 [ border3 (px 5) solid (toCssColor strokeColor)
 
                 -- Changing the border style for aesthetic reasons.
@@ -1012,13 +899,34 @@ blockBox editingIndex strokeColor index blockSvg =
                 , boxSizing contentBox
 
                 -- Compensate top and bottom borders.
-                , margin3 (px -5) auto (px 15)
+                , margin3
+                    (px -borderWidthHover)
+                    (px -borderWidthHover)
+                    (px (borderBottomWidth - borderWidthHover))
                 ]
 
-             -- Making position relative to allow for Icon placement to the right.
-             , position relative
-             ]
-                ++ borderOnSelected
+            -- Making position relative to allow for Icon placement to the right.
+            , position relative
+            , boxShadow5 (px 1) (px 1) (px 2) (px 2) (Colors.toCssColor Colors.blackShadow)
+            ]
+
+        borderOnSelected =
+            [ border3 (px borderWidthSelected) solid (toCssColor strokeColor)
+            , margin3
+                (px -borderWidthSelected)
+                (px -borderWidthSelected)
+                (px (borderBottomWidth - borderWidthSelected))
+            ]
+    in
+    div
+        [ css
+            (style
+                ++ (if editingIndex == index then
+                        borderOnSelected
+
+                    else
+                        []
+                   )
             )
         , onClick (SetEditingIndex index)
         ]
@@ -1113,7 +1021,12 @@ update msg model =
             LinkClicked urlRequest ->
                 case urlRequest of
                     Browser.Internal url ->
-                        ( model, Nav.replaceUrl model.navKey (Url.toString url) )
+                        case url.path of
+                            "/" ->
+                                ( model, Nav.pushUrl model.navKey (routeFor EditorPage ++ Image.toQuery model.image) )
+
+                            _ ->
+                                ( model, Nav.pushUrl model.navKey (Url.toString url) )
 
                     Browser.External href ->
                         ( model, Nav.load href )
@@ -1133,7 +1046,7 @@ update msg model =
 
             ColorWheelMsg subMsg ->
                 let
-                    ( updatedColorWheel, subCmd ) =
+                    ( updatedColorWheel, subCmd, msgType ) =
                         ColorWheel.update subMsg model.colorWheel
 
                     image =
@@ -1144,11 +1057,16 @@ update msg model =
                             Background ->
                                 Image.withBackgroundColor updatedColorWheel.color model.image
                 in
-                updateAndSaveImageAndGallery
-                    { model
-                        | colorWheel = updatedColorWheel
-                        , image = image
-                    }
+                case msgType of
+                    ColorWheel.ColorChanged ->
+                        updateAndSaveImageAndGallery
+                            { model
+                                | colorWheel = updatedColorWheel
+                                , image = image
+                            }
+
+                    ColorWheel.SameColor ->
+                        ( { model | colorWheel = updatedColorWheel }, Cmd.none )
 
             ResetDrawing ->
                 updateAndSaveImageAndGallery
@@ -1168,12 +1086,15 @@ update msg model =
             DropLastBlock ->
                 updateAndSaveImageAndGallery <| dropLastBlock model
 
-            KeyPress keyString ->
+            EditorKeyPress keyString ->
                 let
                     ( newModel, shouldUpdate ) =
                         processKey model keyString
                 in
-                if shouldUpdate then
+                if keyString == "a" then
+                    ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.focus "TurnAngle") )
+
+                else if shouldUpdate then
                     updateAndSaveImageAndGallery newModel
 
                 else
@@ -1220,7 +1141,10 @@ update msg model =
             SetTurnAngle turn ->
                 let
                     newModel =
-                        { model | image = Image.withTurnAngle turn model.image }
+                        { model
+                            | image = Image.withTurnAngle turn model.image
+                            , turnAngleInputValue = String.fromFloat turn
+                        }
                 in
                 if model.playingVideo then
                     -- Don't update URL and Local Storage on each video step
@@ -1228,6 +1152,70 @@ update msg model =
 
                 else
                     updateAndSaveImageAndGallery newModel
+
+            SetTurnAngleInputValue stringValue ->
+                if stringValue == "" then
+                    updateAndSaveImageAndGallery
+                        { model
+                            | image = Image.withTurnAngle 0 model.image
+                            , turnAngleInputValue = stringValue
+                        }
+
+                else
+                    case String.toFloat stringValue of
+                        Just turn ->
+                            let
+                                newModel =
+                                    { model
+                                        | image = Image.withTurnAngle turn model.image
+                                        , turnAngleInputValue = stringValue
+                                    }
+                            in
+                            if model.playingVideo then
+                                -- Don't update URL and Local Storage on each video step
+                                ( newModel, Cmd.none )
+
+                            else
+                                updateAndSaveImageAndGallery newModel
+
+                        Nothing ->
+                            ( { model | turnAngleInputValue = stringValue }, Cmd.none )
+
+            InputKeyPress key ->
+                let
+                    turnAngleDelta =
+                        case model.slowMotion of
+                            NotSet ->
+                                model.videoAngleChangeDirection * model.videoAngleChangeRate
+
+                            Slowly by ->
+                                by * model.videoAngleChangeDirection * model.videoAngleChangeRate
+
+                    newTurnAngle op =
+                        op model.image.turnAngle turnAngleDelta
+
+                    newTurnAngleInputValue =
+                        String.fromFloat << newTurnAngle
+
+                    updateTurnAngle op =
+                        updateAndSaveImageAndGallery
+                            { model
+                                | image = Image.withTurnAngle (newTurnAngle op) model.image
+                                , turnAngleInputValue = newTurnAngleInputValue op
+                            }
+                in
+                case key of
+                    "Escape" ->
+                        ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.blur "TurnAngle") )
+
+                    "ArrowUp" ->
+                        updateTurnAngle (+)
+
+                    "ArrowDown" ->
+                        updateTurnAngle (-)
+
+                    _ ->
+                        ( model, Cmd.none )
 
             SetStrokeWidth width ->
                 updateAndSaveImageAndGallery <| { model | image = Image.withStrokeWidth width model.image }
@@ -1286,6 +1274,14 @@ update msg model =
                 else
                     ( newModel, Cmd.none )
 
+            ToggleSlowMotion ->
+                case model.slowMotion of
+                    Slowly _ ->
+                        ( { model | slowMotion = NotSet }, Cmd.none )
+
+                    NotSet ->
+                        ( { model | slowMotion = Slowly 0.05 }, Cmd.none )
+
             SetVideoAngleChangeRate rate ->
                 ( { model | videoAngleChangeRate = rate }, Cmd.none )
 
@@ -1299,7 +1295,11 @@ update msg model =
                 ( { model | viewingPage = page }, Cmd.none )
 
             RemovedFromGallery index ->
-                updateAndSaveImageAndGallery <| { model | gallery = ListExtra.dropIndex index model.gallery }
+                let
+                    newModel =
+                        { model | gallery = ListExtra.dropIndex index model.gallery }
+                in
+                ( newModel, saveEncodedModelToLocalStorage (encodeModel newModel) )
 
             DuplicateToEdit index ->
                 let
@@ -1321,6 +1321,9 @@ update msg model =
                     -- TODO add throttle and then add updateAndSaveImageAndGallery
                     ( processMidi value model, Cmd.none )
 
+            NoOp ->
+                ( model, Cmd.none )
+
 
 processMidi : Encode.Value -> Model -> Model
 processMidi value model =
@@ -1332,16 +1335,20 @@ processMidi value model =
     case midiDecoded of
         Ok { command, noteMap, velocityPosition } ->
             if command == 176 && noteMap == 114 then
+                let
+                    turnAngle =
+                        -- Magic numbers, after testing with Arturia MiniLab mk2
+                        model.image.turnAngle
+                            + (velocityPosition - 64)
+                            * model.videoAngleChangeRate
+
+                    turnAngleInputValue =
+                        String.fromFloat turnAngle
+                in
                 -- Turn Angle
                 { model
-                    | image =
-                        model.image
-                            -- Magic numbers, after testing with Arturia MiniLab mk2
-                            |> Image.withTurnAngle
-                                (model.image.turnAngle
-                                    + (velocityPosition - 64)
-                                    * model.videoAngleChangeRate
-                                )
+                    | image = Image.withTurnAngle turnAngle model.image
+                    , turnAngleInputValue = turnAngleInputValue
                 }
 
             else if command == 176 && noteMap == 115 && velocityPosition == 0 then
@@ -1485,32 +1492,141 @@ processKey : Model -> String -> ( Model, Bool )
 processKey model keyPressed =
     let
         appendStep step =
-            { model | image = Image.appendStepAtIndex step model.editingIndex model.image }
+            ( { model | image = Image.appendStepAtIndex step model.editingIndex model.image }, True )
+
+        updateAngle deg =
+            ( { model
+                | image = Image.withTurnAngle deg model.image
+                , turnAngleInputValue = String.fromFloat deg
+              }
+            , True
+            )
     in
     case keyPressed of
+        -- DRAW
+        --
         "ArrowLeft" ->
-            ( appendStep L, True )
+            appendStep L
 
         "ArrowRight" ->
-            ( appendStep R, True )
+            appendStep R
 
         "ArrowUp" ->
-            ( appendStep D, True )
+            appendStep D
 
         "ArrowDown" ->
-            ( appendStep S, True )
-
-        " " ->
-            ( { model | image = Image.centralize model.image }, True )
+            appendStep S
 
         "Backspace" ->
             ( { model | image = Image.dropLastStepAtIndex model.editingIndex model.image }, True )
 
+        -- RESET POSITION AND ZOOM
+        --
+        "c" ->
+            ( { model | image = Image.centralize model.image }, True )
+
+        -- ITERATE / DEITERATE
+        --
         "i" ->
             ( duplicateAndAppendBlock model model.editingIndex, True )
 
         "d" ->
             ( dropLastBlock model, True )
+
+        -- VIDEO CONTROLS
+        --
+        -- Play / pause
+        " " ->
+            ( { model | playingVideo = not model.playingVideo }, True )
+
+        -- Slow motion
+        "s" ->
+            case model.slowMotion of
+                Slowly _ ->
+                    ( { model | slowMotion = NotSet }, True )
+
+                NotSet ->
+                    ( { model | slowMotion = Slowly 0.05 }, True )
+
+        -- Change turn angle direction
+        "r" ->
+            ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, True )
+
+        -- ZOOM
+        --
+        -- Zoom out large
+        "-" ->
+            ( applyZoom 30 model.imgDivCenter model, True )
+
+        -- Zoom out small
+        "_" ->
+            ( applyZoom 1 model.imgDivCenter model, True )
+
+        -- Zoom in Large
+        "=" ->
+            ( applyZoom -30 model.imgDivCenter model, True )
+
+        -- Zoom in small
+        "+" ->
+            ( applyZoom -1 model.imgDivCenter model, True )
+
+        -- STROKE WIDTH
+        --
+        "[" ->
+            ( { model | image = Image.withStrokeWidth 0.001 model.image }, True )
+
+        "]" ->
+            ( { model | image = Image.withStrokeWidth 1 model.image }, True )
+
+        -- CHANGE CURVE
+        --
+        "o" ->
+            ( { model | image = Image.withCurve Image.Curve model.image }, True )
+
+        "l" ->
+            ( { model | image = Image.withCurve Image.Line model.image }, True )
+
+        -- CHANGE ANGLE
+        --
+        -- Almost a line
+        "0" ->
+            updateAngle 179
+
+        -- Triangle
+        "1" ->
+            updateAngle 120
+
+        -- Square
+        "2" ->
+            updateAngle 90
+
+        -- Pentagon
+        "3" ->
+            updateAngle 72
+
+        -- Hexagon
+        "4" ->
+            updateAngle 60
+
+        -- Heptagon
+        "5" ->
+            updateAngle 51
+
+        -- Octagon
+        "6" ->
+            updateAngle 45
+
+        -- 4-point star
+        "7" ->
+            updateAngle 135
+
+        -- X-point star
+        "8" ->
+            updateAngle 144
+
+        -- Y-point star
+        "9" ->
+            updateAngle 165
 
         _ ->
             ( model, False )
@@ -1571,8 +1687,8 @@ subscriptions model =
                 Sub.none
 
         keyPressSub =
-            if model.focus == KeyboardEditing then
-                Browser.Events.onKeyDown keyPressDecoder
+            if model.focus == EditorFocus then
+                Browser.Events.onKeyDown (keyPressDecoder EditorKeyPress)
 
             else
                 Sub.none
@@ -1622,9 +1738,22 @@ parseUrl url =
             NotFound
 
 
+{-| This function used on `galleryParser` makes it asymmetric with `editorParser`.
+--- Not sure if this is a good idea.
+-}
+routeFor : Page -> String
+routeFor page =
+    case page of
+        GalleryPage ->
+            "gallery"
+
+        EditorPage ->
+            "/"
+
+
 galleryParser : Parser (Route -> a) a
 galleryParser =
-    Parser.map Gallery (Parser.s "gallery")
+    Parser.map Gallery (Parser.s (routeFor GalleryPage))
 
 
 editorParser : Parser (Route -> a) a
@@ -1644,17 +1773,22 @@ replaceUrl key image =
 
             https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
     --}
-    Nav.replaceUrl key (Image.toQuery image)
+    Nav.replaceUrl key (routeFor EditorPage ++ Image.toQuery image)
 
 
 
 -- KEYBOARD, MOUSE and WHEEL
 
 
-keyPressDecoder : Decoder Msg
-keyPressDecoder =
-    Decode.map KeyPress
+keyPressDecoder : (String -> Msg) -> Decoder Msg
+keyPressDecoder msg =
+    Decode.map msg
         (Decode.field "key" Decode.string)
+
+
+onKeyDown : (String -> Msg) -> Html.Styled.Attribute Msg
+onKeyDown msg =
+    on "keydown" (keyPressDecoder msg)
 
 
 mouseMoveDecoder : Decoder Msg
@@ -1707,3 +1841,146 @@ midiEventDecoder =
         (Decode.at [ "data", "1" ] Decode.float)
         (Decode.at [ "data", "2" ] Decode.float)
 --}
+
+
+
+{--Components
+--}
+
+
+primaryButtonStyle : List Css.Style
+primaryButtonStyle =
+    let
+        lightGray =
+            toCssColor Colors.lightGray
+
+        darkGray =
+            toCssColor Colors.darkGray
+
+        buttonHeight =
+            28
+
+        borderWidth =
+            1
+    in
+    [ color lightGray
+    , backgroundColor transparent
+    , border3 (px borderWidth) solid lightGray
+    , borderRadius (px 6)
+    , height (px buttonHeight)
+    , width (pct 95)
+
+    {--
+    , withMedia [ Media.all [ Media.maxWidth (px 1160), Media.minWidth (px 650) ] ]
+        [ minWidth (px 85)
+        , height (px 60)
+        ]
+    --}
+    , withMedia [ Media.all [ Media.minWidth (px 1700) ] ] [ width (px 106) ]
+    , margin2 (px 5) auto
+    , display block
+    , cursor pointer
+    , boxSizing borderBox
+
+    -- TODO add font files and @font-face:
+    -- https://stackoverflow.com/questions/107936/how-to-add-some-non-standard-font-to-a-website
+    -- https://fonts.google.com/specimen/Roboto?selection.family=Roboto
+    -- Research best fallback option
+    --, fontFamilies [ "Roboto" ]
+    , fontFamily sansSerif
+    , fontSize (px 16)
+    , textAlign center
+    , textDecoration none
+    , lineHeight (px (buttonHeight - 2 * borderWidth))
+    , hover primaryButtonStyleHover
+    ]
+
+
+primaryButtonStyleHover : List Css.Style
+primaryButtonStyleHover =
+    let
+        -- COPIED FROM ABOVE
+        lightGray =
+            toCssColor Colors.lightGray
+
+        darkGray =
+            toCssColor Colors.darkGray
+
+        buttonHeight =
+            28
+    in
+    [ border Css.unset
+    , backgroundColor lightGray
+    , color darkGray
+    , active primaryButtonStyleActive
+    , lineHeight (px buttonHeight)
+    ]
+
+
+primaryButtonStyleActive : List Css.Style
+primaryButtonStyleActive =
+    [ backgroundColor (Colors.toCssColor Colors.activeElementGray) ]
+
+
+primaryButtonStyled : List Css.Style -> msg -> String -> Html msg
+primaryButtonStyled style msg btnText =
+    button [ css (primaryButtonStyle ++ style), onClick msg ] [ text btnText ]
+
+
+primaryButton : msg -> String -> Html msg
+primaryButton =
+    primaryButtonStyled []
+
+
+halfStyle : List Css.Style
+halfStyle =
+    [ minWidth (pct 45), width (pct 45) ]
+
+
+primaryButtonHalf : msg -> String -> Html msg
+primaryButtonHalf =
+    primaryButtonStyled halfStyle
+
+
+primaryButtonSelectable : Bool -> msg -> String -> Html msg
+primaryButtonSelectable isSelected =
+    primaryButtonStyled
+        (if isSelected then
+            primaryButtonStyleHover ++ primaryButtonStyleActive
+
+         else
+            []
+        )
+
+
+anchorButtonStyled : List Css.Style -> String -> String -> Html msg
+anchorButtonStyled style href_ title =
+    a [ href href_, css (primaryButtonStyle ++ style) ] [ text title ]
+
+
+anchorButton : String -> String -> Html msg
+anchorButton =
+    anchorButtonStyled []
+
+
+anchorButtonHalf : String -> String -> Html msg
+anchorButtonHalf =
+    anchorButtonStyled halfStyle
+
+
+controlBlockStyle : List Css.Style
+controlBlockStyle =
+    [ padding (px 10), borderBottom3 (px 1) solid (toCssColor Colors.black), fontFamily Css.sansSerif ]
+
+
+controlBlock : String -> List (Html Msg) -> Html Msg
+controlBlock title list =
+    div [ css controlBlockStyle ]
+        (span [ css [ display block, marginBottom (px 8), cursor default, fontSize (px 18) ] ] [ text title ]
+            :: list
+        )
+
+
+controlBlockFlex : List (Html Msg) -> Html Msg
+controlBlockFlex =
+    div [ css (controlBlockStyle ++ [ displayFlex, flexWrap wrap ]) ]
