@@ -153,6 +153,7 @@ emptyPartialImage =
     , strokeWidth = Nothing
     , translate = Nothing
     , scale = Nothing
+    , curve = Nothing
     }
 
 

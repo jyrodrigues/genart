@@ -631,7 +631,7 @@ infoAndBasicControls =
         , primaryButtonHalf FullscreenRequested "Full"
         , primaryButtonHalf DownloadSvg "Down"
         , primaryButtonHalf ResetDrawing "Reset"
-        , primaryBbuttonHalf RandomRequested "Rand"
+        , primaryButtonHalf RandomRequested "Rand"
         ]
 
 
@@ -1104,6 +1104,9 @@ update msg model =
                 in
                 if keyString == "a" then
                     ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.focus "TurnAngle") )
+
+                else if keyString == "q" then
+                    ( model, Random.generate GotRandomImage Image.random )
 
                 else if shouldUpdate then
                     updateAndSaveImageAndGallery newModel
