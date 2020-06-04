@@ -1121,16 +1121,12 @@ update msg model =
                     }
 
             SetColorTarget target ->
-                let
-                    colorWheel =
-                        case target of
-                            Stroke ->
-                                model.colorWheel |> ColorWheel.withColor model.image.strokeColor
-
-                            Background ->
-                                model.colorWheel |> ColorWheel.withColor model.image.backgroundColor
-                in
-                ( { model | colorTarget = target, colorWheel = colorWheel }, Cmd.none )
+                ( { model
+                    | colorTarget = target
+                    , colorWheel = updateColorWheel model.image target model.colorWheel
+                  }
+                , Cmd.none
+                )
 
             SetBackgroundColor color ->
                 updateAndSaveImageAndGallery <| { model | image = Image.withBackgroundColor color model.image }
@@ -1311,6 +1307,7 @@ update msg model =
                     { model
                         | viewingPage = EditorPage
                         , image = image
+                        , colorWheel = updateColorWheel image model.colorTarget model.colorWheel
                     }
 
             GotMidiEvent value ->
@@ -1323,6 +1320,20 @@ update msg model =
 
             NoOp ->
                 ( model, Cmd.none )
+
+
+updateColorWheel : Image -> ColorTarget -> ColorWheel.Model -> ColorWheel.Model
+updateColorWheel image target =
+    let
+        color =
+            case target of
+                Stroke ->
+                    image.strokeColor
+
+                Background ->
+                    image.backgroundColor
+    in
+    ColorWheel.withColor color
 
 
 processMidi : Encode.Value -> Model -> Model
@@ -1573,7 +1584,7 @@ processKey model keyPressed =
         -- STROKE WIDTH
         --
         "[" ->
-            ( { model | image = Image.withStrokeWidth 0.001 model.image }, True )
+            ( { model | image = Image.withStrokeWidth 0.008 model.image }, True )
 
         "]" ->
             ( { model | image = Image.withStrokeWidth 1 model.image }, True )
