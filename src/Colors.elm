@@ -1,8 +1,10 @@
 module Colors exposing
     ( Color
     , Range
+    , activeElementGray
     , allColors
     , black
+    , blackShadow
     , darkBlue
     , darkGray
     , decoder
@@ -548,6 +550,16 @@ red_ =
 green_ : Color
 green_ =
     rgb255 0 240 0
+
+
+blackShadow : Color
+blackShadow =
+    rgba 0 0 0 0.3
+
+
+activeElementGray : Color
+activeElementGray =
+    rgb255 130 130 130
 
 
 defaultGreen : Color
