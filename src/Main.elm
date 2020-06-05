@@ -18,6 +18,7 @@ import Browser.Events
 import Browser.Navigation as Nav
 import ColorWheel
 import Colors exposing (Color, offWhite, toCssColor)
+import Components as C
 import Css
     exposing
         ( absolute
@@ -127,12 +128,14 @@ import LSystem.Image as Image
         )
 import ListExtra
 import Midi exposing (adjustInputForStrokeWidth)
+import Process
 import Random
 import Svg.Styled exposing (Svg)
 import Task
 import Time
 import Url
 import Url.Parser as Parser exposing (Parser, string)
+import Utils exposing (delay)
 
 
 
@@ -215,6 +218,8 @@ type Msg
     | GotRandomImage PartialImage
       -- MIDI
     | GotMidiEvent Encode.Value
+      -- Alert popup
+    | HideAlert
       -- Sometimes there is nothing to do
     | NoOp
 
@@ -259,6 +264,9 @@ type alias Model =
 
     -- Input controls value
     , turnAngleInputValue : String
+
+    -- Alert Popup
+    , alertActive : Bool
     }
 
 
@@ -364,6 +372,9 @@ initialModel image gallery url navKey =
 
     -- Input controls value
     , turnAngleInputValue = String.fromFloat image.turnAngle
+
+    -- Alert Popup
+    , alertActive = False
     }
 
 
@@ -580,14 +591,24 @@ imageBox index image =
 
 editorView : Model -> Browser.Document Msg
 editorView model =
+    let
+        alert =
+            if model.alertActive then
+                [ C.alert "Image saved!" ]
+
+            else
+                []
+    in
     { title = "Generative Art"
     , body =
         [ div
             [ css [ width (pct 100), height (pct 100) ] ]
-            [ compositionBlocksList model
-            , lazy mainImg model.image
-            , controlPanel model
-            ]
+            ([ compositionBlocksList model
+             , lazy mainImg model.image
+             , controlPanel model
+             ]
+                ++ alert
+            )
             |> toUnstyled
         ]
     }
@@ -1014,13 +1035,17 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     updateSvgPathAndBoundariesIfNeeded <|
         let
-            updateAndSaveImageAndGallery newModel =
+            updateAndSaveImageAndGalleryWithCmd cmd newModel =
                 ( newModel
                 , Cmd.batch
                     [ saveEncodedModelToLocalStorage (encodeModel newModel)
                     , replaceUrl newModel.navKey newModel.image
+                    , cmd
                     ]
                 )
+
+            updateAndSaveImageAndGallery =
+                updateAndSaveImageAndGalleryWithCmd Cmd.none
         in
         case msg of
             LinkClicked urlRequest ->
@@ -1299,7 +1324,13 @@ update msg model =
                 ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )
 
             SavedToGallery ->
-                updateAndSaveImageAndGallery <| { model | gallery = model.image :: model.gallery }
+                updateAndSaveImageAndGalleryWithCmd (delay 4000 HideAlert)
+                    { model
+                        | gallery =
+                            model.image
+                                :: model.gallery
+                        , alertActive = True
+                    }
 
             ViewingPage page ->
                 ( { model | viewingPage = page }, Cmd.none )
@@ -1331,6 +1362,9 @@ update msg model =
                 else
                     -- TODO add throttle and then add updateAndSaveImageAndGallery
                     ( processMidi value model, Cmd.none )
+
+            HideAlert ->
+                ( { model | alertActive = False }, Cmd.none )
 
             NoOp ->
                 ( model, Cmd.none )
@@ -1901,7 +1935,7 @@ primaryButtonStyle =
         , height (px 60)
         ]
     --}
-    , withMedia [ Media.all [ Media.minWidth (px 1700) ] ] [ width (px 106) ]
+    --, withMedia [ Media.all [ Media.minWidth (px 1700) ] ] [ width (px 106) ]
     , margin2 (px 5) auto
     , display block
     , cursor pointer
