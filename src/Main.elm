@@ -705,8 +705,13 @@ videoControls angleChangeRate playingVideo slowMotion =
         -- min: 0.00005 * 20 = 0.001 degrees/second
         -- max: 2 * 20 = 40 degrees/second
         -- center: 1 * 20 degrees/second at 90% of slider
-        , sliderExponentialInput SetVideoAngleChangeRate angleChangeRate 0.00005 1 2 0.9
+        , sliderExponentialInput SetVideoAngleChangeRate angleChangeRate videoRateSliderConfig
         ]
+
+
+videoRateSliderConfig : Utils.MinMaxCenterAt
+videoRateSliderConfig =
+    ( ( 0.00005, 2 ), ( 1, 0.9 ) )
 
 
 turnAngleControl : String -> Html Msg
@@ -746,9 +751,14 @@ strokeWidthControl width =
         -- max: 4px
         -- center: 1px at 90% of slider
         [ span [ css [ display block ] ] [ text <| truncateFloatString 6 (String.fromFloat width) ]
-        , sliderExponentialInput SetStrokeWidth width 0.0001 1 4 0.9
+        , sliderExponentialInput SetStrokeWidth width strokeWidthSliderConfig
         , primaryButton (SetStrokeWidth 1) "Reset"
         ]
+
+
+strokeWidthSliderConfig : Utils.MinMaxCenterAt
+strokeWidthSliderConfig =
+    ( ( 0.0001, 4 ), ( 1, 0.9 ) )
 
 
 {-|
@@ -758,8 +768,8 @@ strokeWidthControl width =
     - centerAt should be a percentage (0 ~ 1), the point in the slider where centerValue will target
 
 -}
-sliderExponentialInput : (Float -> msg) -> Float -> Float -> Float -> Float -> Float -> Html msg
-sliderExponentialInput msg oldValue minValue centerValue maxValue centerAt =
+sliderExponentialInput : (Float -> msg) -> Float -> Utils.MinMaxCenterAt -> Html msg
+sliderExponentialInput msg oldValue exponentialConfig =
     let
         {--
             Convert from linear (0 ~ 1) to exponential (0.000001 ~ 4)
@@ -768,44 +778,13 @@ sliderExponentialInput msg oldValue minValue centerValue maxValue centerAt =
             Where f(centerAt) = centerValue;
             And f(1) = maxValue;
         --}
-        exponent =
-            if centerAt == 1 then
-                1 / 1.0e-8
-
-            else
-                1 / (1 - centerAt)
-
-        b =
-            (maxValue / centerValue) ^ exponent
-
-        a =
-            maxValue ^ (1 - exponent) * centerValue ^ exponent
-
-        toExponential zeroToOne =
-            a * b ^ zeroToOne
-
-        fromExponential value =
-            logBase b (value / a)
-
-        {--
-            Linearly adjusting from e.g. (0.000001 ~ 4) into (0.01 ~ 4)
-
-            N.B. `fromExponential` isn't defined for values below or equal to 0.
-            *But* we restrict it even further with `toExponential 0`.
-        --}
-        magicN =
-            fromExponential minValue
-
-        magicAdjust value =
-            (value * (1 - magicN)) + magicN
-
-        magicReverse value =
-            (value - magicN) / (1 - magicN)
+        ( toExponential, fromExponential ) =
+            Utils.linearExponentialTransform exponentialConfig
 
         onInputCallback stringValue =
             case String.toFloat stringValue of
                 Just newValue ->
-                    msg (toExponential <| magicAdjust newValue)
+                    msg (toExponential newValue)
 
                 Nothing ->
                     msg oldValue
@@ -815,7 +794,7 @@ sliderExponentialInput msg oldValue minValue centerValue maxValue centerAt =
         , Html.Styled.Attributes.min "0.0001"
         , Html.Styled.Attributes.max "1"
         , Html.Styled.Attributes.step "0.0001"
-        , value <| String.fromFloat <| magicReverse <| fromExponential oldValue
+        , value <| String.fromFloat <| fromExponential oldValue
         , onInput onInputCallback
         , css
             [ display block
@@ -1560,6 +1539,24 @@ processKey model keyPressed =
               }
             , True
             )
+
+        exponentialMove config value op =
+            let
+                ( toExponential, fromExponential ) =
+                    Utils.linearExponentialTransform config
+            in
+            toExponential (op (fromExponential value) 0.01)
+
+        updateStrokeWidth op =
+            { model
+                | image =
+                    Image.withStrokeWidth
+                        (exponentialMove strokeWidthSliderConfig model.image.strokeWidth op)
+                        model.image
+            }
+
+        updateVideoRate op =
+            { model | videoAngleChangeRate = exponentialMove videoRateSliderConfig model.videoAngleChangeRate op }
     in
     case keyPressed of
         -- DRAW
@@ -1607,6 +1604,12 @@ processKey model keyPressed =
                 NotSet ->
                     ( { model | slowMotion = Slowly 0.05 }, True )
 
+        "," ->
+            ( updateVideoRate (-), True )
+
+        "." ->
+            ( updateVideoRate (+), True )
+
         -- Change turn angle direction
         "r" ->
             ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, True )
@@ -1632,10 +1635,10 @@ processKey model keyPressed =
         -- STROKE WIDTH
         --
         "[" ->
-            ( { model | image = Image.withStrokeWidth 0.008 model.image }, True )
+            ( updateStrokeWidth (-), True )
 
         "]" ->
-            ( { model | image = Image.withStrokeWidth 1 model.image }, True )
+            ( updateStrokeWidth (+), True )
 
         -- CHANGE CURVE
         --
