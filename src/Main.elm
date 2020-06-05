@@ -1048,7 +1048,17 @@ update msg model =
                 ( model, Random.generate GotRandomImage Image.random )
 
             GotRandomImage partialImage ->
-                ( { model | image = Image.withImage partialImage model.image } |> modelWithEditIndexLast, Cmd.none )
+                let
+                    newImage =
+                        Image.withImage partialImage model.image
+                in
+                ( { model
+                    | image = newImage
+                    , colorWheel = updateColorWheel newImage model.colorTarget model.colorWheel
+                  }
+                    |> modelWithEditIndexLast
+                , Cmd.none
+                )
 
             DownloadSvg ->
                 ( model, downloadSvg () )
@@ -1737,6 +1747,24 @@ getImgDivPosition =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
+    case model.viewingPage of
+        EditorPage ->
+            Sub.batch
+                [ editorPageSubs model
+                , alwaysSubs
+                ]
+
+        GalleryPage ->
+            alwaysSubs
+
+
+alwaysSubs : Sub Msg
+alwaysSubs =
+    Browser.Events.onResize WindowResized
+
+
+editorPageSubs : Model -> Sub Msg
+editorPageSubs model =
     let
         panSubs =
             if model.panStarted then
@@ -1773,7 +1801,6 @@ subscriptions model =
         , playingVideoSub
         , midiEvent GotMidiEvent
         , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
-        , Browser.Events.onResize WindowResized
         ]
 
 
