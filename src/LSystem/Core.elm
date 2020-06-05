@@ -162,8 +162,8 @@ dropLastBlock (Composition base_ blocks_) =
 dropBlockAtIndex : Int -> Composition -> Composition
 dropBlockAtIndex blockIndex composition =
     if length composition == 1 then
-        -- NoOp, composition has only one block
-        composition
+        -- Never allow for empty composition, instead replace with a simple block.
+        Composition [ D ] []
 
     else if blockIndex >= length composition then
         -- NoOp, index out of bounds

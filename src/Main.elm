@@ -164,19 +164,18 @@ port midiEvent : (Encode.Value -> msg) -> Sub msg
 
 {-| TODO: Rename Msgs: put all verbs in past tense and choose better words.
 -}
-type Msg
-    = ViewingPage Page
-      -- Global keyboard listener
-    | EditorKeyPress String
+type
+    Msg
+    -- Global keyboard listener
+    = EditorKeyPress String
     | InputKeyPress String
       -- Main commands
     | AddSimpleBlock
     | ResetDrawing
     | BasePolygonChanged Polygon
     | DuplicateAndAppendBlock Int
-    | DropLastBlock
     | SetEditingIndex Int
-    | DropFromState Int
+    | DropBlock Int
       -- Storage
     | SavedToGallery
     | RemovedFromGallery Int
@@ -190,8 +189,6 @@ type Msg
     | Zoom Float Float ShiftKey Position
       -- Colors
     | SetColorTarget ColorTarget
-    | SetBackgroundColor Color
-    | SetStrokeColor Color
     | ColorWheelMsg ColorWheel.Msg
       -- Angle
     | SetTurnAngle Float
@@ -938,7 +935,7 @@ blockBox editingIndex strokeColor index blockSvg =
         [ blockSvg
         , Icons.trash
             |> withColor Colors.red_
-            |> withOnClick (DropFromState index)
+            |> withOnClick (DropBlock index)
             |> Icons.toSvg
         , Icons.duplicate
             |> withColor strokeColor
@@ -1108,8 +1105,20 @@ update msg model =
             DuplicateAndAppendBlock editingIndex ->
                 updateAndSaveImageAndGallery <| duplicateAndAppendBlock model editingIndex
 
-            DropLastBlock ->
-                updateAndSaveImageAndGallery <| dropLastBlock model
+            SetEditingIndex index ->
+                ( { model | editingIndex = index }, Cmd.none )
+
+            DropBlock index ->
+                updateAndSaveImageAndGallery <|
+                    { model
+                        | image = Image.dropBlockAtIndex index model.image
+                        , editingIndex =
+                            if index <= model.editingIndex then
+                                max 0 (model.editingIndex - 1)
+
+                            else
+                                model.editingIndex
+                    }
 
             EditorKeyPress keyString ->
                 let
@@ -1133,21 +1142,6 @@ update msg model =
             Zoom _ deltaY _ mousePos ->
                 updateAndSaveImageAndGallery <| applyZoom deltaY mousePos model
 
-            SetEditingIndex index ->
-                ( { model | editingIndex = index }, Cmd.none )
-
-            DropFromState index ->
-                updateAndSaveImageAndGallery <|
-                    { model
-                        | image = Image.dropBlockAtIndex index model.image
-                        , editingIndex =
-                            if index <= model.editingIndex then
-                                max 0 (model.editingIndex - 1)
-
-                            else
-                                model.editingIndex
-                    }
-
             SetColorTarget target ->
                 ( { model
                     | colorTarget = target
@@ -1155,12 +1149,6 @@ update msg model =
                   }
                 , Cmd.none
                 )
-
-            SetBackgroundColor color ->
-                updateAndSaveImageAndGallery <| { model | image = Image.withBackgroundColor color model.image }
-
-            SetStrokeColor color ->
-                updateAndSaveImageAndGallery <| { model | image = Image.withStrokeColor color model.image }
 
             SetTurnAngle turn ->
                 let
@@ -1320,9 +1308,6 @@ update msg model =
                                 :: model.gallery
                         , alertActive = True
                     }
-
-            ViewingPage page ->
-                ( { model | viewingPage = page }, Cmd.none )
 
             RemovedFromGallery index ->
                 let
