@@ -10,6 +10,11 @@ delay milliseconds msg =
         |> Task.perform (\_ -> msg)
 
 
+floatModBy : Float -> Float -> Float
+floatModBy modulus x =
+    x - modulus * toFloat (floor (x / modulus))
+
+
 type alias MinMaxCenterAt =
     ( ( Float, Float ), ( Float, Float ) )
 

@@ -42,12 +42,14 @@ import Css
         , calc
         , center
         , color
+        , column
         , contentBox
         , cursor
         , default
         , display
         , displayFlex
         , fixed
+        , flexDirection
         , flexWrap
         , fontFamily
         , fontSize
@@ -130,12 +132,13 @@ import ListExtra
 import Midi exposing (adjustInputForStrokeWidth)
 import Process
 import Random
+import Set exposing (Set)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
 import Url
 import Url.Parser as Parser exposing (Parser, string)
-import Utils exposing (delay)
+import Utils exposing (delay, floatModBy)
 
 
 
@@ -204,7 +207,8 @@ type
     | UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
       -- Video
-    | TogglePlayingVideo
+    | ToggleVideo Video
+    | VideoTick
     | ToggleSlowMotion
     | SetVideoAngleChangeRate Float
     | ReverseAngleChangeDirection
@@ -256,8 +260,8 @@ type alias Model =
     -- Video
     , videoAngleChangeRate : Float
     , slowMotion : SlowMotion
-    , playingVideo : Bool
     , videoAngleChangeDirection : Float
+    , playingVideo : Set Video
 
     -- Input controls value
     , turnAngleInputValue : String
@@ -324,6 +328,17 @@ type ColorTarget
     | Background
 
 
+type alias Video =
+    String
+
+
+video =
+    { changeAngle = "changeAngle"
+    , changeColorLinear = "changeColorLinear"
+    , changeColorSinusoidal = "changeColorSinusoidal"
+    }
+
+
 
 -- IMPLEMENTATION, LOGIC, FUNCTIONS
 -- MODEL
@@ -364,7 +379,7 @@ initialModel image gallery url navKey =
     -- Video
     , videoAngleChangeRate = 0.01
     , slowMotion = NotSet
-    , playingVideo = False
+    , playingVideo = Set.empty
     , videoAngleChangeDirection = 1
 
     -- Input controls value
@@ -501,23 +516,6 @@ view model =
             galleryView model
 
 
-{-| For development: view of colorwheel for testing and experimenting
--}
-wheel : Model -> Browser.Document Msg
-wheel model =
-    { title = "Wheel"
-    , body =
-        [ div [ css [ height (pct 50), width (pct 50), margin (px 100), display inlineBlock ] ]
-            [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
-            ]
-        , button [ onClick DownloadSvg ] [ text "Download Image" ]
-        , button [ onClick DownloadSvgAsJpeg ] [ text "Download Image as JPEG" ]
-        , global [ body [ backgroundColor (Colors.toCssColor model.image.backgroundColor) ] ]
-        ]
-            |> List.map toUnstyled
-    }
-
-
 
 -- GALLERY VIEW
 
@@ -603,6 +601,7 @@ editorView model =
             ([ compositionBlocksList model
              , lazy mainImg model.image
              , controlPanel model
+             , fixedControlsButtons
              ]
                 ++ alert
             )
@@ -627,7 +626,7 @@ controlPanel model =
             ]
         ]
         [ infoAndBasicControls
-        , colorControls model.colorTarget model.colorWheel
+        , colorControls model.colorTarget model.colorWheel model.playingVideo
         , videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion
         , turnAngleControl model.turnAngleInputValue
         , strokeWidthControl model.image.strokeWidth
@@ -653,24 +652,60 @@ infoAndBasicControls =
         ]
 
 
-colorControls : ColorTarget -> ColorWheel.Model -> Html Msg
-colorControls colorTarget colorWheel =
+fixedControlsButtons : Html Msg
+fixedControlsButtons =
+    let
+        width_ =
+            300
+    in
+    fixedDiv
+        [ css
+            [ width (px width_)
+            , height (px 30)
+            , bottom (px 20)
+            , left (calc (pct 50) minus (px (width_ / 2)))
+            , backgroundColor (Colors.toCssColor Colors.darkGray)
+            , displayFlex
+            , flexWrap wrap
+            , flexDirection column
+            ]
+        ]
+        [ primaryButtonStyled [ overflow hidden, width (px 30) ] SavedToGallery "Save"
+        , primaryButtonStyled [ overflow hidden, width (px 30) ] FullscreenRequested "Full"
+        , primaryButtonStyled [ overflow hidden, width (px 30) ] DownloadSvg "Down"
+        , primaryButtonStyled [ overflow hidden, width (px 30) ] ResetDrawing "Reset"
+        , primaryButtonStyled [ overflow hidden, width (px 30) ] RandomRequested "Rand"
+        ]
+
+
+colorControls : ColorTarget -> ColorWheel.Model -> Set Video -> Html Msg
+colorControls colorTarget colorWheel videoSet =
+    let
+        text videoType name =
+            if Set.member videoType videoSet then
+                "Stop " ++ name
+
+            else
+                "Play " ++ name
+    in
     controlBlock "Color"
         [ div [ css [ width (pct 100) ] ]
             [ div [ css [ displayFlex, flexWrap wrap ] ]
                 [ primaryButtonSelectable (colorTarget == Stroke) (SetColorTarget Stroke) "Stroke"
                 , primaryButtonSelectable (colorTarget == Background) (SetColorTarget Background) "Background"
+                , primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
+                , primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
                 ]
             , div [ css [ padding2 (px 10) zero ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
             ]
         ]
 
 
-videoControls : Float -> Bool -> SlowMotion -> Html Msg
+videoControls : Float -> Set Video -> SlowMotion -> Html Msg
 videoControls angleChangeRate playingVideo slowMotion =
     let
         playPauseText =
-            if playingVideo then
+            if Set.member video.changeAngle playingVideo then
                 "Stop"
 
             else
@@ -693,7 +728,7 @@ videoControls angleChangeRate playingVideo slowMotion =
             , span [] [ text slowMotionText ]
             ]
         , div [ css [ displayFlex, flexWrap wrap ] ]
-            [ primaryButton TogglePlayingVideo playPauseText
+            [ primaryButton (ToggleVideo video.changeAngle) playPauseText
             , primaryButton ToggleSlowMotion "Slow Motion"
             , primaryButton ReverseAngleChangeDirection "Reverse"
             ]
@@ -998,6 +1033,23 @@ fixedDiv attrs children =
         children
 
 
+{-| For development: view of colorwheel for testing and experimenting
+-}
+wheel : Model -> Browser.Document Msg
+wheel model =
+    { title = "Wheel"
+    , body =
+        [ div [ css [ height (pct 50), width (pct 50), margin (px 100), display inlineBlock ] ]
+            [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
+            ]
+        , button [ onClick DownloadSvg ] [ text "Download Image" ]
+        , button [ onClick DownloadSvgAsJpeg ] [ text "Download Image as JPEG" ]
+        , global [ body [ backgroundColor (Colors.toCssColor model.image.backgroundColor) ] ]
+        ]
+            |> List.map toUnstyled
+    }
+
+
 
 -- UPDATE
 
@@ -1158,7 +1210,7 @@ update msg model =
                             , turnAngleInputValue = String.fromFloat turn
                         }
                 in
-                if model.playingVideo then
+                if Set.member video.changeAngle model.playingVideo then
                     -- Don't update URL and Local Storage on each video step
                     ( newModel, Cmd.none )
 
@@ -1183,7 +1235,7 @@ update msg model =
                                         , turnAngleInputValue = stringValue
                                     }
                             in
-                            if model.playingVideo then
+                            if Set.member video.changeAngle model.playingVideo then
                                 -- Don't update URL and Local Storage on each video step
                                 ( newModel, Cmd.none )
 
@@ -1272,19 +1324,86 @@ update msg model =
                     ]
                 )
 
-            TogglePlayingVideo ->
-                let
-                    newModel =
-                        { model | playingVideo = not model.playingVideo }
-                in
-                if model.playingVideo then
+            ToggleVideo videoType ->
+                if Set.member videoType model.playingVideo then
                     -- When video stopped save model in URL and Local Storage
                     -- N.B. Copying the URL while a playing video will copy the last image saved
                     -- i.e. before playing video or the last not-angle edit while playing.
-                    updateAndSaveImageAndGallery <| newModel
+                    updateAndSaveImageAndGallery { model | playingVideo = Set.remove videoType model.playingVideo }
 
                 else
-                    ( newModel, Cmd.none )
+                    ( { model | playingVideo = Set.insert videoType model.playingVideo }, Cmd.none )
+
+            VideoTick ->
+                let
+                    -- Angle stuff
+                    newAngle =
+                        if Set.member video.changeAngle model.playingVideo then
+                            case model.slowMotion of
+                                NotSet ->
+                                    model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate)
+
+                                Slowly by ->
+                                    model.image.turnAngle + (by * model.videoAngleChangeDirection * model.videoAngleChangeRate)
+
+                        else
+                            model.image.turnAngle
+
+                    updateAngle angle model_ =
+                        { model_
+                            | image = Image.withTurnAngle angle model_.image
+                            , turnAngleInputValue = String.fromFloat angle
+                        }
+
+                    -- Color stuff
+                    newColor =
+                        let
+                            color =
+                                case model.colorTarget of
+                                    Stroke ->
+                                        model.image.strokeColor
+
+                                    Background ->
+                                        model.image.backgroundColor
+
+                            { h, s, v, a } =
+                                Colors.toHsva color
+
+                            numberOfSectors =
+                                8
+
+                            sectorSize =
+                                2 * pi / numberOfSectors
+
+                            sectorPosition =
+                                floatModBy sectorSize (h + 0.01) / sectorSize
+                        in
+                        if Set.member video.changeColorLinear model.playingVideo then
+                            Colors.hsva (h + 0.01) s v a
+
+                        else if Set.member video.changeColorSinusoidal model.playingVideo then
+                            if sectorPosition < 0.5 then
+                                Colors.hsva (h + 0.01) s (1 - sin (sectorPosition / 0.5 * pi) * 0.5) a
+
+                            else
+                                Colors.hsva (h + 0.01) (1 - sin ((sectorPosition - 0.5) / 0.5 * pi) * 0.5) v a
+
+                        else
+                            color
+
+                    updateColor color model_ =
+                        { model_
+                            | image =
+                                case model.colorTarget of
+                                    Stroke ->
+                                        Image.withStrokeColor color model_.image
+
+                                    Background ->
+                                        Image.withBackgroundColor color model_.image
+                            , colorWheel = ColorWheel.withColor color model_.colorWheel
+                        }
+                in
+                ( updateAngle newAngle <| updateColor newColor model, Cmd.none )
 
             ToggleSlowMotion ->
                 case model.slowMotion of
@@ -1413,7 +1532,14 @@ processMidi value model =
 
             else if command == 153 && noteMap == 36 then
                 -- Play / pause video
-                { model | playingVideo = not model.playingVideo }
+                { model
+                    | playingVideo =
+                        if Set.member video.changeAngle model.playingVideo then
+                            Set.remove video.changeAngle model.playingVideo
+
+                        else
+                            Set.insert video.changeAngle model.playingVideo
+                }
 
             else if command == 176 && noteMap == 18 then
                 -- Stroke Width
@@ -1588,7 +1714,17 @@ processKey model keyPressed =
         --
         -- Play / pause
         " " ->
-            ( { model | playingVideo = not model.playingVideo }, True )
+            ( { model
+                | playingVideo =
+                    if Set.member video.changeAngle model.playingVideo then
+                        Set.remove video.changeAngle model.playingVideo
+
+                    else
+                        Set.insert video.changeAngle model.playingVideo
+              }
+            , True
+              -- Saving because we don't save while video is being played
+            )
 
         -- Slow motion
         "s" ->
@@ -1768,22 +1904,17 @@ editorPageSubs model =
             else
                 Sub.none
 
-        playingVideoSub =
-            if model.playingVideo then
-                case model.slowMotion of
-                    NotSet ->
-                        Time.every framesInterval (always (SetTurnAngle (model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate))))
-
-                    Slowly by ->
-                        Time.every framesInterval (always (SetTurnAngle (model.image.turnAngle + (by * model.videoAngleChangeDirection * model.videoAngleChangeRate))))
+        videoSub =
+            if Set.isEmpty model.playingVideo then
+                Sub.none
 
             else
-                Sub.none
+                Time.every framesInterval (always VideoTick)
     in
     Sub.batch
         [ keyPressSub
         , panSubs
-        , playingVideoSub
+        , videoSub
         , midiEvent GotMidiEvent
         , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
         ]

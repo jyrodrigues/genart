@@ -54,6 +54,7 @@ import Hex
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import Random
+import Utils exposing (floatModBy)
 
 
 
@@ -195,11 +196,6 @@ hsva hue_ s v a =
 inDegrees : Float -> Float
 inDegrees radians =
     radians / degrees 1
-
-
-floatModBy : Float -> Float -> Float
-floatModBy modulus x =
-    x - modulus * toFloat (floor (x / modulus))
 
 
 {-| -- from <https://en.wikipedia.org/wiki/HSL_and_HSV#General_approach>
