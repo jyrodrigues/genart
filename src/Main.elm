@@ -193,6 +193,7 @@ type
       -- Colors
     | SetColorTarget ColorTarget
     | ColorWheelMsg ColorWheel.Msg
+    | ExchangeColors
       -- Angle
     | SetTurnAngle Float
     | SetTurnAngleInputValue String
@@ -601,7 +602,8 @@ editorView model =
             ([ compositionBlocksList model
              , lazy mainImg model.image
              , controlPanel model
-             , fixedControlsButtons
+
+             --, fixedControlsButtons
              ]
                 ++ alert
             )
@@ -695,6 +697,7 @@ colorControls colorTarget colorWheel videoSet =
                 , primaryButtonSelectable (colorTarget == Background) (SetColorTarget Background) "Background"
                 , primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
                 , primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
+                , primaryButtonHalf ExchangeColors "Exchange"
                 ]
             , div [ css [ padding2 (px 10) zero ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
             ]
@@ -1118,30 +1121,6 @@ update msg model =
             FullscreenRequested ->
                 ( model, requestFullscreen () )
 
-            ColorWheelMsg subMsg ->
-                let
-                    ( updatedColorWheel, subCmd, msgType ) =
-                        ColorWheel.update subMsg model.colorWheel
-
-                    image =
-                        case model.colorTarget of
-                            Stroke ->
-                                Image.withStrokeColor updatedColorWheel.color model.image
-
-                            Background ->
-                                Image.withBackgroundColor updatedColorWheel.color model.image
-                in
-                case msgType of
-                    ColorWheel.ColorChanged ->
-                        updateAndSaveImageAndGallery
-                            { model
-                                | colorWheel = updatedColorWheel
-                                , image = image
-                            }
-
-                    ColorWheel.SameColor ->
-                        ( { model | colorWheel = updatedColorWheel }, Cmd.none )
-
             ResetDrawing ->
                 updateAndSaveImageAndGallery
                     { model
@@ -1194,6 +1173,30 @@ update msg model =
             Zoom _ deltaY _ mousePos ->
                 updateAndSaveImageAndGallery <| applyZoom deltaY mousePos model
 
+            ColorWheelMsg subMsg ->
+                let
+                    ( updatedColorWheel, subCmd, msgType ) =
+                        ColorWheel.update subMsg model.colorWheel
+
+                    image =
+                        case model.colorTarget of
+                            Stroke ->
+                                Image.withStrokeColor updatedColorWheel.color model.image
+
+                            Background ->
+                                Image.withBackgroundColor updatedColorWheel.color model.image
+                in
+                case msgType of
+                    ColorWheel.ColorChanged ->
+                        updateAndSaveImageAndGallery
+                            { model
+                                | colorWheel = updatedColorWheel
+                                , image = image
+                            }
+
+                    ColorWheel.SameColor ->
+                        ( { model | colorWheel = updatedColorWheel }, Cmd.none )
+
             SetColorTarget target ->
                 ( { model
                     | colorTarget = target
@@ -1201,6 +1204,16 @@ update msg model =
                   }
                 , Cmd.none
                 )
+
+            ExchangeColors ->
+                updateAndSaveImageAndGallery
+                    { model
+                        | image =
+                            model.image
+                                |> Image.withStrokeColor model.image.backgroundColor
+                                |> Image.withBackgroundColor model.image.strokeColor
+                        , colorWheel = updateColorWheel model.image model.colorTarget model.colorWheel
+                    }
 
             SetTurnAngle turn ->
                 let
