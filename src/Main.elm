@@ -136,6 +136,7 @@ import Set exposing (Set)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
+import UndoList exposing (UndoList)
 import Url
 import Url.Parser as Parser exposing (Parser, string)
 import Utils exposing (delay, floatModBy)
@@ -222,6 +223,9 @@ type
     | GotMidiEvent Encode.Value
       -- Alert popup
     | HideAlert
+      -- Undo Redo
+    | Undo
+    | Redo
       -- Sometimes there is nothing to do
     | NoOp
 
@@ -269,6 +273,9 @@ type alias Model =
 
     -- Alert Popup
     , alertActive : Bool
+
+    -- Undo Redo
+    , undoList : UndoList Image
     }
 
 
@@ -388,6 +395,9 @@ initialModel image gallery url navKey =
 
     -- Alert Popup
     , alertActive = False
+
+    -- Undo Redo
+    , undoList = UndoList.fresh image
     }
 
 
@@ -651,6 +661,8 @@ infoAndBasicControls =
         , primaryButtonHalf DownloadSvg "Down"
         , primaryButtonHalf ResetDrawing "Reset"
         , primaryButtonHalf RandomRequested "Rand"
+        , primaryButtonHalf Undo "Undo"
+        , primaryButtonHalf Redo "Redo"
         ]
 
 
@@ -1107,6 +1119,7 @@ update msg model =
                 ( { model
                     | image = newImage
                     , colorWheel = updateColorWheel newImage model.colorTarget model.colorWheel
+                    , undoList = UndoList.new newImage model.undoList
                   }
                     |> modelWithEditIndexLast
                 , Cmd.none
@@ -1122,14 +1135,23 @@ update msg model =
                 ( model, requestFullscreen () )
 
             ResetDrawing ->
+                let
+                    newImage =
+                        Image.resetImageComposition model.image
+                in
                 updateAndSaveImageAndGallery
                     { model
-                        | image = Image.resetImageComposition model.image
+                        | image = newImage
                         , editingIndex = 1
+                        , undoList = UndoList.new newImage model.undoList
                     }
 
             AddSimpleBlock ->
-                { model | image = Image.appendSimpleBlock model.image }
+                let
+                    newImage =
+                        Image.appendSimpleBlock model.image
+                in
+                { model | image = newImage, undoList = UndoList.new newImage model.undoList }
                     |> modelWithEditIndexLast
                     |> updateAndSaveImageAndGallery
 
@@ -1140,9 +1162,14 @@ update msg model =
                 ( { model | editingIndex = index }, Cmd.none )
 
             DropBlock index ->
+                let
+                    newImage =
+                        Image.dropBlockAtIndex index model.image
+                in
                 updateAndSaveImageAndGallery <|
                     { model
-                        | image = Image.dropBlockAtIndex index model.image
+                        | image = newImage
+                        , undoList = UndoList.new newImage model.undoList
                         , editingIndex =
                             if index <= model.editingIndex then
                                 max 0 (model.editingIndex - 1)
@@ -1163,7 +1190,7 @@ update msg model =
                     ( model, Random.generate GotRandomImage Image.random )
 
                 else if shouldUpdate then
-                    updateAndSaveImageAndGallery newModel
+                    updateAndSaveImageAndGallery { newModel | undoList = UndoList.new newModel.image newModel.undoList }
 
                 else
                     ( model, Cmd.none )
@@ -1178,7 +1205,7 @@ update msg model =
                     ( updatedColorWheel, subCmd, msgType ) =
                         ColorWheel.update subMsg model.colorWheel
 
-                    image =
+                    newImage =
                         case model.colorTarget of
                             Stroke ->
                                 Image.withStrokeColor updatedColorWheel.color model.image
@@ -1191,7 +1218,8 @@ update msg model =
                         updateAndSaveImageAndGallery
                             { model
                                 | colorWheel = updatedColorWheel
-                                , image = image
+                                , image = newImage
+                                , undoList = UndoList.new newImage model.undoList
                             }
 
                     ColorWheel.SameColor ->
@@ -1206,29 +1234,40 @@ update msg model =
                 )
 
             ExchangeColors ->
+                let
+                    newImage =
+                        model.image
+                            |> Image.withStrokeColor model.image.backgroundColor
+                            |> Image.withBackgroundColor model.image.strokeColor
+                in
                 updateAndSaveImageAndGallery
                     { model
-                        | image =
-                            model.image
-                                |> Image.withStrokeColor model.image.backgroundColor
-                                |> Image.withBackgroundColor model.image.strokeColor
+                        | image = newImage
+                        , undoList = UndoList.new newImage model.undoList
                         , colorWheel = updateColorWheel model.image model.colorTarget model.colorWheel
                     }
 
             SetTurnAngle turn ->
                 let
-                    newModel =
-                        { model
-                            | image = Image.withTurnAngle turn model.image
-                            , turnAngleInputValue = String.fromFloat turn
-                        }
+                    newImage =
+                        Image.withTurnAngle turn model.image
                 in
                 if Set.member video.changeAngle model.playingVideo then
                     -- Don't update URL and Local Storage on each video step
-                    ( newModel, Cmd.none )
+                    ( { model
+                        | image = newImage
+                        , turnAngleInputValue = String.fromFloat turn
+                      }
+                    , Cmd.none
+                    )
 
                 else
-                    updateAndSaveImageAndGallery newModel
+                    updateAndSaveImageAndGallery
+                        { model
+                            | image = newImage
+                            , turnAngleInputValue = String.fromFloat turn
+                            , undoList = UndoList.new newImage model.undoList
+                        }
 
             SetTurnAngleInputValue stringValue ->
                 if stringValue == "" then
@@ -1271,14 +1310,19 @@ update msg model =
                     newTurnAngle op =
                         op model.image.turnAngle turnAngleDelta
 
-                    newTurnAngleInputValue =
-                        String.fromFloat << newTurnAngle
-
                     updateTurnAngle op =
+                        let
+                            turnAngle =
+                                newTurnAngle op
+
+                            newImage =
+                                Image.withTurnAngle (newTurnAngle op) model.image
+                        in
                         updateAndSaveImageAndGallery
                             { model
-                                | image = Image.withTurnAngle (newTurnAngle op) model.image
-                                , turnAngleInputValue = newTurnAngleInputValue op
+                                | image = newImage
+                                , turnAngleInputValue = String.fromFloat turnAngle
+                                , undoList = UndoList.new newImage model.undoList
                             }
                 in
                 case key of
@@ -1295,7 +1339,15 @@ update msg model =
                         ( model, Cmd.none )
 
             SetStrokeWidth width ->
-                updateAndSaveImageAndGallery <| { model | image = Image.withStrokeWidth width model.image }
+                let
+                    newImage =
+                        Image.withStrokeWidth width model.image
+                in
+                updateAndSaveImageAndGallery <|
+                    { model
+                        | image = newImage
+                        , undoList = UndoList.new newImage model.undoList
+                    }
 
             PanStarted pos ->
                 ( { model | panStarted = True, lastPos = pos }, Cmd.none )
@@ -1459,6 +1511,7 @@ update msg model =
                         | viewingPage = EditorPage
                         , image = image
                         , colorWheel = updateColorWheel image model.colorTarget model.colorWheel
+                        , undoList = UndoList.new image model.undoList
                     }
 
             GotMidiEvent value ->
@@ -1471,6 +1524,37 @@ update msg model =
 
             HideAlert ->
                 ( { model | alertActive = False }, Cmd.none )
+
+            Undo ->
+                let
+                    newUndoList =
+                        Debug.log "undolist after" <| UndoList.undo model.undoList
+
+                    newImage =
+                        newUndoList.present
+
+                    _ =
+                        Debug.log "undolist before" model.undoList
+                in
+                updateAndSaveImageAndGallery <|
+                    { model
+                        | image = newImage
+                        , undoList = newUndoList
+                    }
+
+            Redo ->
+                let
+                    newUndoList =
+                        UndoList.redo model.undoList
+
+                    newImage =
+                        newUndoList.present
+                in
+                updateAndSaveImageAndGallery <|
+                    { model
+                        | image = newImage
+                        , undoList = newUndoList
+                    }
 
             NoOp ->
                 ( model, Cmd.none )
@@ -1840,7 +1924,11 @@ processKey model keyPressed =
 
 duplicateAndAppendBlock : Model -> Int -> Model
 duplicateAndAppendBlock model editingIndex =
-    { model | image = Image.duplicateBlock editingIndex model.image }
+    let
+        newImage =
+            Image.duplicateBlock editingIndex model.image
+    in
+    { model | image = newImage, undoList = UndoList.new newImage model.undoList }
         |> modelWithEditIndexLast
 
 
@@ -1863,7 +1951,14 @@ applyZoom deltaY mousePos model =
 
 updateCompositionBaseAndAngle : Model -> Polygon -> Model
 updateCompositionBaseAndAngle model polygon =
-    { model | image = Image.resetBaseTo polygon model.image }
+    let
+        newImage =
+            Image.resetBaseTo polygon model.image
+    in
+    { model
+        | image = newImage
+        , undoList = UndoList.new newImage model.undoList
+    }
 
 
 
