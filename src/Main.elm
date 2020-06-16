@@ -25,7 +25,6 @@ import Css
         , active
         , auto
         , backgroundColor
-        , backgroundImage
         , block
         , border
         , border3
@@ -39,17 +38,14 @@ import Css
         , boxShadow6
         , boxSizing
         , breakWord
-        , calc
         , center
         , color
-        , column
         , contentBox
         , cursor
         , default
         , display
         , displayFlex
         , fixed
-        , flexDirection
         , flexWrap
         , fontFamily
         , fontSize
@@ -60,15 +56,12 @@ import Css
         , inset
         , left
         , lineHeight
-        , linearGradient2
         , margin
         , margin2
         , margin3
         , marginBottom
         , marginTop
-        , maxWidth
         , minWidth
-        , minus
         , none
         , overflow
         , overflowWrap
@@ -85,10 +78,8 @@ import Css
         , sansSerif
         , scroll
         , solid
-        , stop
         , textAlign
         , textDecoration
-        , toRight
         , transparent
         , unset
         , vw
@@ -96,10 +87,8 @@ import Css
         , wrap
         , zero
         )
-import Css.Global exposing (body, global)
-import Css.Media as Media exposing (withMedia)
-import Html.Styled exposing (Html, a, br, button, div, h2, h3, input, label, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (css, for, href, id, type_, value)
+import Html.Styled exposing (Html, a, button, div, input, p, span, text, toUnstyled)
+import Html.Styled.Attributes exposing (css, href, id, type_, value)
 import Html.Styled.Events
     exposing
         ( on
@@ -130,7 +119,6 @@ import LSystem.Image as Image
         )
 import ListExtra
 import Midi exposing (adjustInputForStrokeWidth)
-import Process
 import Random
 import Set exposing (Set)
 import Svg.Styled exposing (Svg)
@@ -195,7 +183,6 @@ type
     | ColorWheelMsg ColorWheel.Msg
     | ExchangeColors
       -- Angle
-    | SetTurnAngle Float
     | SetTurnAngleInputValue String
       -- Stroke width
     | SetStrokeWidth Float
@@ -651,32 +638,7 @@ infoAndBasicControls =
         , primaryButtonHalf DownloadSvg "Down"
         , primaryButtonHalf ResetDrawing "Reset"
         , primaryButtonHalf RandomRequested "Rand"
-        ]
-
-
-fixedControlsButtons : Html Msg
-fixedControlsButtons =
-    let
-        width_ =
-            300
-    in
-    fixedDiv
-        [ css
-            [ width (px width_)
-            , height (px 30)
-            , bottom (px 20)
-            , left (calc (pct 50) minus (px (width_ / 2)))
-            , backgroundColor (Colors.toCssColor Colors.darkGray)
-            , displayFlex
-            , flexWrap wrap
-            , flexDirection column
-            ]
-        ]
-        [ primaryButtonStyled [ overflow hidden, width (px 30) ] SavedToGallery "Save"
-        , primaryButtonStyled [ overflow hidden, width (px 30) ] FullscreenRequested "Full"
-        , primaryButtonStyled [ overflow hidden, width (px 30) ] DownloadSvg "Down"
-        , primaryButtonStyled [ overflow hidden, width (px 30) ] ResetDrawing "Reset"
-        , primaryButtonStyled [ overflow hidden, width (px 30) ] RandomRequested "Rand"
+        , primaryButtonHalf DownloadSvgAsJpeg "JPEG"
         ]
 
 
@@ -853,28 +815,6 @@ curatedSettings =
         ]
 
 
-controlsList : Html Msg
-controlsList =
-    controlBlock "Controls"
-        [ controlText "Arrow Up" "Draw"
-        , controlText "Arrow Left/Right" "Turn"
-        , controlText "Backspace" "Undo last 'Arrow' move on selected image block"
-        , controlText "i" "Duplicate selected image block"
-        , controlText "d" "Delete top image block"
-        , controlText "Space" "Center the image"
-        , br [] []
-        , p [] [ text "You can also pan and zoom by dragging and scrolling the image" ]
-        ]
-
-
-controlText : String -> String -> Html msg
-controlText command explanation =
-    div [ css [ margin (px 10) ] ]
-        [ span [ css [ fontSize (px 14), backgroundColor (Css.hex "#555") ] ] [ text command ]
-        , text <| ": " ++ explanation
-        ]
-
-
 truncateFloatString : Int -> String -> String
 truncateFloatString precision floatString =
     let
@@ -1036,23 +976,6 @@ fixedDiv attrs children =
         children
 
 
-{-| For development: view of colorwheel for testing and experimenting
--}
-wheel : Model -> Browser.Document Msg
-wheel model =
-    { title = "Wheel"
-    , body =
-        [ div [ css [ height (pct 50), width (pct 50), margin (px 100), display inlineBlock ] ]
-            [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
-            ]
-        , button [ onClick DownloadSvg ] [ text "Download Image" ]
-        , button [ onClick DownloadSvgAsJpeg ] [ text "Download Image as JPEG" ]
-        , global [ body [ backgroundColor (Colors.toCssColor model.image.backgroundColor) ] ]
-        ]
-            |> List.map toUnstyled
-    }
-
-
 
 -- UPDATE
 
@@ -1175,7 +1098,7 @@ update msg model =
 
             ColorWheelMsg subMsg ->
                 let
-                    ( updatedColorWheel, subCmd, msgType ) =
+                    ( updatedColorWheel, _, msgType ) =
                         ColorWheel.update subMsg model.colorWheel
 
                     image =
@@ -1214,21 +1137,6 @@ update msg model =
                                 |> Image.withBackgroundColor model.image.strokeColor
                         , colorWheel = updateColorWheel model.image model.colorTarget model.colorWheel
                     }
-
-            SetTurnAngle turn ->
-                let
-                    newModel =
-                        { model
-                            | image = Image.withTurnAngle turn model.image
-                            , turnAngleInputValue = String.fromFloat turn
-                        }
-                in
-                if Set.member video.changeAngle model.playingVideo then
-                    -- Don't update URL and Local Storage on each video step
-                    ( newModel, Cmd.none )
-
-                else
-                    updateAndSaveImageAndGallery newModel
 
             SetTurnAngleInputValue stringValue ->
                 if stringValue == "" then
@@ -2071,9 +1979,6 @@ primaryButtonStyle =
     let
         lightGray =
             toCssColor Colors.lightGray
-
-        darkGray =
-            toCssColor Colors.darkGray
 
         buttonHeight =
             28
