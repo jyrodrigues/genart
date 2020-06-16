@@ -328,8 +328,8 @@ video =
 
 
 
--- IMPLEMENTATION, LOGIC, FUNCTIONS
 -- MODEL
+-- IMPLEMENTATION, LOGIC, FUNCTIONS
 
 
 initialModel : Image -> List Image -> Url.Url -> Nav.Key -> Model
@@ -388,62 +388,6 @@ modelWithEditIndexLast model =
     { model | editingIndex = Image.length model.image - 1 }
 
 
-
--- MAIN
-
-
-main : Program Flags Model Msg
-main =
-    Browser.application
-        { init = init
-        , view = view
-        , update = update
-        , subscriptions = subscriptions
-        , onUrlChange = UrlChanged
-        , onUrlRequest = LinkClicked
-        }
-
-
-
--- INIT
-
-
-init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init localStorage url navKey =
-    let
-        decodedLocalStorage =
-            Decode.decodeValue modelDecoder localStorage
-
-        route =
-            parseUrl url
-
-        ( image, gallery ) =
-            combineUrlAndStorage decodedLocalStorage route
-
-        model =
-            initialModelFromImageAndGallery image gallery url navKey
-                |> modelWithRoute route
-                |> modelWithEditIndexLast
-
-        updateUrl =
-            case route of
-                Gallery ->
-                    []
-
-                _ ->
-                    [ replaceUrl navKey image ]
-    in
-    ( model
-    , Cmd.batch
-        ([ getImgDivPosition
-         , saveEncodedModelToLocalStorage (encodeModel model)
-         , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
-         ]
-            ++ updateUrl
-        )
-    )
-
-
 encodeModel : { a | image : Image, gallery : List Image } -> Encode.Value
 encodeModel { image, gallery } =
     Encode.object
@@ -484,9 +428,60 @@ combineUrlAndStorage storage route =
             ( defaultImage, [] )
 
 
-initialModelFromImageAndGallery : Image -> List Image -> Url.Url -> Nav.Key -> Model
-initialModelFromImageAndGallery image gallery url navKey =
-    initialModel image gallery url navKey
+
+-- MAIN
+
+
+main : Program Flags Model Msg
+main =
+    Browser.application
+        { init = init
+        , view = view
+        , update = update
+        , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
+        }
+
+
+
+-- INIT
+
+
+init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init localStorage url navKey =
+    let
+        decodedLocalStorage =
+            Decode.decodeValue modelDecoder localStorage
+
+        route =
+            parseUrl url
+
+        ( image, gallery ) =
+            combineUrlAndStorage decodedLocalStorage route
+
+        model =
+            initialModel image gallery url navKey
+                |> modelWithRoute route
+                |> modelWithEditIndexLast
+
+        updateUrl =
+            case route of
+                Gallery ->
+                    []
+
+                _ ->
+                    [ replaceUrl navKey image ]
+    in
+    ( model
+    , Cmd.batch
+        ([ getImgDivPosition
+         , saveEncodedModelToLocalStorage (encodeModel model)
+         , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
+         ]
+            ++ updateUrl
+        )
+    )
 
 
 
