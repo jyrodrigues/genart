@@ -105,7 +105,6 @@ import LSystem.Image as Image
         , imageDecoder
         , withImage
         )
-import ListExtra
 import Midi exposing (adjustInputForStrokeWidth)
 import Random
 import Set exposing (Set)
@@ -1335,14 +1334,14 @@ update msg model =
             RemovedFromGallery index ->
                 let
                     newModel =
-                        { model | gallery = ListExtra.dropIndex index model.gallery }
+                        { model | gallery = Utils.dropIndex index model.gallery }
                 in
                 ( newModel, saveEncodedModelToLocalStorage (encodeModel newModel) )
 
             DuplicateToEdit index ->
                 let
                     image =
-                        ListExtra.getAt index model.gallery
+                        Utils.getAt index model.gallery
                             |> Maybe.withDefault model.image
                 in
                 updateAndSaveImageAndGallery <|

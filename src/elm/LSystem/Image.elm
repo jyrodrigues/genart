@@ -59,10 +59,10 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra as DecodeExtra
 import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
-import ListExtra
 import Random
 import Url.Builder
 import Url.Parser.Query as Query
+import Utils
 
 
 type alias Position =
@@ -280,15 +280,15 @@ zoom scaleDelta zoomFocus imageDivCenter image =
 
         vecMouseToImgDivCenter =
             imageDivCenter
-                |> ListExtra.pairExec (-) zoomFocus
+                |> Utils.pairExec (-) zoomFocus
     in
     { image
         | scale = scale
         , translate =
             vecMouseToImgDivCenter
-                |> ListExtra.pairExec (+) image.translate
-                |> ListExtra.pairMap (\value -> value * scale / image.scale)
-                |> ListExtra.pairExec (-) vecMouseToImgDivCenter
+                |> Utils.pairExec (+) image.translate
+                |> Utils.pairMap (\value -> value * scale / image.scale)
+                |> Utils.pairExec (-) vecMouseToImgDivCenter
     }
 
 
@@ -297,8 +297,8 @@ move lastPosition newPosition image =
     image
         |> withTranslate
             (newPosition
-                |> ListExtra.pairExec (-) lastPosition
-                |> ListExtra.pairExec (+) image.translate
+                |> Utils.pairExec (-) lastPosition
+                |> Utils.pairExec (+) image.translate
             )
 
 
@@ -763,11 +763,11 @@ processCompositionStep pathCurve turnAngleSize step { pathString, angle, positio
             nextPositionDelta angle
 
         nextPosition =
-            ListExtra.pairExec (+) nextPositionDelta_ position
+            Utils.pairExec (+) nextPositionDelta_ position
 
         updatedBoundaries =
-            { leftTop = ListExtra.pairExec min boundaries.leftTop nextPosition
-            , rightBottom = ListExtra.pairExec max boundaries.rightBottom nextPosition
+            { leftTop = Utils.pairExec min boundaries.leftTop nextPosition
+            , rightBottom = Utils.pairExec max boundaries.rightBottom nextPosition
             }
 
         curve =
@@ -896,7 +896,7 @@ toRelativeValue =
 nextPositionDelta : Float -> Position
 nextPositionDelta angle =
     fromPolar ( 1, degrees angle )
-        |> ListExtra.pairMap ((*) 10)
+        |> Utils.pairMap ((*) 10)
         |> adjustForViewportAxisOrientation
 
 

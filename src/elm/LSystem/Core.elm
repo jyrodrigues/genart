@@ -26,8 +26,8 @@ module LSystem.Core exposing
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import ListExtra
 import Random
+import Utils
 
 
 
@@ -128,12 +128,12 @@ changeBlocks newBlocks (Composition base_ _) =
 
 appendStepAtIndex : Step -> Int -> Composition -> Composition
 appendStepAtIndex step =
-    editBlockAtIndex (ListExtra.pushLast step)
+    editBlockAtIndex (Utils.pushLast step)
 
 
 dropLastStepAtIndex : Int -> Composition -> Composition
 dropLastStepAtIndex =
-    editBlockAtIndex ListExtra.dropLast
+    editBlockAtIndex Utils.dropLast
 
 
 getBlockAtIndex : Int -> Composition -> Maybe Block
@@ -156,7 +156,7 @@ editBlockAtIndex editFn blockIndex composition =
 
 dropLastBlock : Composition -> Composition
 dropLastBlock (Composition base_ blocks_) =
-    Composition base_ (ListExtra.dropLast blocks_)
+    Composition base_ (Utils.dropLast blocks_)
 
 
 dropBlockAtIndex : Int -> Composition -> Composition
@@ -170,7 +170,7 @@ dropBlockAtIndex blockIndex composition =
         composition
 
     else
-        fromList (ListExtra.dropIndex blockIndex (toList composition))
+        fromList (Utils.dropIndex blockIndex (toList composition))
 
 
 dropAllBlocksButBase : Composition -> Composition
@@ -180,7 +180,7 @@ dropAllBlocksButBase (Composition base_ _) =
 
 appendBlock : Block -> Composition -> Composition
 appendBlock block (Composition base_ blocks_) =
-    Composition base_ (ListExtra.pushLast block blocks_)
+    Composition base_ (Utils.pushLast block blocks_)
 
 
 replaceBlankBlocks : Composition -> Composition
