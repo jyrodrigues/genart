@@ -75,6 +75,7 @@ import Css
         , wrap
         , zero
         )
+import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
 import Html.Styled exposing (Html, div, input, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, id, type_, value)
 import Html.Styled.Events
@@ -85,7 +86,6 @@ import Html.Styled.Events
         , onFocus
         , onInput
         , onMouseUp
-        , preventDefaultOn
         )
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy)
@@ -112,7 +112,7 @@ import Svg.Styled exposing (Svg)
 import Task
 import Time
 import Url
-import Url.Parser as Parser exposing (Parser, string)
+import Url.Parser as Parser exposing (Parser)
 import Utils exposing (delay, floatModBy)
 
 
@@ -136,7 +136,7 @@ port midiEvent : (Encode.Value -> msg) -> Sub msg
 
 
 
--- TYPES
+-- TYPES AND MSG
 -- MSG
 
 
@@ -156,8 +156,10 @@ type
     | DropBlock Int
       -- Storage
     | SavedToGallery
+      -- GALLERY PAGE START
     | RemovedFromGallery Int
     | DuplicateToEdit Int
+      -- GALLERY PAGE END
       -- Pan and Zoom
     | GotImgDivPosition (Result Browser.Dom.Error Element)
     | WindowResized Int Int
@@ -179,8 +181,10 @@ type
       -- Focus
     | SetFocus Focus
       -- URL
+      -- TOP LEVEL MSG START
     | UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
+      -- TOP LEVEL MSG END
       -- Video
     | ToggleVideo Video
     | VideoTick
@@ -282,10 +286,6 @@ type alias Flags =
 
 
 -- OTHER TYPES
-
-
-type alias ShiftKey =
-    Bool
 
 
 type Focus
@@ -921,7 +921,7 @@ mainImg image =
             , overflow hidden
             ]
         , id "mainImg"
-        , zoomOnWheel
+        , onWheel Zoom
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
         [ Keyed.node "div"
@@ -1793,7 +1793,7 @@ editorPageSubs model =
         panSubs =
             if model.panStarted then
                 Sub.batch
-                    [ Browser.Events.onMouseMove mouseMoveDecoder
+                    [ Browser.Events.onMouseMove (mousePositionDecoder MouseMoved)
                     , Browser.Events.onMouseUp (Decode.succeed PanEnded)
                     ]
 
@@ -1882,70 +1882,3 @@ replaceUrl key image =
             https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
     --}
     Nav.replaceUrl key (routeFor EditorPage ++ Image.toQuery image)
-
-
-
--- KEYBOARD, MOUSE and WHEEL
-
-
-keyPressDecoder : (String -> Msg) -> Decoder Msg
-keyPressDecoder msg =
-    Decode.map msg
-        (Decode.field "key" Decode.string)
-
-
-onKeyDown : (String -> Msg) -> Html.Styled.Attribute Msg
-onKeyDown msg =
-    on "keydown" (keyPressDecoder msg)
-
-
-mouseMoveDecoder : Decoder Msg
-mouseMoveDecoder =
-    mousePositionDecoder MouseMoved
-
-
-mousePositionDecoder : (Position -> msg) -> Decoder msg
-mousePositionDecoder msg =
-    Decode.map msg <|
-        Decode.map2 Tuple.pair
-            (Decode.field "clientX" Decode.float)
-            (Decode.field "clientY" Decode.float)
-
-
-zoomOnWheel : Html.Styled.Attribute Msg
-zoomOnWheel =
-    preventDefaultOn "wheel" (Decode.map alwaysPreventDefault wheelDecoder)
-
-
-alwaysPreventDefault : Msg -> ( Msg, Bool )
-alwaysPreventDefault msg =
-    ( msg, True )
-
-
-wheelDecoder : Decoder Msg
-wheelDecoder =
-    Decode.map4 Zoom
-        (Decode.field "deltaX" Decode.float)
-        (Decode.field "deltaY" Decode.float)
-        (Decode.field "shiftKey" Decode.bool)
-        (Decode.map2 Tuple.pair
-            (Decode.field "clientX" Decode.float)
-            (Decode.field "clientY" Decode.float)
-        )
-
-
-type alias MidiEvent =
-    { command : Float
-    , noteMap : Float
-    , velocityPosition : Float
-    }
-
-
-{--}
-midiEventDecoder : Decoder MidiEvent
-midiEventDecoder =
-    Decode.map3 MidiEvent
-        (Decode.at [ "data", "0" ] Decode.float)
-        (Decode.at [ "data", "1" ] Decode.float)
-        (Decode.at [ "data", "2" ] Decode.float)
---}
