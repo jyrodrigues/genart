@@ -22,13 +22,11 @@ import Components as C
 import Css
     exposing
         ( absolute
-        , active
         , auto
         , backgroundColor
         , block
         , border
         , border3
-        , borderBottom3
         , borderBox
         , borderLeft3
         , borderRadius
@@ -38,16 +36,13 @@ import Css
         , boxShadow6
         , boxSizing
         , breakWord
-        , center
         , color
         , contentBox
         , cursor
-        , default
         , display
         , displayFlex
         , fixed
         , flexWrap
-        , fontFamily
         , fontSize
         , height
         , hidden
@@ -55,13 +50,10 @@ import Css
         , inlineBlock
         , inset
         , left
-        , lineHeight
         , margin
-        , margin2
         , margin3
         , marginBottom
         , marginTop
-        , minWidth
         , none
         , overflow
         , overflowWrap
@@ -75,20 +67,16 @@ import Css
         , px
         , relative
         , right
-        , sansSerif
         , scroll
         , solid
-        , textAlign
-        , textDecoration
-        , transparent
         , unset
         , vw
         , width
         , wrap
         , zero
         )
-import Html.Styled exposing (Html, a, button, div, input, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (css, href, id, type_, value)
+import Html.Styled exposing (Html, div, input, p, span, text, toUnstyled)
+import Html.Styled.Attributes exposing (css, id, type_, value)
 import Html.Styled.Events
     exposing
         ( on
@@ -529,7 +517,7 @@ galleryView model =
                     , boxSizing borderBox
                     ]
                 ]
-                [ anchorButton (routeFor EditorPage) "Back to editor" ]
+                [ C.anchorButton (routeFor EditorPage) "Back to editor" ]
             ]
             |> toUnstyled
         ]
@@ -617,7 +605,7 @@ controlPanel model =
         , curatedSettings
 
         --, controlsList
-        , controlBlock "Info"
+        , C.controlBlock "Info"
             [ p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.imageStepsLenthString model.image) ]
             , p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
             ]
@@ -626,14 +614,14 @@ controlPanel model =
 
 infoAndBasicControls : Html Msg
 infoAndBasicControls =
-    controlBlockFlex
-        [ anchorButtonHalf (routeFor GalleryPage) "Gallery"
-        , primaryButtonHalf SavedToGallery "Save"
-        , primaryButtonHalf FullscreenRequested "Full"
-        , primaryButtonHalf DownloadSvg "Down"
-        , primaryButtonHalf ResetDrawing "Reset"
-        , primaryButtonHalf RandomRequested "Rand"
-        , primaryButtonHalf DownloadSvgAsJpeg "JPEG"
+    C.controlBlockFlex
+        [ C.anchorButtonHalf (routeFor GalleryPage) "Gallery"
+        , C.primaryButtonHalf SavedToGallery "Save"
+        , C.primaryButtonHalf FullscreenRequested "Full"
+        , C.primaryButtonHalf DownloadSvg "Down"
+        , C.primaryButtonHalf ResetDrawing "Reset"
+        , C.primaryButtonHalf RandomRequested "Rand"
+        , C.primaryButtonHalf DownloadSvgAsJpeg "JPEG"
         ]
 
 
@@ -647,14 +635,14 @@ colorControls colorTarget colorWheel videoSet =
             else
                 "Play " ++ name
     in
-    controlBlock "Color"
+    C.controlBlock "Color"
         [ div [ css [ width (pct 100) ] ]
             [ div [ css [ displayFlex, flexWrap wrap ] ]
-                [ primaryButtonSelectable (colorTarget == Stroke) (SetColorTarget Stroke) "Stroke"
-                , primaryButtonSelectable (colorTarget == Background) (SetColorTarget Background) "Background"
-                , primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
-                , primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
-                , primaryButtonHalf ExchangeColors "Exchange"
+                [ C.primaryButtonSelectable (colorTarget == Stroke) (SetColorTarget Stroke) "Stroke"
+                , C.primaryButtonSelectable (colorTarget == Background) (SetColorTarget Background) "Background"
+                , C.primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
+                , C.primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
+                , C.primaryButtonHalf ExchangeColors "Exchange"
                 ]
             , div [ css [ padding2 (px 10) zero ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
             ]
@@ -679,7 +667,7 @@ videoControls angleChangeRate playingVideo slowMotion =
                 Slowly value ->
                     String.fromFloat value ++ "x"
     in
-    controlBlock "Video"
+    C.controlBlock "Video"
         [ span [ css [ display block, marginBottom (px 10) ] ]
             [ text (truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval)) ++ "x")
             ]
@@ -688,9 +676,9 @@ videoControls angleChangeRate playingVideo slowMotion =
             , span [] [ text slowMotionText ]
             ]
         , div [ css [ displayFlex, flexWrap wrap ] ]
-            [ primaryButton (ToggleVideo video.changeAngle) playPauseText
-            , primaryButton ToggleSlowMotion "Slow Motion"
-            , primaryButton ReverseAngleChangeDirection "Reverse"
+            [ C.primaryButton (ToggleVideo video.changeAngle) playPauseText
+            , C.primaryButton ToggleSlowMotion "Slow Motion"
+            , C.primaryButton ReverseAngleChangeDirection "Reverse"
             ]
 
         -- Magic values:
@@ -708,7 +696,7 @@ videoRateSliderConfig =
 
 turnAngleControl : String -> Html Msg
 turnAngleControl turnAngleInputValue =
-    controlBlock "Angle"
+    C.controlBlock "Angle"
         [ input
             [ id "TurnAngle" -- See index.js, `id` only exists for use in there.
             , type_ "text"
@@ -737,14 +725,14 @@ turnAngleControl turnAngleInputValue =
 
 strokeWidthControl : Float -> Html Msg
 strokeWidthControl width =
-    controlBlock "Line width"
+    C.controlBlock "Line width"
         -- Magic values:
         -- min: 0.0001px
         -- max: 4px
         -- center: 1px at 90% of slider
         [ span [ css [ display block ] ] [ text <| truncateFloatString 6 (String.fromFloat width) ]
         , sliderExponentialInput SetStrokeWidth width strokeWidthSliderConfig
-        , primaryButton (SetStrokeWidth 1) "Reset"
+        , C.primaryButton (SetStrokeWidth 1) "Reset"
         ]
 
 
@@ -800,12 +788,12 @@ sliderExponentialInput msg oldValue exponentialConfig =
 
 curatedSettings : Html Msg
 curatedSettings =
-    controlBlock "Base"
+    C.controlBlock "Base"
         [ div [ css [ displayFlex, flexWrap wrap ] ]
-            [ primaryButton (BasePolygonChanged Triangle) "Triangle"
-            , primaryButton (BasePolygonChanged Square) "Square"
-            , primaryButton (BasePolygonChanged Pentagon) "Pentagon"
-            , primaryButton (BasePolygonChanged Hexagon) "Hexagon"
+            [ C.primaryButton (BasePolygonChanged Triangle) "Triangle"
+            , C.primaryButton (BasePolygonChanged Square) "Square"
+            , C.primaryButton (BasePolygonChanged Pentagon) "Pentagon"
+            , C.primaryButton (BasePolygonChanged Hexagon) "Hexagon"
             ]
         ]
 
@@ -851,7 +839,7 @@ compositionBlocksList model =
             , padding (px 10)
             ]
         ]
-        (primaryButtonStyled [ marginBottom (px 20) ] AddSimpleBlock "Add new block" :: compositionBlocks)
+        (C.primaryButtonStyled [ marginBottom (px 20) ] AddSimpleBlock "Add new block" :: compositionBlocks)
 
 
 blockBox : Int -> Color -> Int -> Svg Msg -> Html Msg
@@ -1962,143 +1950,3 @@ midiEventDecoder =
         (Decode.at [ "data", "1" ] Decode.float)
         (Decode.at [ "data", "2" ] Decode.float)
 --}
-
-
-
-{--Components
---}
-
-
-primaryButtonStyle : List Css.Style
-primaryButtonStyle =
-    let
-        lightGray =
-            toCssColor Colors.lightGray
-
-        buttonHeight =
-            28
-
-        borderWidth =
-            1
-    in
-    [ color lightGray
-    , backgroundColor transparent
-    , border3 (px borderWidth) solid lightGray
-    , borderRadius (px 6)
-    , height (px buttonHeight)
-    , width (pct 95)
-
-    {--
-    , withMedia [ Media.all [ Media.maxWidth (px 1160), Media.minWidth (px 650) ] ]
-        [ minWidth (px 85)
-        , height (px 60)
-        ]
-    --}
-    --, withMedia [ Media.all [ Media.minWidth (px 1700) ] ] [ width (px 106) ]
-    , margin2 (px 5) auto
-    , display block
-    , cursor pointer
-    , boxSizing borderBox
-
-    -- TODO add font files and @font-face:
-    -- https://stackoverflow.com/questions/107936/how-to-add-some-non-standard-font-to-a-website
-    -- https://fonts.google.com/specimen/Roboto?selection.family=Roboto
-    -- Research best fallback option
-    --, fontFamilies [ "Roboto" ]
-    , fontFamily sansSerif
-    , fontSize (px 16)
-    , textAlign center
-    , textDecoration none
-    , lineHeight (px (buttonHeight - 2 * borderWidth))
-    , hover primaryButtonStyleHover
-    ]
-
-
-primaryButtonStyleHover : List Css.Style
-primaryButtonStyleHover =
-    let
-        -- COPIED FROM ABOVE
-        lightGray =
-            toCssColor Colors.lightGray
-
-        darkGray =
-            toCssColor Colors.darkGray
-
-        buttonHeight =
-            28
-    in
-    [ border Css.unset
-    , backgroundColor lightGray
-    , color darkGray
-    , active primaryButtonStyleActive
-    , lineHeight (px buttonHeight)
-    ]
-
-
-primaryButtonStyleActive : List Css.Style
-primaryButtonStyleActive =
-    [ backgroundColor (Colors.toCssColor Colors.activeElementGray) ]
-
-
-primaryButtonStyled : List Css.Style -> msg -> String -> Html msg
-primaryButtonStyled style msg btnText =
-    button [ css (primaryButtonStyle ++ style), onClick msg ] [ text btnText ]
-
-
-primaryButton : msg -> String -> Html msg
-primaryButton =
-    primaryButtonStyled []
-
-
-halfStyle : List Css.Style
-halfStyle =
-    [ minWidth (pct 45), width (pct 45) ]
-
-
-primaryButtonHalf : msg -> String -> Html msg
-primaryButtonHalf =
-    primaryButtonStyled halfStyle
-
-
-primaryButtonSelectable : Bool -> msg -> String -> Html msg
-primaryButtonSelectable isSelected =
-    primaryButtonStyled
-        (if isSelected then
-            primaryButtonStyleHover ++ primaryButtonStyleActive
-
-         else
-            []
-        )
-
-
-anchorButtonStyled : List Css.Style -> String -> String -> Html msg
-anchorButtonStyled style href_ title =
-    a [ href href_, css (primaryButtonStyle ++ style) ] [ text title ]
-
-
-anchorButton : String -> String -> Html msg
-anchorButton =
-    anchorButtonStyled []
-
-
-anchorButtonHalf : String -> String -> Html msg
-anchorButtonHalf =
-    anchorButtonStyled halfStyle
-
-
-controlBlockStyle : List Css.Style
-controlBlockStyle =
-    [ padding (px 10), borderBottom3 (px 1) solid (toCssColor Colors.black), fontFamily Css.sansSerif ]
-
-
-controlBlock : String -> List (Html Msg) -> Html Msg
-controlBlock title list =
-    div [ css controlBlockStyle ]
-        (span [ css [ display block, marginBottom (px 8), cursor default, fontSize (px 18) ] ] [ text title ]
-            :: list
-        )
-
-
-controlBlockFlex : List (Html Msg) -> Html Msg
-controlBlockFlex =
-    div [ css (controlBlockStyle ++ [ displayFlex, flexWrap wrap ]) ]
