@@ -54,6 +54,20 @@ import Html.Styled.Attributes exposing (class, css, href)
 import Html.Styled.Events exposing (onClick)
 
 
+
+-- HTML ATTRIBUTES HELPERS
+
+
+fixedDiv : List (Html.Styled.Attribute msg) -> List (Html msg) -> Html msg
+fixedDiv attrs children =
+    div
+        (css
+            [ position fixed ]
+            :: attrs
+        )
+        children
+
+
 {-| ALERT
 -}
 alert : String -> Html msg
