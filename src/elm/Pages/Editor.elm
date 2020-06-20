@@ -100,6 +100,7 @@ import LSystem.Image as Image
         )
 import Midi exposing (adjustInputForStrokeWidth)
 import Random
+import Routes exposing (Page(..), routeFor)
 import Set exposing (Set)
 import Svg.Styled exposing (Svg)
 import Task
@@ -452,8 +453,7 @@ controlPanel model =
 infoAndBasicControls : Html Msg
 infoAndBasicControls =
     C.controlBlockFlex
-        -- TODO change "gallery" to routeFor RouteGallery?
-        [ C.anchorButtonHalf "gallery" "Gallery"
+        [ C.anchorButtonHalf (routeFor GalleryPage) "Gallery"
         , C.primaryButtonHalf SavedToGallery "Save"
         , C.primaryButtonHalf FullscreenRequested "Full"
         , C.primaryButtonHalf DownloadSvg "Down"

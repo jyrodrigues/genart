@@ -4,11 +4,7 @@
 --           outside Main module?
 
 
-module Main exposing
-    ( Route(..)
-    , main
-    , parseUrl
-    )
+module Main exposing (main)
 
 import Browser
 import Browser.Dom exposing (Element)
@@ -106,7 +102,9 @@ import LSystem.Image as Image
         )
 import Midi exposing (adjustInputForStrokeWidth)
 import Pages.Editor as Editor
+import Pages.Gallery as Gallery
 import Random
+import Routes exposing (Page(..), Route(..), mapRouteToPage, parseUrl)
 import Set exposing (Set)
 import Svg.Styled exposing (Svg)
 import Task
@@ -117,34 +115,13 @@ import Utils exposing (delay, floatModBy)
 
 
 
--- TYPES AND MSG
--- MSG
-
-
-{-| TODO: Rename Msgs: put all verbs in past tense and choose better words.
--}
-type Msg
-    = UrlChanged Url.Url
-    | LinkClicked Browser.UrlRequest
-      -- Editor
-    | EditorMsg Editor.Msg
-      -- Storage
-    | RemovedFromGallery Int
-    | DuplicateToEdit Int
-      -- Sometimes there is nothing to do
-    | NoOp
-
-
-
 -- MODEL
 
 
 type alias Model =
     -- Pages
-    { editorModel : Editor.Model
-
-    -- Storage
-    , gallery : List Image
+    { editor : Editor.Model
+    , gallery : Gallery.Model
     , viewingPage : Page
 
     -- Url
@@ -154,29 +131,19 @@ type alias Model =
 
 
 
--- ROUTING
+-- MSG and TYPES
+-- TYPES
 
 
-type Page
-    = EditorPage
-    | GalleryPage
-
-
-type Route
-    = Editor PartialImage
-    | Gallery
-    | NotFound
-
-
-mapRouteToPage : Route -> Page
-mapRouteToPage route =
-    -- TODO think about this flow that requires this function. It doesn't seem the best one.
-    case route of
-        Gallery ->
-            GalleryPage
-
-        _ ->
-            EditorPage
+{-| TODO: Rename Msgs: put all verbs in past tense and choose better words.
+-}
+type Msg
+    = UrlChanged Url.Url
+    | LinkClicked Browser.UrlRequest
+    | EditorMsg Editor.Msg
+    | GalleryMsg Gallery.Msg
+      -- Sometimes there is nothing to do
+    | NoOp
 
 
 
@@ -199,10 +166,10 @@ initialModel image gallery url navKey =
 initialModel : Url.Url -> Nav.Key -> Model
 initialModel url navKey =
     -- Pages
-    { editorModel = Editor.initialModel
-
-    -- Storage
+    { editor = Editor.initialModel
     , gallery = []
+
+    -- Current viewing page
     , viewingPage = EditorPage
 
     -- Url
@@ -211,8 +178,8 @@ initialModel url navKey =
     }
 
 
-modelWithRoute : Route -> Model -> Model
-modelWithRoute route model =
+withRoute : Route -> Model -> Model
+withRoute route model =
     { model | viewingPage = mapRouteToPage route }
 
 
@@ -309,6 +276,8 @@ init localStorage url navKey =
 
 -- VIEW
 
+
+documentMap : (innerMsg -> outerMsg) -> Browser.Document innerMsg -> Browser.Document outerMsg
 documentMap msg document =
     let
         { title, body } =
@@ -318,91 +287,15 @@ documentMap msg document =
     , body = List.map (Html.map msg) body
     }
 
+
 view : Model -> Browser.Document Msg
 view model =
     case model.viewingPage of
         EditorPage ->
-            documentMap EditorMsg (Editor.view model.editorModel)
+            documentMap EditorMsg (Editor.view model.editor)
 
         GalleryPage ->
-            galleryView model
-
-
-
--- GALLERY VIEW
--- TODO this is duplicated here and on Editor.elm
-
-
-layout :
-    { controlPanel : Float
-    , transformsList : Float
-    , mainImg : Float
-    }
-layout =
-    { controlPanel = 15
-    , transformsList = 15
-    , mainImg = 70
-    }
-
-
-galleryView : Model -> Browser.Document Msg
-galleryView model =
-    { title = "Generative Art"
-    , body =
-        [ div
-            [ css [ width (pct 100), height (pct 100), backgroundColor (toCssColor Colors.darkGray), overflow hidden ] ]
-            [ div
-                [ css
-                    [ width (pct (layout.transformsList + layout.mainImg))
-                    , height (pct 100)
-                    , padding (px 10)
-                    , boxSizing borderBox
-                    , overflow scroll
-                    , display inlineBlock
-                    ]
-                ]
-                (List.indexedMap imageBox model.gallery)
-            , C.fixedDiv
-                [ css
-                    [ width (pct layout.controlPanel)
-                    , height (pct 100)
-                    , display inlineBlock
-                    , padding (px 10)
-                    , boxSizing borderBox
-                    ]
-                ]
-                [ C.anchorButton (routeFor EditorPage) "Back to editor" ]
-            ]
-            |> toUnstyled
-        ]
-    }
-
-
-imageBox : Int -> Image -> Html Msg
-imageBox index image =
-    div
-        [ css
-            [ width (px 300)
-            , height (px 300)
-            , display inlineBlock
-            , margin (px 10)
-            , position relative
-            , overflow hidden
-            , boxShadow5 zero zero (px 5) (px 1) (toCssColor Colors.black)
-            ]
-        ]
-        [ LDraw.drawFixedImage (Just (DuplicateToEdit index)) image
-        , Icons.trash
-            |> withOnClick (RemovedFromGallery index)
-            |> withColor Colors.red_
-            |> withCss
-                [ cursor pointer
-                , position absolute
-                , bottom (px 5)
-                , left (px 5)
-                ]
-            |> Icons.toSvg
-        ]
+            documentMap GalleryMsg (Gallery.view model.gallery)
 
 
 
@@ -421,7 +314,7 @@ update msg model =
                 Browser.Internal url ->
                     case url.path of
                         "/" ->
-                            ( model, Nav.pushUrl model.navKey (Editor.urlEncoder model.editorModel) )
+                            ( model, Nav.pushUrl model.navKey (Editor.urlEncoder model.editor) )
 
                         _ ->
                             ( model, Nav.pushUrl model.navKey (Url.toString url) )
@@ -431,35 +324,17 @@ update msg model =
 
         EditorMsg editorMsg ->
             let
-                ( editorModel, editorCmd ) =
-                    Editor.update editorMsg model.editorModel
+                ( editor, cmd ) =
+                    Editor.update editorMsg model.editor
             in
-            ( { model | editorModel = editorModel }, Cmd.map EditorMsg editorCmd )
+            ( { model | editor = editor }, Cmd.map EditorMsg cmd )
 
-        RemovedFromGallery index ->
+        GalleryMsg galleryMsg ->
             let
-                newModel =
-                    { model | gallery = Utils.dropIndex index model.gallery }
+                ( gallery, cmd ) =
+                    Gallery.update galleryMsg model.gallery
             in
-            -- TODO
-            --( newModel, saveEncodedModelToLocalStorage (encodeModel newModel) )
-            ( newModel, Cmd.none )
-
-        DuplicateToEdit index ->
-            {--TODO
-            let
-                image =
-                    Utils.getAt index model.gallery
-                        |> Maybe.withDefault model.image
-            in
-            updateAndSaveImageAndGallery <|
-                { model
-                    | viewingPage = EditorPage
-                    , image = image
-                    , colorWheel = updateColorWheel image model.colorTarget model.colorWheel
-                }
-            --}
-            ( model, Cmd.none )
+            ( { model | gallery = gallery }, Cmd.map GalleryMsg cmd )
 
         NoOp ->
             ( model, Cmd.none )
@@ -472,63 +347,5 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Sub.map EditorMsg <| Editor.subscriptions model.editorModel (model.viewingPage == EditorPage)
-
-        --, Sub.map GalleryMsg <| Gallery.subscriptions model.galleryModel (model.viewingPage == GalleryPage)
+        [ Sub.map EditorMsg <| Editor.subscriptions model.editor (model.viewingPage == EditorPage)
         ]
-
-
-
--- URL
-
-
-parseUrl : Url.Url -> Route
-parseUrl url =
-    let
-        parsedRoute =
-            Parser.parse (Parser.oneOf [ editorParser, galleryParser ]) url
-    in
-    case parsedRoute of
-        Just route ->
-            route
-
-        Nothing ->
-            NotFound
-
-
-{-| This function used on `galleryParser` makes it asymmetric with `editorParser`.
---- Not sure if this is a good idea.
--}
-routeFor : Page -> String
-routeFor page =
-    case page of
-        GalleryPage ->
-            "gallery"
-
-        EditorPage ->
-            "/"
-
-
-galleryParser : Parser (Route -> a) a
-galleryParser =
-    Parser.map Gallery (Parser.s (routeFor GalleryPage))
-
-
-editorParser : Parser (Route -> a) a
-editorParser =
-    Parser.map Editor (Parser.query Image.queryParser)
-
-
-{-| Current version of Url building and parsing
--}
-replaceUrl : Nav.Key -> Image -> Cmd msg
-replaceUrl key image =
-    {--
-            Note about Nav.replaceUrl: Browsers may rate-limit this function by throwing an
-            exception. The discussion here suggests that the limit is 100 calls per 30 second
-            interval in Safari in 2016. It also suggests techniques for people changing the
-            URL based on scroll position.
-
-            https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
-    --}
-    Nav.replaceUrl key (routeFor EditorPage ++ Image.toQuery image)
