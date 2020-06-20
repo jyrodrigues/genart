@@ -24,8 +24,6 @@ import LSystem.Image as Image
         ( Image
         , PathCurve(..)
         , defaultImage
-        , encodeImage
-        , imageDecoder
         )
 import Main exposing (Route(..), encodeModel, modelDecoder, parseUrl)
 import Test exposing (Test, describe, fuzz, fuzz2, test)
@@ -130,8 +128,8 @@ suite =
                 [ fuzz imageFuzzer "Image essentials" <|
                     \fuzzyImage ->
                         fuzzyImage
-                            |> encodeImage
-                            |> Decode.decodeValue imageDecoder
+                            |> Image.encode
+                            |> Decode.decodeValue Image.decoder
                             |> Expect.equal (Ok fuzzyImage)
                 , fuzz2 imageFuzzer (Fuzz.list imageFuzzer) "Image and Gallery" <|
                     \fuzzyImage fuzzyGallery ->
@@ -142,7 +140,7 @@ suite =
                 , test "Decode Image without strokeWidth" <|
                     \_ ->
                         imageV3
-                            |> Decode.decodeString Image.imageDecoder
+                            |> Decode.decodeString Image.decoder
                             |> Expect.equal (Ok defaultImage)
                 ]
             , describe "parseUrl"

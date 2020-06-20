@@ -39,7 +39,8 @@ var elmApp = Elm.Main.init({
  * PORTS
  */
 
-elmApp.ports.saveEncodedModelToLocalStorage.subscribe(function(encodedModel) {
+// TODO change to `saveToLocalStorage(key, value)`
+elmApp.ports.saveModelToLocalStorage.subscribe(function(encodedModel) {
     localStorage.setItem(storageKey, JSON.stringify(encodedModel));
 });
 

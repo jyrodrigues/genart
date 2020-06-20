@@ -1,89 +1,51 @@
 module Pages.Gallery exposing
     ( Model
     , Msg
+    , decoder
+    , addImage
+    , encode
+    , initialModel
     , update
     , view
     )
 
 import Browser
-import Colors exposing (Color, offWhite, toCssColor)
+import Colors exposing (toCssColor)
 import Components as C
 import Css
     exposing
         ( absolute
-        , auto
         , backgroundColor
-        , block
-        , border
-        , border3
         , borderBox
-        , borderLeft3
-        , borderRadius
-        , borderRight3
         , bottom
         , boxShadow5
-        , boxShadow6
         , boxSizing
-        , breakWord
-        , color
-        , contentBox
         , cursor
         , display
-        , displayFlex
-        , fixed
-        , flexWrap
-        , fontSize
         , height
         , hidden
-        , hover
         , inlineBlock
-        , inset
         , left
         , margin
-        , margin3
-        , marginBottom
-        , marginTop
         , none
         , overflow
-        , overflowWrap
-        , overflowX
-        , overflowY
         , padding
-        , padding2
         , pct
         , pointer
         , position
         , px
         , relative
-        , right
         , scroll
-        , solid
-        , unset
-        , vw
         , width
-        , wrap
         , zero
         )
-import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
-import Html
-import Html.Styled exposing (Html, div, input, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (css, id, type_, value)
-import Html.Styled.Events
-    exposing
-        ( on
-        , onBlur
-        , onClick
-        , onFocus
-        , onInput
-        , onMouseUp
-        )
-import Html.Styled.Keyed as Keyed
-import Html.Styled.Lazy exposing (lazy)
+import Html.Styled exposing (Html, div, toUnstyled)
+import Html.Styled.Attributes exposing (css)
 import Icons exposing (withColor, withCss, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import LSystem.Draw as LDraw exposing (drawBlocks, drawImage)
-import LSystem.Image exposing (Image)
+import LSystem.Draw as LDraw
+import LSystem.Image as Image exposing (Image)
 import Routes exposing (Page(..), routeFor)
 import Utils
 
@@ -96,18 +58,22 @@ type alias Model =
     List Image
 
 
-initialModel : Model
-initialModel =
-    []
-
-
 
 -- MSG
 
 
 type Msg
     = RemovedFromGallery Int
-    | DuplicateToEdit Int
+    | CopiedToEditor Int
+
+
+
+-- INITIAL MODEL
+
+
+initialModel : Model
+initialModel =
+    []
 
 
 
@@ -126,7 +92,7 @@ update msg model =
             --( newModel, saveEncodedModelToLocalStorage (encodeModel newModel) )
             ( newModel, Cmd.none )
 
-        DuplicateToEdit index ->
+        CopiedToEditor index ->
             {--TODO
             let
                 image =
@@ -186,7 +152,7 @@ view model =
                     , boxSizing borderBox
                     ]
                 ]
-                [ C.anchorButton (routeFor EditorPage) "Back to editor" ]
+                [ C.anchorButton routeFor.editor "Back to editor" ]
             ]
             |> toUnstyled
         ]
@@ -206,7 +172,7 @@ imageBox index image =
             , boxShadow5 zero zero (px 5) (px 1) (toCssColor Colors.black)
             ]
         ]
-        [ LDraw.drawFixedImage (Just (DuplicateToEdit index)) image
+        [ LDraw.drawFixedImage (Just (CopiedToEditor index)) image
         , Icons.trash
             |> withOnClick (RemovedFromGallery index)
             |> withColor Colors.red_
@@ -218,3 +184,23 @@ imageBox index image =
                 ]
             |> Icons.toSvg
         ]
+
+-- FUNCTIONS
+
+addImage : Image -> Model -> Model
+addImage =
+    (::)
+
+
+-- ENCODE
+-- DECODER
+
+
+encode : Model -> Encode.Value
+encode model =
+    Encode.list Image.encode model
+
+
+decoder : Decoder Model
+decoder =
+    Decode.list Image.decoder

@@ -4,114 +4,25 @@
 --           outside Main module?
 
 
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
-import Browser.Dom exposing (Element)
-import Browser.Events
 import Browser.Navigation as Nav
-import ColorWheel
-import Colors exposing (Color, offWhite, toCssColor)
-import Components as C
-import Css
-    exposing
-        ( absolute
-        , auto
-        , backgroundColor
-        , block
-        , border
-        , border3
-        , borderBox
-        , borderLeft3
-        , borderRadius
-        , borderRight3
-        , bottom
-        , boxShadow5
-        , boxShadow6
-        , boxSizing
-        , breakWord
-        , color
-        , contentBox
-        , cursor
-        , display
-        , displayFlex
-        , fixed
-        , flexWrap
-        , fontSize
-        , height
-        , hidden
-        , hover
-        , inlineBlock
-        , inset
-        , left
-        , margin
-        , margin3
-        , marginBottom
-        , marginTop
-        , none
-        , overflow
-        , overflowWrap
-        , overflowX
-        , overflowY
-        , padding
-        , padding2
-        , pct
-        , pointer
-        , position
-        , px
-        , relative
-        , right
-        , scroll
-        , solid
-        , unset
-        , vw
-        , width
-        , wrap
-        , zero
-        )
-import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
 import Html
-import Html.Styled exposing (Html, div, input, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (css, id, type_, value)
-import Html.Styled.Events
-    exposing
-        ( on
-        , onBlur
-        , onClick
-        , onFocus
-        , onInput
-        , onMouseUp
-        )
-import Html.Styled.Keyed as Keyed
-import Html.Styled.Lazy exposing (lazy)
-import Icons exposing (withColor, withCss, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
-import LSystem.Draw as LDraw exposing (drawBlocks, drawImage)
-import LSystem.Image as Image
-    exposing
-        ( Image
-        , PartialImage
-        , Polygon(..)
-        , Position
-        , defaultImage
-        , encodeImage
-        , imageDecoder
-        , withImage
-        )
-import Midi exposing (adjustInputForStrokeWidth)
-import Pages.Editor as Editor
+import Pages.Editor as Editor exposing (ExternalMsg(..))
 import Pages.Gallery as Gallery
-import Random
 import Routes exposing (Page(..), Route(..), mapRouteToPage, parseUrl)
-import Set exposing (Set)
-import Svg.Styled exposing (Svg)
-import Task
-import Time
 import Url
-import Url.Parser as Parser exposing (Parser)
-import Utils exposing (delay, floatModBy)
+
+
+
+-- PORTS
+
+
+port saveModelToLocalStorage : Encode.Value -> Cmd msg
 
 
 
@@ -131,32 +42,18 @@ type alias Model =
 
 
 
--- MSG and TYPES
--- TYPES
+-- MSG
 
 
-{-| TODO: Rename Msgs: put all verbs in past tense and choose better words.
--}
 type Msg
     = UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
     | EditorMsg Editor.Msg
     | GalleryMsg Gallery.Msg
-      -- Sometimes there is nothing to do
-    | NoOp
 
 
 
--- FLAGS
-
-
-type alias Flags =
-    Encode.Value
-
-
-
--- MODEL
--- IMPLEMENTATION, LOGIC, FUNCTIONS
+-- INI MODEL
 {--TODO
 initialModel : Image -> List Image -> Url.Url -> Nav.Key -> Model
 initialModel image gallery url navKey =
@@ -178,40 +75,11 @@ initialModel url navKey =
     }
 
 
-withRoute : Route -> Model -> Model
-withRoute route model =
-    { model | viewingPage = mapRouteToPage route }
 
-
-
-{--
-encodeModel : { a | image : Image, gallery : List Image } -> Encode.Value
-encodeModel { image, gallery } =
-    Encode.object
-        [ ( keyFor.image, encodeImage image )
-        , ( keyFor.gallery, Encode.list encodeImage gallery )
-        ]
-
-
-modelDecoder : Decoder ( Image, List Image )
-modelDecoder =
-    Decode.oneOf
-        -- Add new model versions here!
-        [ Decode.map2 Tuple.pair
-            (Decode.field keyFor.image imageDecoder)
-            (Decode.field keyFor.gallery (Decode.list imageDecoder))
-        ]
-
-
-keyFor =
-    { image = "image"
-    , gallery = "gallery"
-    }
---}
 -- MAIN
 
 
-main : Program Flags Model Msg
+main : Program Encode.Value Model Msg
 main =
     Browser.application
         { init = init
@@ -225,52 +93,66 @@ main =
 
 
 -- INIT
-{--
-- separate gallery from image in localstorage
-- parse url
-- init editor model with url (if present) and localStorage (also if present)
---}
-{--TODO
-init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init localStorage url navKey =
+
+
+init : Encode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init locallyStoredModel url navKey =
     let
-        decodedLocalStorage =
-            Decode.decodeValue modelDecoder localStorage
+        ( initialEditorFromStorage, initialGallery ) =
+            case Decode.decodeValue decoder locallyStoredModel of
+                Ok ( storedEditor, storedGallery ) ->
+                    -- Change name to `withStorage` or change `storedEditor` to `storedPartialImage` ?
+                    ( storedEditor, storedGallery )
+
+                Err _ ->
+                    ( Editor.initialModel, Gallery.initialModel )
 
         route =
             parseUrl url
 
-        ( image, gallery ) =
-            combineUrlAndStorage decodedLocalStorage route
+        viewingPage =
+            mapRouteToPage route
 
-        model =
-            initialModel image gallery url navKey
-                |> modelWithRoute route
-                |> modelWithEditIndexLast
-
-        updateUrl =
+        initialEditor =
             case route of
-                Gallery ->
-                    []
+                -- TODO Make this name consistent with the above (check above comment about `storedEditor`)
+                Editor partialImage ->
+                    Editor.withPartialImage partialImage initialEditorFromStorage
 
                 _ ->
-                    [ replaceUrl navKey image ]
+                    initialEditorFromStorage
+
+        updateUrlForEditor =
+            case viewingPage of
+                EditorPage ->
+                    {--
+                        Note about Nav.replaceUrl: Browsers may rate-limit this function by throwing an
+                        exception. The discussion here suggests that the limit is 100 calls per 30 second
+                        interval in Safari in 2016. It also suggests techniques for people changing the
+                        URL based on scroll position.
+
+                        https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
+                    --}
+                    Nav.replaceUrl navKey (Editor.encodeIntoUrl initialEditor)
+
+                GalleryPage ->
+                    Cmd.none
+
+        model =
+            { editor = initialEditor
+            , gallery = initialGallery
+            , viewingPage = viewingPage
+            , url = url
+            , navKey = navKey
+            }
     in
     ( model
     , Cmd.batch
-        ([ getImgDivPosition
-         , saveEncodedModelToLocalStorage (encodeModel model)
-         , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
-         ]
-            ++ updateUrl
-        )
+        [ Cmd.map EditorMsg (Editor.initialCmd initialEditor)
+        , saveModelToLocalStorage (encode model)
+        , updateUrlForEditor
+        ]
     )
---}
-
-
-init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init localStorage url navKey =
-    ( initialModel url navKey, Cmd.none )
 
 
 
@@ -314,7 +196,7 @@ update msg model =
                 Browser.Internal url ->
                     case url.path of
                         "/" ->
-                            ( model, Nav.pushUrl model.navKey (Editor.urlEncoder model.editor) )
+                            ( model, Nav.pushUrl model.navKey (Editor.encodeIntoUrl model.editor) )
 
                         _ ->
                             ( model, Nav.pushUrl model.navKey (Url.toString url) )
@@ -324,10 +206,24 @@ update msg model =
 
         EditorMsg editorMsg ->
             let
-                ( editor, cmd ) =
+                ( editor, editorCmd, externalMsg ) =
                     Editor.update editorMsg model.editor
+
+                newModel =
+                    { model | editor = editor }
+
+                cmd =
+                    Cmd.map EditorMsg editorCmd
             in
-            ( { model | editor = editor }, Cmd.map EditorMsg cmd )
+            case externalMsg of
+                UpdatedEditor ->
+                    ( newModel, Cmd.batch [ cmd, saveModelToLocalStorage (encode newModel) ] )
+
+                UpdatedGallery image ->
+                    ( { newModel | gallery = Gallery.addImage image newModel.gallery }, cmd )
+
+                NothingToUpdate ->
+                    ( newModel, cmd )
 
         GalleryMsg galleryMsg ->
             let
@@ -335,9 +231,6 @@ update msg model =
                     Gallery.update galleryMsg model.gallery
             in
             ( { model | gallery = gallery }, Cmd.map GalleryMsg cmd )
-
-        NoOp ->
-            ( model, Cmd.none )
 
 
 
@@ -348,4 +241,45 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Sub.map EditorMsg <| Editor.subscriptions model.editor (model.viewingPage == EditorPage)
+        ]
+
+
+
+-- WITH* PATTERN
+
+
+withRoute : Route -> Model -> Model
+withRoute route model =
+    { model | viewingPage = mapRouteToPage route }
+
+
+
+-- ENCODER
+-- DECODER
+
+
+keyFor : { editor : String, gallery : String }
+keyFor =
+    { editor = "editor"
+    , gallery = "gallery"
+    }
+
+
+encode : Model -> Encode.Value
+encode model =
+    Encode.object
+        [ ( keyFor.editor, Editor.encode model.editor )
+        , ( keyFor.gallery, Gallery.encode model.gallery )
+        ]
+
+
+decoder : Decoder ( Editor.Model, Gallery.Model )
+decoder =
+    Decode.oneOf
+        -- Add new model versions here!
+        -- TODO Decouple editor/image decoder success/failure from gallery success/failure.
+        --      What happens if just one of the two has corrupted data?
+        [ Decode.map2 Tuple.pair
+            (Decode.field keyFor.editor Editor.decoder)
+            (Decode.field keyFor.gallery Gallery.decoder)
         ]

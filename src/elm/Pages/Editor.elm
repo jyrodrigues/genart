@@ -1,11 +1,16 @@
 port module Pages.Editor exposing
-    ( Model
+    ( ExternalMsg(..)
+    , Model
     , Msg
+    , decoder
+    , encode
+    , encodeIntoUrl
+    , initialCmd
     , initialModel
     , subscriptions
     , update
-    , urlEncoder
     , view
+    , withPartialImage
     )
 
 import Browser
@@ -94,8 +99,6 @@ import LSystem.Image as Image
         , Polygon(..)
         , Position
         , defaultImage
-        , encodeImage
-        , imageDecoder
         , withImage
         )
 import Midi exposing (adjustInputForStrokeWidth)
@@ -112,9 +115,6 @@ import Utils exposing (delay, floatModBy)
 
 
 -- PORTS
-
-
-port saveEncodedModelToLocalStorage : Encode.Value -> Cmd msg
 
 
 port downloadSvg : () -> Cmd msg
@@ -192,6 +192,17 @@ type
 
 
 
+-- Could be updated to `type alias ExternalMsg = { updatedEditor : Bool, updatedGallery : Bool, ... }`
+-- if we want to "send" more than one msg at a time
+
+
+type ExternalMsg
+    = UpdatedEditor
+    | UpdatedGallery Image
+    | NothingToUpdate
+
+
+
 -- MODEL
 
 
@@ -230,7 +241,7 @@ type alias Model =
 
 
 
--- OTHER TYPES
+-- AUXILIARY TYPES
 
 
 type Focus
@@ -238,11 +249,9 @@ type Focus
     | TurnAngleInputFocus
 
 
-
--- TODO Change to `type alias SlowMotion = Maybe Float` ?
-
-
-type SlowMotion
+type
+    SlowMotion
+    -- TODO Change to `type alias SlowMotion = Maybe Float` ?
     = NotSet
     | Slowly Float
 
@@ -267,13 +276,7 @@ video =
 
 
 
--- MODEL
--- IMPLEMENTATION, LOGIC, FUNCTIONS
-{--API
-initialModel -- with defautlImage
-    |> withLocalStorage Encode.Value
-    |> withUrl Url.Url
---}
+-- INITIAL STUFF
 
 
 initialModel : Model
@@ -314,25 +317,21 @@ initialModel =
     }
 
 
+initialCmd : Model -> Cmd Msg
+initialCmd model =
+    Cmd.batch
+        [ getImgDivPosition
+        , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
+        ]
+
+
 
 -- WITH* PATTERN
 
 
-withImage : Image -> Model -> Model
-withImage image model =
-    { model | image = image }
-
-
-withLocalStorage : Encode.Value -> Model -> Model
-withLocalStorage localStorage model =
-    -- TODO
-    model
-
-
-withUrl : Url.Url -> Model -> Model
-withUrl url model =
-    -- TODO
-    model
+withPartialImage : PartialImage -> Model -> Model
+withPartialImage image model =
+    { model | image = Image.withImage image model.image }
 
 
 withEditIndexLast : Model -> Model
@@ -341,55 +340,6 @@ withEditIndexLast model =
 
 
 
-{--INIT
--- TODO review route's `Maybe PartialImage` type signature
-
-
-combineUrlAndStorage : Result Decode.Error Image -> Maybe PartialImage -> Image
-combineUrlAndStorage storage route =
-    case ( storage, route ) of
-        ( Ok storedImage, Just urlImage ) ->
-            storedImage |> withImage urlImage
-
-        ( Err _, Just urlImage ) ->
-            defaultImage |> withImage urlImage
-
-        ( Ok storedImage, _ ) ->
-            storedImage
-
-        ( Err _, _ ) ->
-            defaultImage
-
-
-
-
-
-init : Encode.Value -> Result Decode.Error Image -> ( Model, Cmd Msg )
-init localStorage url =
-    let
-        decodedLocalStorage =
-            Decode.decodeValue modelDecoder localStorage
-
-        route =
-            parseUrl url
-
-        ( image, gallery ) =
-            combineUrlAndStorage decodedLocalStorage route
-
-        model =
-            initialModel image
-                |> withEditIndexLast
-    in
-    ( model
-    , Cmd.batch
-        [ getImgDivPosition
-        , saveEncodedModelToLocalStorage (encodeModel model)
-        , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
-
-        --, replaceUrl navKey image
-        ]
-    )
---}
 -- VIEW
 
 
@@ -453,7 +403,7 @@ controlPanel model =
 infoAndBasicControls : Html Msg
 infoAndBasicControls =
     C.controlBlockFlex
-        [ C.anchorButtonHalf (routeFor GalleryPage) "Gallery"
+        [ C.anchorButtonHalf routeFor.gallery "Gallery"
         , C.primaryButtonHalf SavedToGallery "Save"
         , C.primaryButtonHalf FullscreenRequested "Full"
         , C.primaryButtonHalf DownloadSvg "Down"
@@ -781,35 +731,17 @@ layout =
 -- UPDATE
 
 
-updateSvgPathAndBoundariesIfNeeded : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
-updateSvgPathAndBoundariesIfNeeded ( model, cmd ) =
-    ( { model | image = Image.updateSvgPathAndBoundaries model.image }, cmd )
+updateSvgPathAndBoundariesIfNeeded : ( Model, Cmd Msg, ExternalMsg ) -> ( Model, Cmd Msg, ExternalMsg )
+updateSvgPathAndBoundariesIfNeeded ( model, cmd, externalMsg ) =
+    ( { model | image = Image.updateSvgPathAndBoundaries model.image }, cmd, externalMsg )
 
 
-updateAndSaveImageAndGalleryWithCmd : Cmd Msg -> Model -> ( Model, Cmd Msg )
-updateAndSaveImageAndGalleryWithCmd cmd newModel =
-    ( newModel
-    , Cmd.batch
-        [ saveEncodedModelToLocalStorage (encodeModel newModel)
-
-        -- TODO
-        --, replaceUrl newModel.navKey newModel.image
-        , cmd
-        ]
-    )
-
-
-updateAndSaveImageAndGallery : Model -> ( Model, Cmd Msg )
-updateAndSaveImageAndGallery =
-    updateAndSaveImageAndGalleryWithCmd Cmd.none
-
-
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Cmd Msg, ExternalMsg )
 update msg model =
     updateSvgPathAndBoundariesIfNeeded <|
         case msg of
             RandomRequested ->
-                ( model, Random.generate GotRandomImage Image.random )
+                ( model, Random.generate GotRandomImage Image.random, NothingToUpdate )
 
             GotRandomImage partialImage ->
                 let
@@ -822,46 +754,59 @@ update msg model =
                   }
                     |> withEditIndexLast
                 , Cmd.none
+                , UpdatedEditor
                 )
 
             DownloadSvg ->
-                ( model, downloadSvg () )
+                ( model, downloadSvg (), NothingToUpdate )
 
             DownloadSvgAsJpeg ->
-                ( model, downloadSvgAsJpeg () )
+                ( model, downloadSvgAsJpeg (), NothingToUpdate )
 
             FullscreenRequested ->
-                ( model, requestFullscreen () )
+                ( model, requestFullscreen (), NothingToUpdate )
 
             ResetDrawing ->
-                updateAndSaveImageAndGallery
-                    { model
-                        | image = Image.resetImageComposition model.image
-                        , editingIndex = 1
-                    }
+                ( { model
+                    | image = Image.resetImageComposition model.image
+                    , editingIndex = 1
+                  }
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             AddSimpleBlock ->
-                { model | image = Image.appendSimpleBlock model.image }
+                ( { model | image = Image.appendSimpleBlock model.image }
                     |> withEditIndexLast
-                    |> updateAndSaveImageAndGallery
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             DuplicateAndAppendBlock editingIndex ->
-                updateAndSaveImageAndGallery <| duplicateAndAppendBlock model editingIndex
+                ( duplicateAndAppendBlock model editingIndex
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             SetEditingIndex index ->
-                ( { model | editingIndex = index }, Cmd.none )
+                ( { model | editingIndex = index }
+                , Cmd.none
+                , NothingToUpdate
+                )
 
             DropBlock index ->
-                updateAndSaveImageAndGallery <|
-                    { model
-                        | image = Image.dropBlockAtIndex index model.image
-                        , editingIndex =
-                            if index <= model.editingIndex then
-                                max 0 (model.editingIndex - 1)
+                ( { model
+                    | image = Image.dropBlockAtIndex index model.image
+                    , editingIndex =
+                        if index <= model.editingIndex then
+                            max 0 (model.editingIndex - 1)
 
-                            else
-                                model.editingIndex
-                    }
+                        else
+                            model.editingIndex
+                  }
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             EditorKeyPress keyString ->
                 let
@@ -869,21 +814,21 @@ update msg model =
                         processKey model keyString
                 in
                 if keyString == "a" then
-                    ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.focus "TurnAngle") )
+                    ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.focus "TurnAngle"), NothingToUpdate )
 
                 else if keyString == "q" then
-                    ( model, Random.generate GotRandomImage Image.random )
+                    ( model, Random.generate GotRandomImage Image.random, UpdatedEditor )
 
                 else if shouldUpdate then
-                    updateAndSaveImageAndGallery newModel
+                    ( newModel, Cmd.none, NothingToUpdate )
 
                 else
-                    ( model, Cmd.none )
+                    ( model, Cmd.none, NothingToUpdate )
 
             -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
             -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
             Zoom _ deltaY _ mousePos ->
-                updateAndSaveImageAndGallery <| applyZoom deltaY mousePos model
+                ( applyZoom deltaY mousePos model, Cmd.none, UpdatedEditor )
 
             ColorWheelMsg subMsg ->
                 let
@@ -900,14 +845,16 @@ update msg model =
                 in
                 case msgType of
                     ColorWheel.ColorChanged ->
-                        updateAndSaveImageAndGallery
-                            { model
-                                | colorWheel = updatedColorWheel
-                                , image = image
-                            }
+                        ( { model
+                            | colorWheel = updatedColorWheel
+                            , image = image
+                          }
+                        , Cmd.none
+                        , UpdatedEditor
+                        )
 
                     ColorWheel.SameColor ->
-                        ( { model | colorWheel = updatedColorWheel }, Cmd.none )
+                        ( { model | colorWheel = updatedColorWheel }, Cmd.none, NothingToUpdate )
 
             SetColorTarget target ->
                 ( { model
@@ -915,25 +862,30 @@ update msg model =
                     , colorWheel = updateColorWheel model.image target model.colorWheel
                   }
                 , Cmd.none
+                , NothingToUpdate
                 )
 
             ExchangeColors ->
-                updateAndSaveImageAndGallery
-                    { model
-                        | image =
-                            model.image
-                                |> Image.withStrokeColor model.image.backgroundColor
-                                |> Image.withBackgroundColor model.image.strokeColor
-                        , colorWheel = updateColorWheel model.image model.colorTarget model.colorWheel
-                    }
+                ( { model
+                    | image =
+                        model.image
+                            |> Image.withStrokeColor model.image.backgroundColor
+                            |> Image.withBackgroundColor model.image.strokeColor
+                    , colorWheel = updateColorWheel model.image model.colorTarget model.colorWheel
+                  }
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             SetTurnAngleInputValue stringValue ->
                 if stringValue == "" then
-                    updateAndSaveImageAndGallery
-                        { model
-                            | image = Image.withTurnAngle 0 model.image
-                            , turnAngleInputValue = stringValue
-                        }
+                    ( { model
+                        | image = Image.withTurnAngle 0 model.image
+                        , turnAngleInputValue = stringValue
+                      }
+                    , Cmd.none
+                    , UpdatedEditor
+                    )
 
                 else
                     case String.toFloat stringValue of
@@ -947,13 +899,13 @@ update msg model =
                             in
                             if Set.member video.changeAngle model.playingVideo then
                                 -- Don't update URL and Local Storage on each video step
-                                ( newModel, Cmd.none )
+                                ( newModel, Cmd.none, NothingToUpdate )
 
                             else
-                                updateAndSaveImageAndGallery newModel
+                                ( newModel, Cmd.none, UpdatedEditor )
 
                         Nothing ->
-                            ( { model | turnAngleInputValue = stringValue }, Cmd.none )
+                            ( { model | turnAngleInputValue = stringValue }, Cmd.none, NothingToUpdate )
 
             InputKeyPress key ->
                 let
@@ -972,15 +924,17 @@ update msg model =
                         String.fromFloat << newTurnAngle
 
                     updateTurnAngle op =
-                        updateAndSaveImageAndGallery
-                            { model
-                                | image = Image.withTurnAngle (newTurnAngle op) model.image
-                                , turnAngleInputValue = newTurnAngleInputValue op
-                            }
+                        ( { model
+                            | image = Image.withTurnAngle (newTurnAngle op) model.image
+                            , turnAngleInputValue = newTurnAngleInputValue op
+                          }
+                        , Cmd.none
+                        , UpdatedEditor
+                        )
                 in
                 case key of
                     "Escape" ->
-                        ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.blur "TurnAngle") )
+                        ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.blur "TurnAngle"), NothingToUpdate )
 
                     "ArrowUp" ->
                         updateTurnAngle (+)
@@ -989,16 +943,25 @@ update msg model =
                         updateTurnAngle (-)
 
                     _ ->
-                        ( model, Cmd.none )
+                        ( model, Cmd.none, NothingToUpdate )
 
             SetStrokeWidth width ->
-                updateAndSaveImageAndGallery <| { model | image = Image.withStrokeWidth width model.image }
+                ( { model | image = Image.withStrokeWidth width model.image }
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             PanStarted pos ->
-                ( { model | panStarted = True, lastPos = pos }, Cmd.none )
+                ( { model | panStarted = True, lastPos = pos }
+                , Cmd.none
+                , NothingToUpdate
+                )
 
             PanEnded ->
-                updateAndSaveImageAndGallery <| { model | panStarted = False }
+                ( { model | panStarted = False }
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             MouseMoved pos ->
                 ( { model
@@ -1006,13 +969,17 @@ update msg model =
                     , lastPos = pos
                   }
                 , Cmd.none
+                , NothingToUpdate
                 )
 
             SetFocus focus ->
-                ( { model | focus = focus }, Cmd.none )
+                ( { model | focus = focus }, Cmd.none, NothingToUpdate )
 
             BasePolygonChanged polygon ->
-                updateAndSaveImageAndGallery <| updateCompositionBaseAndAngle model polygon
+                ( updateCompositionBaseAndAngle model polygon
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             GotImgDivPosition result ->
                 case result of
@@ -1021,10 +988,13 @@ update msg model =
                             { x, y, width, height } =
                                 data.element
                         in
-                        ( { model | imgDivCenter = ( x + width / 2, y + height / 2 ), imgDivStart = ( x, y ) }, Cmd.none )
+                        ( { model | imgDivCenter = ( x + width / 2, y + height / 2 ), imgDivStart = ( x, y ) }
+                        , Cmd.none
+                        , NothingToUpdate
+                        )
 
                     Err _ ->
-                        ( model, Cmd.none )
+                        ( model, Cmd.none, NothingToUpdate )
 
             WindowResized _ _ ->
                 ( model
@@ -1032,6 +1002,7 @@ update msg model =
                     [ getImgDivPosition
                     , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
                     ]
+                , NothingToUpdate
                 )
 
             ToggleVideo videoType ->
@@ -1039,10 +1010,13 @@ update msg model =
                     -- When video stopped save model in URL and Local Storage
                     -- N.B. Copying the URL while a playing video will copy the last image saved
                     -- i.e. before playing video or the last not-angle edit while playing.
-                    updateAndSaveImageAndGallery { model | playingVideo = Set.remove videoType model.playingVideo }
+                    ( { model | playingVideo = Set.remove videoType model.playingVideo }
+                    , Cmd.none
+                    , UpdatedEditor
+                    )
 
                 else
-                    ( { model | playingVideo = Set.insert videoType model.playingVideo }, Cmd.none )
+                    ( { model | playingVideo = Set.insert videoType model.playingVideo }, Cmd.none, NothingToUpdate )
 
             VideoTick ->
                 let
@@ -1113,42 +1087,42 @@ update msg model =
                             , colorWheel = ColorWheel.withColor color model_.colorWheel
                         }
                 in
-                ( updateAngle newAngle <| updateColor newColor model, Cmd.none )
+                ( updateAngle newAngle <| updateColor newColor model, Cmd.none, NothingToUpdate )
 
             ToggleSlowMotion ->
                 case model.slowMotion of
                     Slowly _ ->
-                        ( { model | slowMotion = NotSet }, Cmd.none )
+                        ( { model | slowMotion = NotSet }, Cmd.none, NothingToUpdate )
 
                     NotSet ->
-                        ( { model | slowMotion = Slowly 0.05 }, Cmd.none )
+                        ( { model | slowMotion = Slowly 0.05 }, Cmd.none, NothingToUpdate )
 
             SetVideoAngleChangeRate rate ->
-                ( { model | videoAngleChangeRate = rate }, Cmd.none )
+                ( { model | videoAngleChangeRate = rate }, Cmd.none, NothingToUpdate )
 
             ReverseAngleChangeDirection ->
-                ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )
+                ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }
+                , Cmd.none
+                , NothingToUpdate
+                )
 
             SavedToGallery ->
                 -- `4000` here is enough to make the transition visible until it removes the node from the DOM.
-                updateAndSaveImageAndGalleryWithCmd (delay 4000 HideAlert)
-                    { model
-                      -- TODO
-                      --                        | gallery =
-                      --                            model.image
-                      --                                :: model.gallery
-                        | alertActive = True
-                    }
+                ( { model | alertActive = True }
+                , delay 4000 HideAlert
+                , UpdatedGallery model.image
+                )
 
             GotMidiEvent value ->
                 -- TODO add throttle and then add updateAndSaveImageAndGallery
-                ( processMidi value model, Cmd.none )
+                -- TODO make it save when needed (it'll be fine if `processMidi` calls `update` with proper msgs
+                ( processMidi value model, Cmd.none, NothingToUpdate )
 
             HideAlert ->
-                ( { model | alertActive = False }, Cmd.none )
+                ( { model | alertActive = False }, Cmd.none, NothingToUpdate )
 
             NoOp ->
-                ( model, Cmd.none )
+                ( model, Cmd.none, NothingToUpdate )
 
 
 updateColorWheel : Image -> ColorTarget -> ColorWheel.Model -> ColorWheel.Model
@@ -1623,9 +1597,9 @@ queryParser =
 -- (routeFor EditorPage ++ Image.toQuery model.image)
 
 
-urlEncoder : Model -> String
-urlEncoder model =
-    ""
+encodeIntoUrl : Model -> String
+encodeIntoUrl model =
+    routeFor.editor ++ Image.toQuery model.image
 
 
 
@@ -1633,14 +1607,14 @@ urlEncoder model =
 -- DECODE
 
 
-encodeModel : Model -> Encode.Value
-encodeModel { image } =
-    encodeImage image
+encode : Model -> Encode.Value
+encode { image } =
+    Image.encode image
 
 
-modelDecoder : Decoder Model
-modelDecoder =
-    Decode.map (\image -> withImage image initialModel) <|
+decoder : Decoder Model
+decoder =
+    Decode.map (\image -> { initialModel | image = image }) <|
         Decode.oneOf
             -- Add new model versions here!
-            [ imageDecoder ]
+            [ Image.decoder ]

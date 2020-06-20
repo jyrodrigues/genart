@@ -17,13 +17,13 @@ module LSystem.Image exposing
     , blockBlueprintString
     , blocksToImages
     , centralize
+    , decoder
     , defaultImage
     , dropBlockAtIndex
     , dropLastBlock
     , dropLastStepAtIndex
     , duplicateBlock
-    , encodeImage
-    , imageDecoder
+    , encode
     , imageStepsLenthString
     , imageToSvgPathString
     , length
@@ -465,8 +465,8 @@ polygonAngle polygon =
 -- DECODER
 
 
-encodeImage : Image -> Encode.Value
-encodeImage { composition, turnAngle, backgroundColor, strokeColor, strokeWidth, translate, scale, curve } =
+encode : Image -> Encode.Value
+encode { composition, turnAngle, backgroundColor, strokeColor, strokeWidth, translate, scale, curve } =
     Encode.object
         [ ( keyFor.composition, Core.encodeComposition composition )
         , ( keyFor.turnAngle, Encode.float turnAngle )
@@ -480,8 +480,8 @@ encodeImage { composition, turnAngle, backgroundColor, strokeColor, strokeWidth,
         ]
 
 
-imageDecoder : Decoder Image
-imageDecoder =
+decoder : Decoder Image
+decoder =
     let
         composition =
             Decode.field keyFor.composition Core.compositionDecoder
@@ -578,8 +578,8 @@ curveDecoder =
 queryParser : Query.Parser PartialImage
 queryParser =
     let
-        parseQuery getKey decoder =
-            Query.map (Maybe.andThen (Decode.decodeString decoder >> Result.toMaybe)) (Query.string (getKey keyFor))
+        parseQuery getKey decoder_ =
+            Query.map (Maybe.andThen (Decode.decodeString decoder_ >> Result.toMaybe)) (Query.string (getKey keyFor))
     in
     Query.map8 PartialImage
         (parseQuery .composition Core.compositionDecoder)
