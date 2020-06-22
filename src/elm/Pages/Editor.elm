@@ -408,6 +408,7 @@ controlPanel model =
         , C.controlBlock "Info"
             [ p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.imageStepsLenthString model.image) ]
             , p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
+            , p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (String.fromInt <| Image.prettyScore model.image) ]
             ]
         ]
 

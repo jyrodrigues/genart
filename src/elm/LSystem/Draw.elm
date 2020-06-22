@@ -58,7 +58,7 @@ drawImage maybeId maybeMsg drawOriginAndNextStep image =
             translate
 
         -- MAIN COMPUTATION: process image and create SVG path.
-        ( mainPathString, nextStepPathString, boundaries ) =
+        { pathString, nextStepPathString, boundaries, overlapScore } =
             case image.svgPathAndBoundaries of
                 Just svgPathAndBoundaries ->
                     svgPathAndBoundaries
@@ -110,7 +110,7 @@ drawImage maybeId maybeMsg drawOriginAndNextStep image =
             ++ optionalAttrs
         )
         (path
-            [ d mainPathString
+            [ d pathString
             , stroke (Colors.toString strokeColor)
             , strokeWidth (String.fromFloat image.strokeWidth ++ "px")
             , strokeLinecap "square"

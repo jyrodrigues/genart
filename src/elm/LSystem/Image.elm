@@ -30,6 +30,7 @@ module LSystem.Image exposing
     , move
     , polygonAngle
     , polygonBlock
+    , prettyScore
     , queryParser
     , random
     , resetBaseTo
@@ -60,6 +61,7 @@ import Json.Decode.Extra as DecodeExtra
 import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
 import Random
+import Set exposing (Set)
 import Url.Builder
 import Url.Parser.Query as Query
 import Utils
@@ -94,7 +96,11 @@ type Polygon
 
 
 type alias SvgPathAndBoundaries =
-    ( String, String, Boundaries )
+    { pathString : String
+    , nextStepPathString : String
+    , boundaries : Boundaries
+    , overlapScore : Int
+    }
 
 
 type alias Boundaries =
@@ -425,6 +431,24 @@ random =
 
 
 
+-- OVERLAP SCORE
+
+
+prettyScore : Image -> Int
+prettyScore image =
+    let
+        { overlapScore } =
+            case image.svgPathAndBoundaries of
+                Just svgPathAndBoundaries ->
+                    svgPathAndBoundaries
+
+                Nothing ->
+                    imageToSvgPathString image
+    in
+    overlapScore
+
+
+
 -- POLYGON
 
 
@@ -689,6 +713,8 @@ type alias EverythingInOnePass =
     { pathString : String
     , angle : Float
     , position : Position
+    , seenPositions : Set ( Int, Int ) -- Position as Int for float-point precision handling.
+    , repeatedPositionCount : Int
     , boundaries : Boundaries
     }
 
@@ -715,26 +741,32 @@ imageToSvgPathString { composition, turnAngle, curve } =
     in
     -- Main path
     -- TODO add initial Q value when curve==Curve
-    ( "M 0 0 " ++ finalEverything.pathString
-      -- Next step path
-    , "M "
-        ++ String.fromFloat lastX
-        ++ " "
-        ++ String.fromFloat lastY
-        ++ " "
-        ++ segmentToString (L (nextPositionDelta finalEverything.angle))
-      -- TopRight and BottomLeft extremes of final image
-    , finalEverything.boundaries
-    )
+    { pathString = "M 0 0 " ++ finalEverything.pathString
+
+    -- Next step path
+    , nextStepPathString =
+        "M "
+            ++ String.fromFloat lastX
+            ++ " "
+            ++ String.fromFloat lastY
+            ++ " "
+            ++ segmentToString (L (nextPositionDelta finalEverything.angle))
+
+    -- TopRight and BottomLeft extremes of final image
+    , boundaries = finalEverything.boundaries
+    , overlapScore = finalEverything.repeatedPositionCount
+    }
 
 
 baseEverything : EverythingInOnePass
 baseEverything =
-    EverythingInOnePass
-        ""
-        0
-        ( 0, 0 )
-        (Boundaries ( 0, 0 ) ( 0, 0 ))
+    { pathString = ""
+    , angle = 0
+    , position = ( 0, 0 )
+    , seenPositions = Set.singleton ( 0, 0 )
+    , repeatedPositionCount = 0
+    , boundaries = Boundaries ( 0, 0 ) ( 0, 0 )
+    }
 
 
 {-|
@@ -757,7 +789,7 @@ baseEverything =
 
 -}
 processCompositionStep : PathCurve -> Float -> Step -> EverythingInOnePass -> EverythingInOnePass
-processCompositionStep pathCurve turnAngleSize step { pathString, angle, position, boundaries } =
+processCompositionStep pathCurve turnAngleSize step { pathString, angle, position, seenPositions, repeatedPositionCount, boundaries } =
     let
         nextPositionDelta_ =
             nextPositionDelta angle
@@ -777,35 +809,52 @@ processCompositionStep pathCurve turnAngleSize step { pathString, angle, positio
 
                 Curve ->
                     T
+
+        precision =
+            10.0 ^ 6
+
+        nextPositionInt =
+            nextPosition
+                |> Utils.pairExec (*) ( precision, precision )
+                |> Utils.pairMap floor
+
+        updatedRepeatedPositionCount =
+            if Set.member nextPositionInt seenPositions && (step == Core.D || step == Core.S) then
+                repeatedPositionCount + 1
+
+            else
+                repeatedPositionCount
+
+        dataDS pathStr =
+            { pathString = pathStr
+            , angle = angle
+            , position = nextPosition
+            , seenPositions = Set.insert nextPositionInt seenPositions
+            , repeatedPositionCount = updatedRepeatedPositionCount
+            , boundaries = updatedBoundaries
+            }
+
+        dataLR angle_ =
+            { pathString = pathString
+            , angle = angle_
+            , position = position
+            , seenPositions = seenPositions
+            , repeatedPositionCount = updatedRepeatedPositionCount
+            , boundaries = updatedBoundaries
+            }
     in
     case step of
         Core.D ->
-            EverythingInOnePass
-                (pathString ++ segmentToString (curve nextPositionDelta_))
-                angle
-                nextPosition
-                updatedBoundaries
+            dataDS (pathString ++ segmentToString (curve nextPositionDelta_))
 
         Core.S ->
-            EverythingInOnePass
-                (pathString ++ segmentToString (M nextPositionDelta_))
-                angle
-                nextPosition
-                updatedBoundaries
+            dataDS (pathString ++ segmentToString (M nextPositionDelta_))
 
         Core.L ->
-            EverythingInOnePass
-                pathString
-                (modBy360 (angle + turnAngleSize))
-                position
-                boundaries
+            dataLR (modBy360 (angle + turnAngleSize))
 
         Core.R ->
-            EverythingInOnePass
-                pathString
-                (modBy360 (angle - turnAngleSize))
-                position
-                boundaries
+            dataLR (modBy360 (angle - turnAngleSize))
 
 
 {-|
