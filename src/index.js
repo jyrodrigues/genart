@@ -18,6 +18,11 @@ var storage;
 
 try {
     storage = JSON.parse(encodedStorage);
+
+    // Update storage schema if needed
+    if (storage.image) {
+        storage.editor = storage.image;
+    }
 } catch (e) {
     console.log("Error while parsing localStorage[" + storageKey + "] = " + encodedStorage, e);
 }
