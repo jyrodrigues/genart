@@ -1,8 +1,8 @@
 module Pages.Gallery exposing
     ( Model
     , Msg
-    , decoder
     , addImage
+    , decoder
     , encode
     , initialModel
     , update
@@ -39,6 +39,9 @@ import Css
         , width
         , zero
         )
+import File exposing (File)
+import File.Download as Download
+import File.Select as Select
 import Html.Styled exposing (Html, div, toUnstyled)
 import Html.Styled.Attributes exposing (css)
 import Icons exposing (withColor, withCss, withOnClick)
@@ -47,6 +50,7 @@ import Json.Encode as Encode
 import LSystem.Draw as LDraw
 import LSystem.Image as Image exposing (Image)
 import Routes exposing (Page(..), routeFor)
+import Task
 import Utils
 
 
@@ -65,6 +69,10 @@ type alias Model =
 type Msg
     = RemovedFromGallery Int
     | CopiedToEditor Int
+    | DownloadRequested
+    | UploadRequested
+    | SelectedGallery File
+    | LoadedGallery String
 
 
 
@@ -107,6 +115,31 @@ update msg model =
                 }
             --}
             ( model, Cmd.none )
+
+        DownloadRequested ->
+            let
+                galleryAsString =
+                    Encode.encode 4 (encode model)
+            in
+            ( model, Download.string "genart-gallery.json" "application/json" galleryAsString )
+
+        UploadRequested ->
+            ( model, Select.file [ "application/json" ] SelectedGallery )
+
+        SelectedGallery file ->
+            ( model, Task.perform LoadedGallery (File.toString file) )
+
+        LoadedGallery galleryAsString ->
+            let
+                decodedString =
+                    Decode.decodeString decoder galleryAsString
+            in
+            case decodedString of
+                Ok uploadedGallery ->
+                    ( uploadedGallery ++ model, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
 
 
 
@@ -152,7 +185,10 @@ view model =
                     , boxSizing borderBox
                     ]
                 ]
-                [ C.anchorButton routeFor.editor "Back to editor" ]
+                [ C.anchorButton routeFor.editor "Back to editor"
+                , C.primaryButton DownloadRequested "Download gallery"
+                , C.primaryButton UploadRequested "Upload gallery"
+                ]
             ]
             |> toUnstyled
         ]
@@ -185,11 +221,15 @@ imageBox index image =
             |> Icons.toSvg
         ]
 
+
+
 -- FUNCTIONS
+
 
 addImage : Image -> Model -> Model
 addImage =
     (::)
+
 
 
 -- ENCODE
