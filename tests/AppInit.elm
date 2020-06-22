@@ -25,7 +25,9 @@ import LSystem.Image as Image
         , PathCurve(..)
         , defaultImage
         )
-import Main exposing (Route(..), encodeModel, modelDecoder, parseUrl)
+import Main
+import Pages.Editor as Editor
+import Routes exposing (Route(..), parseUrl)
 import Test exposing (Test, describe, fuzz, fuzz2, test)
 import Url exposing (Protocol(..), Url)
 
@@ -133,10 +135,17 @@ suite =
                             |> Expect.equal (Ok fuzzyImage)
                 , fuzz2 imageFuzzer (Fuzz.list imageFuzzer) "Image and Gallery" <|
                     \fuzzyImage fuzzyGallery ->
-                        { image = fuzzyImage, gallery = fuzzyGallery }
-                            |> encodeModel
-                            |> Decode.decodeValue modelDecoder
-                            |> Expect.equal (Ok ( fuzzyImage, fuzzyGallery ))
+                        let
+                            initialEditor =
+                                Editor.initialModel
+
+                            fuzzyModel =
+                                { editor = { initialEditor | image = fuzzyImage }, gallery = fuzzyGallery }
+                        in
+                        fuzzyModel
+                            |> Main.encode
+                            |> Decode.decodeValue Main.decoder
+                            |> Expect.equal (Ok ( fuzzyModel.editor, fuzzyModel.gallery ))
                 , test "Decode Image without strokeWidth" <|
                     \_ ->
                         imageV3

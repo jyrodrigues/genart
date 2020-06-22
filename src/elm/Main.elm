@@ -4,7 +4,7 @@
 --           outside Main module?
 
 
-port module Main exposing (main)
+port module Main exposing (decoder, encode, main)
 
 import Browser
 import Browser.Navigation as Nav
@@ -265,11 +265,11 @@ keyFor =
     }
 
 
-encode : Model -> Encode.Value
-encode model =
+encode : { a | editor : Editor.Model, gallery : Gallery.Model } -> Encode.Value
+encode { editor, gallery } =
     Encode.object
-        [ ( keyFor.editor, Editor.encode model.editor )
-        , ( keyFor.gallery, Gallery.encode model.gallery )
+        [ ( keyFor.editor, Editor.encode editor )
+        , ( keyFor.gallery, Gallery.encode gallery )
         ]
 
 
