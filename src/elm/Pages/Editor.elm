@@ -1,35 +1,32 @@
--- Anything other than `main` is exposed for testing only
--- TODO research how we could change this in order to only expose `main`
--- Question: Should Main module be tested? Should every test-deserving function live
---           outside Main module?
-
-
-port module Main exposing
-    ( Route(..)
-    , encodeModel
-    , main
-    , modelDecoder
-    , parseUrl
+port module Pages.Editor exposing
+    ( ExternalMsg(..)
+    , Model
+    , Msg
+    , decoder
+    , encode
+    , encodeIntoUrl
+    , initialCmd
+    , initialModel
+    , subscriptions
+    , update
+    , view
+    , withPartialImage
     )
 
 import Browser
 import Browser.Dom exposing (Element)
 import Browser.Events
-import Browser.Navigation as Nav
 import ColorWheel
 import Colors exposing (Color, offWhite, toCssColor)
 import Components as C
 import Css
     exposing
         ( absolute
-        , active
         , auto
         , backgroundColor
-        , backgroundImage
         , block
         , border
         , border3
-        , borderBottom3
         , borderBox
         , borderLeft3
         , borderRadius
@@ -39,36 +36,22 @@ import Css
         , boxShadow6
         , boxSizing
         , breakWord
-        , calc
-        , center
         , color
-        , column
         , contentBox
         , cursor
-        , default
         , display
         , displayFlex
         , fixed
-        , flexDirection
         , flexWrap
-        , fontFamily
         , fontSize
         , height
         , hidden
         , hover
-        , inlineBlock
         , inset
         , left
-        , lineHeight
-        , linearGradient2
-        , margin
-        , margin2
         , margin3
         , marginBottom
         , marginTop
-        , maxWidth
-        , minWidth
-        , minus
         , none
         , overflow
         , overflowWrap
@@ -82,24 +65,17 @@ import Css
         , px
         , relative
         , right
-        , sansSerif
         , scroll
         , solid
-        , stop
-        , textAlign
-        , textDecoration
-        , toRight
-        , transparent
         , unset
         , vw
         , width
         , wrap
         , zero
         )
-import Css.Global exposing (body, global)
-import Css.Media as Media exposing (withMedia)
-import Html.Styled exposing (Html, a, br, button, div, h2, h3, input, label, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (css, for, href, id, type_, value)
+import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
+import Html.Styled exposing (Html, div, input, p, span, text, toUnstyled)
+import Html.Styled.Attributes exposing (css, id, type_, value)
 import Html.Styled.Events
     exposing
         ( on
@@ -108,7 +84,6 @@ import Html.Styled.Events
         , onFocus
         , onInput
         , onMouseUp
-        , preventDefaultOn
         )
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy exposing (lazy)
@@ -124,28 +99,22 @@ import LSystem.Image as Image
         , Polygon(..)
         , Position
         , defaultImage
-        , encodeImage
-        , imageDecoder
         , withImage
         )
-import ListExtra
 import Midi exposing (adjustInputForStrokeWidth)
-import Process
 import Random
+import Routes exposing (Page(..), routeFor)
 import Set exposing (Set)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
 import Url
-import Url.Parser as Parser exposing (Parser, string)
+import Url.Parser as Parser exposing (Parser)
 import Utils exposing (delay, floatModBy)
 
 
 
 -- PORTS
-
-
-port saveEncodedModelToLocalStorage : Encode.Value -> Cmd msg
 
 
 port downloadSvg : () -> Cmd msg
@@ -161,7 +130,7 @@ port midiEvent : (Encode.Value -> msg) -> Sub msg
 
 
 
--- TYPES
+-- TYPES AND MSG
 -- MSG
 
 
@@ -170,6 +139,7 @@ port midiEvent : (Encode.Value -> msg) -> Sub msg
 type
     Msg
     -- Global keyboard listener
+    -- TODO change to `KeyPress Where String`
     = EditorKeyPress String
     | InputKeyPress String
       -- Main commands
@@ -181,8 +151,6 @@ type
     | DropBlock Int
       -- Storage
     | SavedToGallery
-    | RemovedFromGallery Int
-    | DuplicateToEdit Int
       -- Pan and Zoom
     | GotImgDivPosition (Result Browser.Dom.Error Element)
     | WindowResized Int Int
@@ -195,7 +163,6 @@ type
     | ColorWheelMsg ColorWheel.Msg
     | ExchangeColors
       -- Angle
-    | SetTurnAngle Float
     | SetTurnAngleInputValue String
       -- Stroke width
     | SetStrokeWidth Float
@@ -205,8 +172,6 @@ type
       -- Focus
     | SetFocus Focus
       -- URL
-    | UrlChanged Url.Url
-    | LinkClicked Browser.UrlRequest
       -- Video
     | ToggleVideo Video
     | VideoTick
@@ -227,6 +192,17 @@ type
 
 
 
+-- Could be updated to `type alias ExternalMsg = { updatedEditor : Bool, updatedGallery : Bool, ... }`
+-- if we want to "send" more than one msg at a time
+
+
+type ExternalMsg
+    = UpdatedEditor
+    | UpdatedGallery Image
+    | NothingToUpdate
+
+
+
 -- MODEL
 
 
@@ -234,10 +210,6 @@ type alias Model =
     -- Aplication heart
     { image : Image
     , editingIndex : Int
-
-    -- Storage
-    , gallery : List Image
-    , viewingPage : Page
 
     -- Pan and Zoom
     , panStarted : Bool
@@ -254,10 +226,6 @@ type alias Model =
     -- Browser Focus
     , focus : Focus
 
-    -- Url
-    , url : Url.Url
-    , navKey : Nav.Key
-
     -- Video
     , videoAngleChangeRate : Float
     , slowMotion : SlowMotion
@@ -273,45 +241,7 @@ type alias Model =
 
 
 
--- ROUTING
-
-
-type Page
-    = EditorPage
-    | GalleryPage
-
-
-type Route
-    = Editor PartialImage
-    | Gallery
-    | NotFound
-
-
-mapRouteToPage : Route -> Page
-mapRouteToPage route =
-    -- TODO think about this flow that requires this function. It doesn't seem the best one.
-    case route of
-        Gallery ->
-            GalleryPage
-
-        _ ->
-            EditorPage
-
-
-
--- FLAGS
-
-
-type alias Flags =
-    Encode.Value
-
-
-
--- OTHER TYPES
-
-
-type alias ShiftKey =
-    Bool
+-- AUXILIARY TYPES
 
 
 type Focus
@@ -319,7 +249,9 @@ type Focus
     | TurnAngleInputFocus
 
 
-type SlowMotion
+type
+    SlowMotion
+    -- TODO Change to `type alias SlowMotion = Maybe Float` ?
     = NotSet
     | Slowly Float
 
@@ -329,6 +261,9 @@ type ColorTarget
     | Background
 
 
+{-| Those are Strings because we use a Set to check which ones are playing
+--- and Sets can't have custom/union types in it, only comparables.
+-}
 type alias Video =
     String
 
@@ -341,19 +276,14 @@ video =
 
 
 
--- IMPLEMENTATION, LOGIC, FUNCTIONS
--- MODEL
+-- INITIAL STUFF
 
 
-initialModel : Image -> List Image -> Url.Url -> Nav.Key -> Model
-initialModel image gallery url navKey =
+initialModel : Model
+initialModel =
     -- Aplication heart
-    { image = image
+    { image = defaultImage
     , editingIndex = 1
-
-    -- Storage
-    , gallery = gallery
-    , viewingPage = EditorPage
 
     -- Pan and Zoom
     , panStarted = False
@@ -367,15 +297,11 @@ initialModel image gallery url navKey =
     , colorWheel =
         ColorWheel.initialModel "ColorWheel1"
             |> ColorWheel.trackMouseOutsideWheel True
-            |> ColorWheel.withColor image.strokeColor
+            |> ColorWheel.withColor defaultImage.strokeColor
     , colorTarget = Stroke
 
     -- Browser Focus
     , focus = EditorFocus
-
-    -- Url
-    , url = url
-    , navKey = navKey
 
     -- Video
     , videoAngleChangeRate = 0.01
@@ -384,122 +310,33 @@ initialModel image gallery url navKey =
     , videoAngleChangeDirection = 1
 
     -- Input controls value
-    , turnAngleInputValue = String.fromFloat image.turnAngle
+    , turnAngleInputValue = String.fromFloat defaultImage.turnAngle
 
     -- Alert Popup
     , alertActive = False
     }
 
 
-modelWithRoute : Route -> Model -> Model
-modelWithRoute route model =
-    { model | viewingPage = mapRouteToPage route }
+initialCmd : Model -> Cmd Msg
+initialCmd model =
+    Cmd.batch
+        [ getImgDivPosition
+        , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
+        ]
 
 
-modelWithEditIndexLast : Model -> Model
-modelWithEditIndexLast model =
+
+-- WITH* PATTERN
+
+
+withPartialImage : PartialImage -> Model -> Model
+withPartialImage image model =
+    { model | image = Image.withImage image model.image }
+
+
+withEditIndexLast : Model -> Model
+withEditIndexLast model =
     { model | editingIndex = Image.length model.image - 1 }
-
-
-
--- MAIN
-
-
-main : Program Flags Model Msg
-main =
-    Browser.application
-        { init = init
-        , view = view
-        , update = update
-        , subscriptions = subscriptions
-        , onUrlChange = UrlChanged
-        , onUrlRequest = LinkClicked
-        }
-
-
-
--- INIT
-
-
-init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init localStorage url navKey =
-    let
-        decodedLocalStorage =
-            Decode.decodeValue modelDecoder localStorage
-
-        route =
-            parseUrl url
-
-        ( image, gallery ) =
-            combineUrlAndStorage decodedLocalStorage route
-
-        model =
-            initialModelFromImageAndGallery image gallery url navKey
-                |> modelWithRoute route
-                |> modelWithEditIndexLast
-
-        updateUrl =
-            case route of
-                Gallery ->
-                    []
-
-                _ ->
-                    [ replaceUrl navKey image ]
-    in
-    ( model
-    , Cmd.batch
-        ([ getImgDivPosition
-         , saveEncodedModelToLocalStorage (encodeModel model)
-         , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
-         ]
-            ++ updateUrl
-        )
-    )
-
-
-encodeModel : { a | image : Image, gallery : List Image } -> Encode.Value
-encodeModel { image, gallery } =
-    Encode.object
-        [ ( keyFor.image, encodeImage image )
-        , ( keyFor.gallery, Encode.list encodeImage gallery )
-        ]
-
-
-modelDecoder : Decoder ( Image, List Image )
-modelDecoder =
-    Decode.oneOf
-        -- Add new model versions here!
-        [ Decode.map2 Tuple.pair
-            (Decode.field keyFor.image imageDecoder)
-            (Decode.field keyFor.gallery (Decode.list imageDecoder))
-        ]
-
-
-keyFor =
-    { image = "image"
-    , gallery = "gallery"
-    }
-
-
-combineUrlAndStorage : Result Decode.Error ( Image, List Image ) -> Route -> ( Image, List Image )
-combineUrlAndStorage storage route =
-    case ( route, storage ) of
-        ( Editor urlImage, Ok ( storedImage, storedGallery ) ) ->
-            ( storedImage |> withImage urlImage, storedGallery )
-
-        ( Editor urlImage, Err _ ) ->
-            ( defaultImage |> withImage urlImage, [] )
-
-        ( _, Ok storedImageAndGallery ) ->
-            storedImageAndGallery
-
-        ( _, Err _ ) ->
-            ( defaultImage, [] )
-
-
-initialModelFromImageAndGallery : Image -> List Image -> Url.Url -> Nav.Key -> Model
-initialModelFromImageAndGallery image gallery url navKey =
-    initialModel image gallery url navKey
 
 
 
@@ -508,85 +345,6 @@ initialModelFromImageAndGallery image gallery url navKey =
 
 view : Model -> Browser.Document Msg
 view model =
-    case model.viewingPage of
-        EditorPage ->
-            --wheel model
-            editorView model
-
-        GalleryPage ->
-            galleryView model
-
-
-
--- GALLERY VIEW
-
-
-galleryView : Model -> Browser.Document Msg
-galleryView model =
-    { title = "Generative Art"
-    , body =
-        [ div
-            [ css [ width (pct 100), height (pct 100), backgroundColor (toCssColor Colors.darkGray), overflow hidden ] ]
-            [ div
-                [ css
-                    [ width (pct (layout.transformsList + layout.mainImg))
-                    , height (pct 100)
-                    , padding (px 10)
-                    , boxSizing borderBox
-                    , overflow scroll
-                    , display inlineBlock
-                    ]
-                ]
-                (List.indexedMap imageBox model.gallery)
-            , fixedDiv
-                [ css
-                    [ width (pct layout.controlPanel)
-                    , height (pct 100)
-                    , display inlineBlock
-                    , padding (px 10)
-                    , boxSizing borderBox
-                    ]
-                ]
-                [ anchorButton (routeFor EditorPage) "Back to editor" ]
-            ]
-            |> toUnstyled
-        ]
-    }
-
-
-imageBox : Int -> Image -> Html Msg
-imageBox index image =
-    div
-        [ css
-            [ width (px 300)
-            , height (px 300)
-            , display inlineBlock
-            , margin (px 10)
-            , position relative
-            , overflow hidden
-            , boxShadow5 zero zero (px 5) (px 1) (toCssColor Colors.black)
-            ]
-        ]
-        [ LDraw.drawFixedImage (Just (DuplicateToEdit index)) image
-        , Icons.trash
-            |> withOnClick (RemovedFromGallery index)
-            |> withColor Colors.red_
-            |> withCss
-                [ cursor pointer
-                , position absolute
-                , bottom (px 5)
-                , left (px 5)
-                ]
-            |> Icons.toSvg
-        ]
-
-
-
--- EDITOR VIEW
-
-
-editorView : Model -> Browser.Document Msg
-editorView model =
     let
         alert =
             if model.alertActive then
@@ -614,7 +372,7 @@ editorView model =
 
 controlPanel : Model -> Html Msg
 controlPanel model =
-    fixedDiv
+    C.fixedDiv
         [ css
             [ height (pct 100)
             , width (pct layout.controlPanel)
@@ -635,7 +393,7 @@ controlPanel model =
         , curatedSettings
 
         --, controlsList
-        , controlBlock "Info"
+        , C.controlBlock "Info"
             [ p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.imageStepsLenthString model.image) ]
             , p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
             ]
@@ -644,39 +402,14 @@ controlPanel model =
 
 infoAndBasicControls : Html Msg
 infoAndBasicControls =
-    controlBlockFlex
-        [ anchorButtonHalf (routeFor GalleryPage) "Gallery"
-        , primaryButtonHalf SavedToGallery "Save"
-        , primaryButtonHalf FullscreenRequested "Full"
-        , primaryButtonHalf DownloadSvg "Down"
-        , primaryButtonHalf ResetDrawing "Reset"
-        , primaryButtonHalf RandomRequested "Rand"
-        ]
-
-
-fixedControlsButtons : Html Msg
-fixedControlsButtons =
-    let
-        width_ =
-            300
-    in
-    fixedDiv
-        [ css
-            [ width (px width_)
-            , height (px 30)
-            , bottom (px 20)
-            , left (calc (pct 50) minus (px (width_ / 2)))
-            , backgroundColor (Colors.toCssColor Colors.darkGray)
-            , displayFlex
-            , flexWrap wrap
-            , flexDirection column
-            ]
-        ]
-        [ primaryButtonStyled [ overflow hidden, width (px 30) ] SavedToGallery "Save"
-        , primaryButtonStyled [ overflow hidden, width (px 30) ] FullscreenRequested "Full"
-        , primaryButtonStyled [ overflow hidden, width (px 30) ] DownloadSvg "Down"
-        , primaryButtonStyled [ overflow hidden, width (px 30) ] ResetDrawing "Reset"
-        , primaryButtonStyled [ overflow hidden, width (px 30) ] RandomRequested "Rand"
+    C.controlBlockFlex
+        [ C.anchorButtonHalf routeFor.gallery "Gallery"
+        , C.primaryButtonHalf SavedToGallery "Save"
+        , C.primaryButtonHalf FullscreenRequested "Full"
+        , C.primaryButtonHalf DownloadSvg "Down"
+        , C.primaryButtonHalf ResetDrawing "Reset"
+        , C.primaryButtonHalf RandomRequested "Rand"
+        , C.primaryButtonHalf DownloadSvgAsJpeg "JPEG"
         ]
 
 
@@ -690,14 +423,14 @@ colorControls colorTarget colorWheel videoSet =
             else
                 "Play " ++ name
     in
-    controlBlock "Color"
+    C.controlBlock "Color"
         [ div [ css [ width (pct 100) ] ]
             [ div [ css [ displayFlex, flexWrap wrap ] ]
-                [ primaryButtonSelectable (colorTarget == Stroke) (SetColorTarget Stroke) "Stroke"
-                , primaryButtonSelectable (colorTarget == Background) (SetColorTarget Background) "Background"
-                , primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
-                , primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
-                , primaryButtonHalf ExchangeColors "Exchange"
+                [ C.primaryButtonSelectable (colorTarget == Stroke) (SetColorTarget Stroke) "Stroke"
+                , C.primaryButtonSelectable (colorTarget == Background) (SetColorTarget Background) "Background"
+                , C.primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
+                , C.primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
+                , C.primaryButtonHalf ExchangeColors "Exchange"
                 ]
             , div [ css [ padding2 (px 10) zero ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
             ]
@@ -722,7 +455,7 @@ videoControls angleChangeRate playingVideo slowMotion =
                 Slowly value ->
                     String.fromFloat value ++ "x"
     in
-    controlBlock "Video"
+    C.controlBlock "Video"
         [ span [ css [ display block, marginBottom (px 10) ] ]
             [ text (truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval)) ++ "x")
             ]
@@ -731,9 +464,9 @@ videoControls angleChangeRate playingVideo slowMotion =
             , span [] [ text slowMotionText ]
             ]
         , div [ css [ displayFlex, flexWrap wrap ] ]
-            [ primaryButton (ToggleVideo video.changeAngle) playPauseText
-            , primaryButton ToggleSlowMotion "Slow Motion"
-            , primaryButton ReverseAngleChangeDirection "Reverse"
+            [ C.primaryButton (ToggleVideo video.changeAngle) playPauseText
+            , C.primaryButton ToggleSlowMotion "Slow Motion"
+            , C.primaryButton ReverseAngleChangeDirection "Reverse"
             ]
 
         -- Magic values:
@@ -744,14 +477,9 @@ videoControls angleChangeRate playingVideo slowMotion =
         ]
 
 
-videoRateSliderConfig : Utils.MinMaxCenterAt
-videoRateSliderConfig =
-    ( ( 0.00005, 2 ), ( 1, 0.9 ) )
-
-
 turnAngleControl : String -> Html Msg
 turnAngleControl turnAngleInputValue =
-    controlBlock "Angle"
+    C.controlBlock "Angle"
         [ input
             [ id "TurnAngle" -- See index.js, `id` only exists for use in there.
             , type_ "text"
@@ -780,20 +508,15 @@ turnAngleControl turnAngleInputValue =
 
 strokeWidthControl : Float -> Html Msg
 strokeWidthControl width =
-    controlBlock "Line width"
+    C.controlBlock "Line width"
         -- Magic values:
         -- min: 0.0001px
         -- max: 4px
         -- center: 1px at 90% of slider
         [ span [ css [ display block ] ] [ text <| truncateFloatString 6 (String.fromFloat width) ]
         , sliderExponentialInput SetStrokeWidth width strokeWidthSliderConfig
-        , primaryButton (SetStrokeWidth 1) "Reset"
+        , C.primaryButton (SetStrokeWidth 1) "Reset"
         ]
-
-
-strokeWidthSliderConfig : Utils.MinMaxCenterAt
-strokeWidthSliderConfig =
-    ( ( 0.0001, 4 ), ( 1, 0.9 ) )
 
 
 {-|
@@ -843,35 +566,13 @@ sliderExponentialInput msg oldValue exponentialConfig =
 
 curatedSettings : Html Msg
 curatedSettings =
-    controlBlock "Base"
+    C.controlBlock "Base"
         [ div [ css [ displayFlex, flexWrap wrap ] ]
-            [ primaryButton (BasePolygonChanged Triangle) "Triangle"
-            , primaryButton (BasePolygonChanged Square) "Square"
-            , primaryButton (BasePolygonChanged Pentagon) "Pentagon"
-            , primaryButton (BasePolygonChanged Hexagon) "Hexagon"
+            [ C.primaryButton (BasePolygonChanged Triangle) "Triangle"
+            , C.primaryButton (BasePolygonChanged Square) "Square"
+            , C.primaryButton (BasePolygonChanged Pentagon) "Pentagon"
+            , C.primaryButton (BasePolygonChanged Hexagon) "Hexagon"
             ]
-        ]
-
-
-controlsList : Html Msg
-controlsList =
-    controlBlock "Controls"
-        [ controlText "Arrow Up" "Draw"
-        , controlText "Arrow Left/Right" "Turn"
-        , controlText "Backspace" "Undo last 'Arrow' move on selected image block"
-        , controlText "i" "Duplicate selected image block"
-        , controlText "d" "Delete top image block"
-        , controlText "Space" "Center the image"
-        , br [] []
-        , p [] [ text "You can also pan and zoom by dragging and scrolling the image" ]
-        ]
-
-
-controlText : String -> String -> Html msg
-controlText command explanation =
-    div [ css [ margin (px 10) ] ]
-        [ span [ css [ fontSize (px 14), backgroundColor (Css.hex "#555") ] ] [ text command ]
-        , text <| ": " ++ explanation
         ]
 
 
@@ -905,7 +606,7 @@ compositionBlocksList model =
                 |> List.indexedMap (blockBox model.editingIndex model.image.strokeColor)
                 |> List.reverse
     in
-    fixedDiv
+    C.fixedDiv
         [ css
             [ backgroundColor (toCssColor Colors.darkGray)
             , height (pct 100)
@@ -916,7 +617,7 @@ compositionBlocksList model =
             , padding (px 10)
             ]
         ]
-        (primaryButtonStyled [ marginBottom (px 20) ] AddSimpleBlock "Add new block" :: compositionBlocks)
+        (C.primaryButtonStyled [ marginBottom (px 20) ] AddSimpleBlock "Add new block" :: compositionBlocks)
 
 
 blockBox : Int -> Color -> Int -> Svg Msg -> Html Msg
@@ -989,7 +690,7 @@ blockBox editingIndex strokeColor index blockSvg =
 
 mainImg : Image -> Html Msg
 mainImg image =
-    fixedDiv
+    C.fixedDiv
         [ css
             [ backgroundColor (toCssColor image.backgroundColor)
             , position fixed
@@ -999,7 +700,7 @@ mainImg image =
             , overflow hidden
             ]
         , id "mainImg"
-        , zoomOnWheel
+        , onWheel Zoom
         , on "mousedown" (mousePositionDecoder PanStarted)
         ]
         [ Keyed.node "div"
@@ -1026,78 +727,21 @@ layout =
     }
 
 
-fixedDiv : List (Html.Styled.Attribute msg) -> List (Html msg) -> Html msg
-fixedDiv attrs children =
-    div
-        (css
-            [ position fixed ]
-            :: attrs
-        )
-        children
-
-
-{-| For development: view of colorwheel for testing and experimenting
--}
-wheel : Model -> Browser.Document Msg
-wheel model =
-    { title = "Wheel"
-    , body =
-        [ div [ css [ height (pct 50), width (pct 50), margin (px 100), display inlineBlock ] ]
-            [ Html.Styled.map ColorWheelMsg (ColorWheel.view model.colorWheel)
-            ]
-        , button [ onClick DownloadSvg ] [ text "Download Image" ]
-        , button [ onClick DownloadSvgAsJpeg ] [ text "Download Image as JPEG" ]
-        , global [ body [ backgroundColor (Colors.toCssColor model.image.backgroundColor) ] ]
-        ]
-            |> List.map toUnstyled
-    }
-
-
 
 -- UPDATE
 
 
-updateSvgPathAndBoundariesIfNeeded : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
-updateSvgPathAndBoundariesIfNeeded ( model, cmd ) =
-    ( { model | image = Image.updateSvgPathAndBoundaries model.image }, cmd )
+updateSvgPathAndBoundariesIfNeeded : ( Model, Cmd Msg, ExternalMsg ) -> ( Model, Cmd Msg, ExternalMsg )
+updateSvgPathAndBoundariesIfNeeded ( model, cmd, externalMsg ) =
+    ( { model | image = Image.updateSvgPathAndBoundaries model.image }, cmd, externalMsg )
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Cmd Msg, ExternalMsg )
 update msg model =
     updateSvgPathAndBoundariesIfNeeded <|
-        let
-            updateAndSaveImageAndGalleryWithCmd cmd newModel =
-                ( newModel
-                , Cmd.batch
-                    [ saveEncodedModelToLocalStorage (encodeModel newModel)
-                    , replaceUrl newModel.navKey newModel.image
-                    , cmd
-                    ]
-                )
-
-            updateAndSaveImageAndGallery =
-                updateAndSaveImageAndGalleryWithCmd Cmd.none
-        in
         case msg of
-            LinkClicked urlRequest ->
-                case urlRequest of
-                    Browser.Internal url ->
-                        case url.path of
-                            "/" ->
-                                ( model, Nav.pushUrl model.navKey (routeFor EditorPage ++ Image.toQuery model.image) )
-
-                            _ ->
-                                ( model, Nav.pushUrl model.navKey (Url.toString url) )
-
-                    Browser.External href ->
-                        ( model, Nav.load href )
-
-            UrlChanged url ->
-                -- Called via replaceUrl (and indirectly via click on internal links/href, see LinkClicked above)
-                ( { model | viewingPage = mapRouteToPage (parseUrl url) }, Cmd.none )
-
             RandomRequested ->
-                ( model, Random.generate GotRandomImage Image.random )
+                ( model, Random.generate GotRandomImage Image.random, NothingToUpdate )
 
             GotRandomImage partialImage ->
                 let
@@ -1108,48 +752,61 @@ update msg model =
                     | image = newImage
                     , colorWheel = updateColorWheel newImage model.colorTarget model.colorWheel
                   }
-                    |> modelWithEditIndexLast
+                    |> withEditIndexLast
                 , Cmd.none
+                , UpdatedEditor
                 )
 
             DownloadSvg ->
-                ( model, downloadSvg () )
+                ( model, downloadSvg (), NothingToUpdate )
 
             DownloadSvgAsJpeg ->
-                ( model, downloadSvgAsJpeg () )
+                ( model, downloadSvgAsJpeg (), NothingToUpdate )
 
             FullscreenRequested ->
-                ( model, requestFullscreen () )
+                ( model, requestFullscreen (), NothingToUpdate )
 
             ResetDrawing ->
-                updateAndSaveImageAndGallery
-                    { model
-                        | image = Image.resetImageComposition model.image
-                        , editingIndex = 1
-                    }
+                ( { model
+                    | image = Image.resetImageComposition model.image
+                    , editingIndex = 1
+                  }
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             AddSimpleBlock ->
-                { model | image = Image.appendSimpleBlock model.image }
-                    |> modelWithEditIndexLast
-                    |> updateAndSaveImageAndGallery
+                ( { model | image = Image.appendSimpleBlock model.image }
+                    |> withEditIndexLast
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             DuplicateAndAppendBlock editingIndex ->
-                updateAndSaveImageAndGallery <| duplicateAndAppendBlock model editingIndex
+                ( duplicateAndAppendBlock model editingIndex
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             SetEditingIndex index ->
-                ( { model | editingIndex = index }, Cmd.none )
+                ( { model | editingIndex = index }
+                , Cmd.none
+                , NothingToUpdate
+                )
 
             DropBlock index ->
-                updateAndSaveImageAndGallery <|
-                    { model
-                        | image = Image.dropBlockAtIndex index model.image
-                        , editingIndex =
-                            if index <= model.editingIndex then
-                                max 0 (model.editingIndex - 1)
+                ( { model
+                    | image = Image.dropBlockAtIndex index model.image
+                    , editingIndex =
+                        if index <= model.editingIndex then
+                            max 0 (model.editingIndex - 1)
 
-                            else
-                                model.editingIndex
-                    }
+                        else
+                            model.editingIndex
+                  }
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             EditorKeyPress keyString ->
                 let
@@ -1157,25 +814,25 @@ update msg model =
                         processKey model keyString
                 in
                 if keyString == "a" then
-                    ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.focus "TurnAngle") )
+                    ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.focus "TurnAngle"), NothingToUpdate )
 
                 else if keyString == "q" then
-                    ( model, Random.generate GotRandomImage Image.random )
+                    ( model, Random.generate GotRandomImage Image.random, UpdatedEditor )
 
                 else if shouldUpdate then
-                    updateAndSaveImageAndGallery newModel
+                    ( newModel, Cmd.none, NothingToUpdate )
 
                 else
-                    ( model, Cmd.none )
+                    ( model, Cmd.none, NothingToUpdate )
 
             -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
             -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
             Zoom _ deltaY _ mousePos ->
-                updateAndSaveImageAndGallery <| applyZoom deltaY mousePos model
+                ( applyZoom deltaY mousePos model, Cmd.none, UpdatedEditor )
 
             ColorWheelMsg subMsg ->
                 let
-                    ( updatedColorWheel, subCmd, msgType ) =
+                    ( updatedColorWheel, _, msgType ) =
                         ColorWheel.update subMsg model.colorWheel
 
                     image =
@@ -1188,14 +845,16 @@ update msg model =
                 in
                 case msgType of
                     ColorWheel.ColorChanged ->
-                        updateAndSaveImageAndGallery
-                            { model
-                                | colorWheel = updatedColorWheel
-                                , image = image
-                            }
+                        ( { model
+                            | colorWheel = updatedColorWheel
+                            , image = image
+                          }
+                        , Cmd.none
+                        , UpdatedEditor
+                        )
 
                     ColorWheel.SameColor ->
-                        ( { model | colorWheel = updatedColorWheel }, Cmd.none )
+                        ( { model | colorWheel = updatedColorWheel }, Cmd.none, NothingToUpdate )
 
             SetColorTarget target ->
                 ( { model
@@ -1203,40 +862,30 @@ update msg model =
                     , colorWheel = updateColorWheel model.image target model.colorWheel
                   }
                 , Cmd.none
+                , NothingToUpdate
                 )
 
             ExchangeColors ->
-                updateAndSaveImageAndGallery
-                    { model
-                        | image =
-                            model.image
-                                |> Image.withStrokeColor model.image.backgroundColor
-                                |> Image.withBackgroundColor model.image.strokeColor
-                        , colorWheel = updateColorWheel model.image model.colorTarget model.colorWheel
-                    }
-
-            SetTurnAngle turn ->
-                let
-                    newModel =
-                        { model
-                            | image = Image.withTurnAngle turn model.image
-                            , turnAngleInputValue = String.fromFloat turn
-                        }
-                in
-                if Set.member video.changeAngle model.playingVideo then
-                    -- Don't update URL and Local Storage on each video step
-                    ( newModel, Cmd.none )
-
-                else
-                    updateAndSaveImageAndGallery newModel
+                ( { model
+                    | image =
+                        model.image
+                            |> Image.withStrokeColor model.image.backgroundColor
+                            |> Image.withBackgroundColor model.image.strokeColor
+                    , colorWheel = updateColorWheel model.image model.colorTarget model.colorWheel
+                  }
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             SetTurnAngleInputValue stringValue ->
                 if stringValue == "" then
-                    updateAndSaveImageAndGallery
-                        { model
-                            | image = Image.withTurnAngle 0 model.image
-                            , turnAngleInputValue = stringValue
-                        }
+                    ( { model
+                        | image = Image.withTurnAngle 0 model.image
+                        , turnAngleInputValue = stringValue
+                      }
+                    , Cmd.none
+                    , UpdatedEditor
+                    )
 
                 else
                     case String.toFloat stringValue of
@@ -1250,13 +899,13 @@ update msg model =
                             in
                             if Set.member video.changeAngle model.playingVideo then
                                 -- Don't update URL and Local Storage on each video step
-                                ( newModel, Cmd.none )
+                                ( newModel, Cmd.none, NothingToUpdate )
 
                             else
-                                updateAndSaveImageAndGallery newModel
+                                ( newModel, Cmd.none, UpdatedEditor )
 
                         Nothing ->
-                            ( { model | turnAngleInputValue = stringValue }, Cmd.none )
+                            ( { model | turnAngleInputValue = stringValue }, Cmd.none, NothingToUpdate )
 
             InputKeyPress key ->
                 let
@@ -1275,15 +924,17 @@ update msg model =
                         String.fromFloat << newTurnAngle
 
                     updateTurnAngle op =
-                        updateAndSaveImageAndGallery
-                            { model
-                                | image = Image.withTurnAngle (newTurnAngle op) model.image
-                                , turnAngleInputValue = newTurnAngleInputValue op
-                            }
+                        ( { model
+                            | image = Image.withTurnAngle (newTurnAngle op) model.image
+                            , turnAngleInputValue = newTurnAngleInputValue op
+                          }
+                        , Cmd.none
+                        , UpdatedEditor
+                        )
                 in
                 case key of
                     "Escape" ->
-                        ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.blur "TurnAngle") )
+                        ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.blur "TurnAngle"), NothingToUpdate )
 
                     "ArrowUp" ->
                         updateTurnAngle (+)
@@ -1292,16 +943,25 @@ update msg model =
                         updateTurnAngle (-)
 
                     _ ->
-                        ( model, Cmd.none )
+                        ( model, Cmd.none, NothingToUpdate )
 
             SetStrokeWidth width ->
-                updateAndSaveImageAndGallery <| { model | image = Image.withStrokeWidth width model.image }
+                ( { model | image = Image.withStrokeWidth width model.image }
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             PanStarted pos ->
-                ( { model | panStarted = True, lastPos = pos }, Cmd.none )
+                ( { model | panStarted = True, lastPos = pos }
+                , Cmd.none
+                , NothingToUpdate
+                )
 
             PanEnded ->
-                updateAndSaveImageAndGallery <| { model | panStarted = False }
+                ( { model | panStarted = False }
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             MouseMoved pos ->
                 ( { model
@@ -1309,13 +969,17 @@ update msg model =
                     , lastPos = pos
                   }
                 , Cmd.none
+                , NothingToUpdate
                 )
 
             SetFocus focus ->
-                ( { model | focus = focus }, Cmd.none )
+                ( { model | focus = focus }, Cmd.none, NothingToUpdate )
 
             BasePolygonChanged polygon ->
-                updateAndSaveImageAndGallery <| updateCompositionBaseAndAngle model polygon
+                ( updateCompositionBaseAndAngle model polygon
+                , Cmd.none
+                , UpdatedEditor
+                )
 
             GotImgDivPosition result ->
                 case result of
@@ -1324,10 +988,13 @@ update msg model =
                             { x, y, width, height } =
                                 data.element
                         in
-                        ( { model | imgDivCenter = ( x + width / 2, y + height / 2 ), imgDivStart = ( x, y ) }, Cmd.none )
+                        ( { model | imgDivCenter = ( x + width / 2, y + height / 2 ), imgDivStart = ( x, y ) }
+                        , Cmd.none
+                        , NothingToUpdate
+                        )
 
                     Err _ ->
-                        ( model, Cmd.none )
+                        ( model, Cmd.none, NothingToUpdate )
 
             WindowResized _ _ ->
                 ( model
@@ -1335,6 +1002,7 @@ update msg model =
                     [ getImgDivPosition
                     , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
                     ]
+                , NothingToUpdate
                 )
 
             ToggleVideo videoType ->
@@ -1342,10 +1010,13 @@ update msg model =
                     -- When video stopped save model in URL and Local Storage
                     -- N.B. Copying the URL while a playing video will copy the last image saved
                     -- i.e. before playing video or the last not-angle edit while playing.
-                    updateAndSaveImageAndGallery { model | playingVideo = Set.remove videoType model.playingVideo }
+                    ( { model | playingVideo = Set.remove videoType model.playingVideo }
+                    , Cmd.none
+                    , UpdatedEditor
+                    )
 
                 else
-                    ( { model | playingVideo = Set.insert videoType model.playingVideo }, Cmd.none )
+                    ( { model | playingVideo = Set.insert videoType model.playingVideo }, Cmd.none, NothingToUpdate )
 
             VideoTick ->
                 let
@@ -1416,64 +1087,42 @@ update msg model =
                             , colorWheel = ColorWheel.withColor color model_.colorWheel
                         }
                 in
-                ( updateAngle newAngle <| updateColor newColor model, Cmd.none )
+                ( updateAngle newAngle <| updateColor newColor model, Cmd.none, NothingToUpdate )
 
             ToggleSlowMotion ->
                 case model.slowMotion of
                     Slowly _ ->
-                        ( { model | slowMotion = NotSet }, Cmd.none )
+                        ( { model | slowMotion = NotSet }, Cmd.none, NothingToUpdate )
 
                     NotSet ->
-                        ( { model | slowMotion = Slowly 0.05 }, Cmd.none )
+                        ( { model | slowMotion = Slowly 0.05 }, Cmd.none, NothingToUpdate )
 
             SetVideoAngleChangeRate rate ->
-                ( { model | videoAngleChangeRate = rate }, Cmd.none )
+                ( { model | videoAngleChangeRate = rate }, Cmd.none, NothingToUpdate )
 
             ReverseAngleChangeDirection ->
-                ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, Cmd.none )
+                ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }
+                , Cmd.none
+                , NothingToUpdate
+                )
 
             SavedToGallery ->
-                updateAndSaveImageAndGalleryWithCmd (delay 4000 HideAlert)
-                    { model
-                        | gallery =
-                            model.image
-                                :: model.gallery
-                        , alertActive = True
-                    }
-
-            RemovedFromGallery index ->
-                let
-                    newModel =
-                        { model | gallery = ListExtra.dropIndex index model.gallery }
-                in
-                ( newModel, saveEncodedModelToLocalStorage (encodeModel newModel) )
-
-            DuplicateToEdit index ->
-                let
-                    image =
-                        ListExtra.getAt index model.gallery
-                            |> Maybe.withDefault model.image
-                in
-                updateAndSaveImageAndGallery <|
-                    { model
-                        | viewingPage = EditorPage
-                        , image = image
-                        , colorWheel = updateColorWheel image model.colorTarget model.colorWheel
-                    }
+                -- `4000` here is enough to make the transition visible until it removes the node from the DOM.
+                ( { model | alertActive = True }
+                , delay 4000 HideAlert
+                , UpdatedGallery model.image
+                )
 
             GotMidiEvent value ->
-                if model.viewingPage == GalleryPage then
-                    ( model, Cmd.none )
-
-                else
-                    -- TODO add throttle and then add updateAndSaveImageAndGallery
-                    ( processMidi value model, Cmd.none )
+                -- TODO add throttle and then add updateAndSaveImageAndGallery
+                -- TODO make it save when needed (it'll be fine if `processMidi` calls `update` with proper msgs
+                ( processMidi value model, Cmd.none, NothingToUpdate )
 
             HideAlert ->
-                ( { model | alertActive = False }, Cmd.none )
+                ( { model | alertActive = False }, Cmd.none, NothingToUpdate )
 
             NoOp ->
-                ( model, Cmd.none )
+                ( model, Cmd.none, NothingToUpdate )
 
 
 updateColorWheel : Image -> ColorTarget -> ColorWheel.Model -> ColorWheel.Model
@@ -1838,10 +1487,20 @@ processKey model keyPressed =
             ( model, False )
 
 
+strokeWidthSliderConfig : Utils.MinMaxCenterAt
+strokeWidthSliderConfig =
+    ( ( 0.0001, 4 ), ( 1, 0.9 ) )
+
+
+videoRateSliderConfig : Utils.MinMaxCenterAt
+videoRateSliderConfig =
+    ( ( 0.00005, 2 ), ( 1, 0.9 ) )
+
+
 duplicateAndAppendBlock : Model -> Int -> Model
 duplicateAndAppendBlock model editingIndex =
     { model | image = Image.duplicateBlock editingIndex model.image }
-        |> modelWithEditIndexLast
+        |> withEditIndexLast
 
 
 dropLastBlock : Model -> Model
@@ -1879,31 +1538,13 @@ getImgDivPosition =
 -- SUBSCRIPTIONS
 
 
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    case model.viewingPage of
-        EditorPage ->
-            Sub.batch
-                [ editorPageSubs model
-                , alwaysSubs
-                ]
-
-        GalleryPage ->
-            alwaysSubs
-
-
-alwaysSubs : Sub Msg
-alwaysSubs =
-    Browser.Events.onResize WindowResized
-
-
-editorPageSubs : Model -> Sub Msg
-editorPageSubs model =
+subscriptions : Model -> Bool -> Sub Msg
+subscriptions model isVisible =
     let
         panSubs =
             if model.panStarted then
                 Sub.batch
-                    [ Browser.Events.onMouseMove mouseMoveDecoder
+                    [ Browser.Events.onMouseMove (mousePositionDecoder MouseMoved)
                     , Browser.Events.onMouseUp (Decode.succeed PanEnded)
                     ]
 
@@ -1923,14 +1564,22 @@ editorPageSubs model =
 
             else
                 Time.every framesInterval (always VideoTick)
+
+        windowResize =
+            Browser.Events.onResize WindowResized
     in
-    Sub.batch
-        [ keyPressSub
-        , panSubs
-        , videoSub
-        , midiEvent GotMidiEvent
-        , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
-        ]
+    if isVisible then
+        Sub.batch
+            [ keyPressSub
+            , panSubs
+            , videoSub
+            , midiEvent GotMidiEvent
+            , windowResize
+            , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
+            ]
+
+    else
+        windowResize
 
 
 framesInterval : Float
@@ -1938,267 +1587,34 @@ framesInterval =
     50
 
 
+queryParser : Parser (PartialImage -> a) a
+queryParser =
+    Parser.query Image.queryParser
 
--- URL
 
 
-parseUrl : Url.Url -> Route
-parseUrl url =
-    let
-        parsedRoute =
-            Parser.parse (Parser.oneOf [ editorParser, galleryParser ]) url
-    in
-    case parsedRoute of
-        Just route ->
-            route
+-- urlEncoder : Model -> Url.Query -- Or something like this
+-- (routeFor EditorPage ++ Image.toQuery model.image)
 
-        Nothing ->
-            NotFound
 
+encodeIntoUrl : Model -> String
+encodeIntoUrl model =
+    routeFor.editor ++ Image.toQuery model.image
 
-{-| This function used on `galleryParser` makes it asymmetric with `editorParser`.
---- Not sure if this is a good idea.
--}
-routeFor : Page -> String
-routeFor page =
-    case page of
-        GalleryPage ->
-            "gallery"
 
-        EditorPage ->
-            "/"
 
+-- ENCODE DECODE
+-- DECODE
 
-galleryParser : Parser (Route -> a) a
-galleryParser =
-    Parser.map Gallery (Parser.s (routeFor GalleryPage))
 
+encode : Model -> Encode.Value
+encode { image } =
+    Image.encode image
 
-editorParser : Parser (Route -> a) a
-editorParser =
-    Parser.map Editor (Parser.query Image.queryParser)
 
-
-{-| Current version of Url building and parsing
--}
-replaceUrl : Nav.Key -> Image -> Cmd msg
-replaceUrl key image =
-    {--
-            Note about Nav.replaceUrl: Browsers may rate-limit this function by throwing an
-            exception. The discussion here suggests that the limit is 100 calls per 30 second
-            interval in Safari in 2016. It also suggests techniques for people changing the
-            URL based on scroll position.
-
-            https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
-    --}
-    Nav.replaceUrl key (routeFor EditorPage ++ Image.toQuery image)
-
-
-
--- KEYBOARD, MOUSE and WHEEL
-
-
-keyPressDecoder : (String -> Msg) -> Decoder Msg
-keyPressDecoder msg =
-    Decode.map msg
-        (Decode.field "key" Decode.string)
-
-
-onKeyDown : (String -> Msg) -> Html.Styled.Attribute Msg
-onKeyDown msg =
-    on "keydown" (keyPressDecoder msg)
-
-
-mouseMoveDecoder : Decoder Msg
-mouseMoveDecoder =
-    mousePositionDecoder MouseMoved
-
-
-mousePositionDecoder : (Position -> msg) -> Decoder msg
-mousePositionDecoder msg =
-    Decode.map msg <|
-        Decode.map2 Tuple.pair
-            (Decode.field "clientX" Decode.float)
-            (Decode.field "clientY" Decode.float)
-
-
-zoomOnWheel : Html.Styled.Attribute Msg
-zoomOnWheel =
-    preventDefaultOn "wheel" (Decode.map alwaysPreventDefault wheelDecoder)
-
-
-alwaysPreventDefault : Msg -> ( Msg, Bool )
-alwaysPreventDefault msg =
-    ( msg, True )
-
-
-wheelDecoder : Decoder Msg
-wheelDecoder =
-    Decode.map4 Zoom
-        (Decode.field "deltaX" Decode.float)
-        (Decode.field "deltaY" Decode.float)
-        (Decode.field "shiftKey" Decode.bool)
-        (Decode.map2 Tuple.pair
-            (Decode.field "clientX" Decode.float)
-            (Decode.field "clientY" Decode.float)
-        )
-
-
-type alias MidiEvent =
-    { command : Float
-    , noteMap : Float
-    , velocityPosition : Float
-    }
-
-
-{--}
-midiEventDecoder : Decoder MidiEvent
-midiEventDecoder =
-    Decode.map3 MidiEvent
-        (Decode.at [ "data", "0" ] Decode.float)
-        (Decode.at [ "data", "1" ] Decode.float)
-        (Decode.at [ "data", "2" ] Decode.float)
---}
-
-
-
-{--Components
---}
-
-
-primaryButtonStyle : List Css.Style
-primaryButtonStyle =
-    let
-        lightGray =
-            toCssColor Colors.lightGray
-
-        darkGray =
-            toCssColor Colors.darkGray
-
-        buttonHeight =
-            28
-
-        borderWidth =
-            1
-    in
-    [ color lightGray
-    , backgroundColor transparent
-    , border3 (px borderWidth) solid lightGray
-    , borderRadius (px 6)
-    , height (px buttonHeight)
-    , width (pct 95)
-
-    {--
-    , withMedia [ Media.all [ Media.maxWidth (px 1160), Media.minWidth (px 650) ] ]
-        [ minWidth (px 85)
-        , height (px 60)
-        ]
-    --}
-    --, withMedia [ Media.all [ Media.minWidth (px 1700) ] ] [ width (px 106) ]
-    , margin2 (px 5) auto
-    , display block
-    , cursor pointer
-    , boxSizing borderBox
-
-    -- TODO add font files and @font-face:
-    -- https://stackoverflow.com/questions/107936/how-to-add-some-non-standard-font-to-a-website
-    -- https://fonts.google.com/specimen/Roboto?selection.family=Roboto
-    -- Research best fallback option
-    --, fontFamilies [ "Roboto" ]
-    , fontFamily sansSerif
-    , fontSize (px 16)
-    , textAlign center
-    , textDecoration none
-    , lineHeight (px (buttonHeight - 2 * borderWidth))
-    , hover primaryButtonStyleHover
-    ]
-
-
-primaryButtonStyleHover : List Css.Style
-primaryButtonStyleHover =
-    let
-        -- COPIED FROM ABOVE
-        lightGray =
-            toCssColor Colors.lightGray
-
-        darkGray =
-            toCssColor Colors.darkGray
-
-        buttonHeight =
-            28
-    in
-    [ border Css.unset
-    , backgroundColor lightGray
-    , color darkGray
-    , active primaryButtonStyleActive
-    , lineHeight (px buttonHeight)
-    ]
-
-
-primaryButtonStyleActive : List Css.Style
-primaryButtonStyleActive =
-    [ backgroundColor (Colors.toCssColor Colors.activeElementGray) ]
-
-
-primaryButtonStyled : List Css.Style -> msg -> String -> Html msg
-primaryButtonStyled style msg btnText =
-    button [ css (primaryButtonStyle ++ style), onClick msg ] [ text btnText ]
-
-
-primaryButton : msg -> String -> Html msg
-primaryButton =
-    primaryButtonStyled []
-
-
-halfStyle : List Css.Style
-halfStyle =
-    [ minWidth (pct 45), width (pct 45) ]
-
-
-primaryButtonHalf : msg -> String -> Html msg
-primaryButtonHalf =
-    primaryButtonStyled halfStyle
-
-
-primaryButtonSelectable : Bool -> msg -> String -> Html msg
-primaryButtonSelectable isSelected =
-    primaryButtonStyled
-        (if isSelected then
-            primaryButtonStyleHover ++ primaryButtonStyleActive
-
-         else
-            []
-        )
-
-
-anchorButtonStyled : List Css.Style -> String -> String -> Html msg
-anchorButtonStyled style href_ title =
-    a [ href href_, css (primaryButtonStyle ++ style) ] [ text title ]
-
-
-anchorButton : String -> String -> Html msg
-anchorButton =
-    anchorButtonStyled []
-
-
-anchorButtonHalf : String -> String -> Html msg
-anchorButtonHalf =
-    anchorButtonStyled halfStyle
-
-
-controlBlockStyle : List Css.Style
-controlBlockStyle =
-    [ padding (px 10), borderBottom3 (px 1) solid (toCssColor Colors.black), fontFamily Css.sansSerif ]
-
-
-controlBlock : String -> List (Html Msg) -> Html Msg
-controlBlock title list =
-    div [ css controlBlockStyle ]
-        (span [ css [ display block, marginBottom (px 8), cursor default, fontSize (px 18) ] ] [ text title ]
-            :: list
-        )
-
-
-controlBlockFlex : List (Html Msg) -> Html Msg
-controlBlockFlex =
-    div [ css (controlBlockStyle ++ [ displayFlex, flexWrap wrap ]) ]
+decoder : Decoder Model
+decoder =
+    Decode.map (\image -> { initialModel | image = image }) <|
+        Decode.oneOf
+            -- Add new model versions here!
+            [ Image.decoder ]

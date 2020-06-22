@@ -1,11 +1,10 @@
 'use strict'
 
-// Import index.html so it gets copied to dist
-//import "./index.html";
-import "./RangeInput.css";
-import "./Transitions.css";
-import { Elm } from "./Main.elm";
-import { downloadSvgAsJpeg, saveSvg } from "./ImageDownload.js"
+// Import css's so it gets copied to dist
+import "./css/RangeInput.css";
+import "./css/Transitions.css";
+import { Elm } from "./elm/Main.elm";
+import { downloadSvgAsJpeg, saveSvg } from "./js/ImageDownload.js"
 
 
 
@@ -40,7 +39,8 @@ var elmApp = Elm.Main.init({
  * PORTS
  */
 
-elmApp.ports.saveEncodedModelToLocalStorage.subscribe(function(encodedModel) {
+// TODO change to `saveToLocalStorage(key, value)`
+elmApp.ports.saveModelToLocalStorage.subscribe(function(encodedModel) {
     localStorage.setItem(storageKey, JSON.stringify(encodedModel));
 });
 

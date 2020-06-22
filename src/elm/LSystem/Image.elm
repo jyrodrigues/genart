@@ -17,13 +17,13 @@ module LSystem.Image exposing
     , blockBlueprintString
     , blocksToImages
     , centralize
+    , decoder
     , defaultImage
     , dropBlockAtIndex
     , dropLastBlock
     , dropLastStepAtIndex
     , duplicateBlock
-    , encodeImage
-    , imageDecoder
+    , encode
     , imageStepsLenthString
     , imageToSvgPathString
     , length
@@ -59,10 +59,10 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra as DecodeExtra
 import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
-import ListExtra
 import Random
 import Url.Builder
 import Url.Parser.Query as Query
+import Utils
 
 
 type alias Position =
@@ -280,15 +280,15 @@ zoom scaleDelta zoomFocus imageDivCenter image =
 
         vecMouseToImgDivCenter =
             imageDivCenter
-                |> ListExtra.pairExec (-) zoomFocus
+                |> Utils.pairExec (-) zoomFocus
     in
     { image
         | scale = scale
         , translate =
             vecMouseToImgDivCenter
-                |> ListExtra.pairExec (+) image.translate
-                |> ListExtra.pairMap (\value -> value * scale / image.scale)
-                |> ListExtra.pairExec (-) vecMouseToImgDivCenter
+                |> Utils.pairExec (+) image.translate
+                |> Utils.pairMap (\value -> value * scale / image.scale)
+                |> Utils.pairExec (-) vecMouseToImgDivCenter
     }
 
 
@@ -297,8 +297,8 @@ move lastPosition newPosition image =
     image
         |> withTranslate
             (newPosition
-                |> ListExtra.pairExec (-) lastPosition
-                |> ListExtra.pairExec (+) image.translate
+                |> Utils.pairExec (-) lastPosition
+                |> Utils.pairExec (+) image.translate
             )
 
 
@@ -465,8 +465,8 @@ polygonAngle polygon =
 -- DECODER
 
 
-encodeImage : Image -> Encode.Value
-encodeImage { composition, turnAngle, backgroundColor, strokeColor, strokeWidth, translate, scale, curve } =
+encode : Image -> Encode.Value
+encode { composition, turnAngle, backgroundColor, strokeColor, strokeWidth, translate, scale, curve } =
     Encode.object
         [ ( keyFor.composition, Core.encodeComposition composition )
         , ( keyFor.turnAngle, Encode.float turnAngle )
@@ -480,8 +480,8 @@ encodeImage { composition, turnAngle, backgroundColor, strokeColor, strokeWidth,
         ]
 
 
-imageDecoder : Decoder Image
-imageDecoder =
+decoder : Decoder Image
+decoder =
     let
         composition =
             Decode.field keyFor.composition Core.compositionDecoder
@@ -578,8 +578,8 @@ curveDecoder =
 queryParser : Query.Parser PartialImage
 queryParser =
     let
-        parseQuery getKey decoder =
-            Query.map (Maybe.andThen (Decode.decodeString decoder >> Result.toMaybe)) (Query.string (getKey keyFor))
+        parseQuery getKey decoder_ =
+            Query.map (Maybe.andThen (Decode.decodeString decoder_ >> Result.toMaybe)) (Query.string (getKey keyFor))
     in
     Query.map8 PartialImage
         (parseQuery .composition Core.compositionDecoder)
@@ -763,11 +763,11 @@ processCompositionStep pathCurve turnAngleSize step { pathString, angle, positio
             nextPositionDelta angle
 
         nextPosition =
-            ListExtra.pairExec (+) nextPositionDelta_ position
+            Utils.pairExec (+) nextPositionDelta_ position
 
         updatedBoundaries =
-            { leftTop = ListExtra.pairExec min boundaries.leftTop nextPosition
-            , rightBottom = ListExtra.pairExec max boundaries.rightBottom nextPosition
+            { leftTop = Utils.pairExec min boundaries.leftTop nextPosition
+            , rightBottom = Utils.pairExec max boundaries.rightBottom nextPosition
             }
 
         curve =
@@ -896,7 +896,7 @@ toRelativeValue =
 nextPositionDelta : Float -> Position
 nextPositionDelta angle =
     fromPolar ( 1, degrees angle )
-        |> ListExtra.pairMap ((*) 10)
+        |> Utils.pairMap ((*) 10)
         |> adjustForViewportAxisOrientation
 
 

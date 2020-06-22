@@ -24,10 +24,10 @@ import LSystem.Image as Image
         ( Image
         , PathCurve(..)
         , defaultImage
-        , encodeImage
-        , imageDecoder
         )
-import Main exposing (Route(..), encodeModel, modelDecoder, parseUrl)
+import Main
+import Pages.Editor as Editor
+import Routes exposing (Route(..), parseUrl)
 import Test exposing (Test, describe, fuzz, fuzz2, test)
 import Url exposing (Protocol(..), Url)
 
@@ -130,19 +130,26 @@ suite =
                 [ fuzz imageFuzzer "Image essentials" <|
                     \fuzzyImage ->
                         fuzzyImage
-                            |> encodeImage
-                            |> Decode.decodeValue imageDecoder
+                            |> Image.encode
+                            |> Decode.decodeValue Image.decoder
                             |> Expect.equal (Ok fuzzyImage)
                 , fuzz2 imageFuzzer (Fuzz.list imageFuzzer) "Image and Gallery" <|
                     \fuzzyImage fuzzyGallery ->
-                        { image = fuzzyImage, gallery = fuzzyGallery }
-                            |> encodeModel
-                            |> Decode.decodeValue modelDecoder
-                            |> Expect.equal (Ok ( fuzzyImage, fuzzyGallery ))
+                        let
+                            initialEditor =
+                                Editor.initialModel
+
+                            fuzzyModel =
+                                { editor = { initialEditor | image = fuzzyImage }, gallery = fuzzyGallery }
+                        in
+                        fuzzyModel
+                            |> Main.encode
+                            |> Decode.decodeValue Main.decoder
+                            |> Expect.equal (Ok ( fuzzyModel.editor, fuzzyModel.gallery ))
                 , test "Decode Image without strokeWidth" <|
                     \_ ->
                         imageV3
-                            |> Decode.decodeString Image.imageDecoder
+                            |> Decode.decodeString Image.decoder
                             |> Expect.equal (Ok defaultImage)
                 ]
             , describe "parseUrl"
