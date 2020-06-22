@@ -10,6 +10,7 @@ port module Pages.Editor exposing
     , subscriptions
     , update
     , view
+    , withImage
     , withPartialImage
     )
 
@@ -91,7 +92,7 @@ import Icons exposing (withColor, withCss, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
-import LSystem.Draw as LDraw exposing (drawBlocks, drawImage)
+import LSystem.Draw exposing (drawBlocks, drawImage)
 import LSystem.Image as Image
     exposing
         ( Image
@@ -108,7 +109,6 @@ import Set exposing (Set)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
-import Url
 import Url.Parser as Parser exposing (Parser)
 import Utils exposing (delay, floatModBy)
 
@@ -329,9 +329,21 @@ initialCmd model =
 -- WITH* PATTERN
 
 
+withImage : Image -> Model -> Model
+withImage image model =
+    { model
+        | image = image
+        , colorWheel = updateColorWheel image model.colorTarget model.colorWheel
+    }
+
+
 withPartialImage : PartialImage -> Model -> Model
-withPartialImage image model =
-    { model | image = Image.withImage image model.image }
+withPartialImage partialImage model =
+    let
+        image =
+            Image.withImage partialImage model.image
+    in
+    withImage image model
 
 
 withEditIndexLast : Model -> Model

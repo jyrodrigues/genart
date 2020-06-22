@@ -61,8 +61,6 @@ elmApp.ports.requestFullscreen.subscribe(function() {
 
 
 
-
-
 /**
  * Hackery to prevent going back in history with `backspace` press.
  */

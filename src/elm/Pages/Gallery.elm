@@ -1,8 +1,9 @@
 module Pages.Gallery exposing
-    ( Model
+    ( ExternalMsg(..)
+    , Model
     , Msg
-    , decoder
     , addImage
+    , decoder
     , encode
     , initialModel
     , update
@@ -39,6 +40,9 @@ import Css
         , width
         , zero
         )
+import File exposing (File)
+import File.Download as Download
+import File.Select as Select
 import Html.Styled exposing (Html, div, toUnstyled)
 import Html.Styled.Attributes exposing (css)
 import Icons exposing (withColor, withCss, withOnClick)
@@ -47,6 +51,7 @@ import Json.Encode as Encode
 import LSystem.Draw as LDraw
 import LSystem.Image as Image exposing (Image)
 import Routes exposing (Page(..), routeFor)
+import Task
 import Utils
 
 
@@ -65,6 +70,16 @@ type alias Model =
 type Msg
     = RemovedFromGallery Int
     | CopiedToEditor Int
+    | DownloadRequested
+    | UploadRequested
+    | SelectedGallery File
+    | LoadedGallery String
+
+
+type ExternalMsg
+    = OpenedEditor Image
+    | UpdatedGallery
+    | NothingToUpdate
 
 
 
@@ -80,7 +95,7 @@ initialModel =
 -- UPDATE
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Cmd Msg, ExternalMsg )
 update msg model =
     case msg of
         RemovedFromGallery index ->
@@ -88,25 +103,44 @@ update msg model =
                 newModel =
                     Utils.dropIndex index model
             in
-            -- TODO
-            --( newModel, saveEncodedModelToLocalStorage (encodeModel newModel) )
-            ( newModel, Cmd.none )
+            ( newModel, Cmd.none, UpdatedGallery )
 
         CopiedToEditor index ->
-            {--TODO
             let
-                image =
-                    Utils.getAt index model.gallery
-                        |> Maybe.withDefault model.image
+                maybeImage =
+                    Utils.getAt index model
             in
-            updateAndSaveImageAndGallery <|
-                { model
-                    | viewingPage = EditorPage
-                    , image = image
-                    , colorWheel = updateColorWheel image model.colorTarget model.colorWheel
-                }
-            --}
-            ( model, Cmd.none )
+            case maybeImage of
+                Just image ->
+                    ( model, Cmd.none, OpenedEditor image )
+
+                Nothing ->
+                    ( model, Cmd.none, NothingToUpdate )
+
+        DownloadRequested ->
+            let
+                galleryAsString =
+                    Encode.encode 4 (encode model)
+            in
+            ( model, Download.string "genart-gallery.json" "application/json" galleryAsString, NothingToUpdate )
+
+        UploadRequested ->
+            ( model, Select.file [ "application/json" ] SelectedGallery, NothingToUpdate )
+
+        SelectedGallery file ->
+            ( model, Task.perform LoadedGallery (File.toString file), NothingToUpdate )
+
+        LoadedGallery galleryAsString ->
+            let
+                decodedString =
+                    Decode.decodeString decoder galleryAsString
+            in
+            case decodedString of
+                Ok uploadedGallery ->
+                    ( uploadedGallery ++ model, Cmd.none, UpdatedGallery )
+
+                Err _ ->
+                    ( model, Cmd.none, NothingToUpdate )
 
 
 
@@ -152,7 +186,10 @@ view model =
                     , boxSizing borderBox
                     ]
                 ]
-                [ C.anchorButton routeFor.editor "Back to editor" ]
+                [ C.anchorButton routeFor.editor "Back to editor"
+                , C.primaryButton DownloadRequested "Download gallery"
+                , C.primaryButton UploadRequested "Upload gallery"
+                ]
             ]
             |> toUnstyled
         ]
@@ -185,11 +222,15 @@ imageBox index image =
             |> Icons.toSvg
         ]
 
+
+
 -- FUNCTIONS
+
 
 addImage : Image -> Model -> Model
 addImage =
     (::)
+
 
 
 -- ENCODE

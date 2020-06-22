@@ -227,10 +227,24 @@ update msg model =
 
         GalleryMsg galleryMsg ->
             let
-                ( gallery, cmd ) =
+                ( gallery, galleryCmd, externalMsg ) =
                     Gallery.update galleryMsg model.gallery
+
+                newModel =
+                    { model | gallery = gallery }
+
+                cmd =
+                    Cmd.map GalleryMsg galleryCmd
             in
-            ( { model | gallery = gallery }, Cmd.map GalleryMsg cmd )
+            case externalMsg of
+                Gallery.UpdatedGallery ->
+                    ( newModel, Cmd.batch [ cmd, saveModelToLocalStorage (encode newModel) ] )
+
+                Gallery.OpenedEditor image ->
+                    ( { newModel | editor = Editor.withImage image model.editor, viewingPage = EditorPage }, cmd )
+
+                Gallery.NothingToUpdate ->
+                    ( newModel, cmd )
 
 
 
