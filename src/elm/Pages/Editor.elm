@@ -1032,75 +1032,7 @@ update msg model =
                     ( { model | playingVideo = Set.insert videoType model.playingVideo }, Cmd.none, NothingToUpdate )
 
             VideoTick ->
-                let
-                    -- Angle stuff
-                    newAngle =
-                        if Set.member video.changeAngle model.playingVideo then
-                            case model.slowMotion of
-                                NotSet ->
-                                    model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate)
-
-                                Slowly by ->
-                                    model.image.turnAngle + (by * model.videoAngleChangeDirection * model.videoAngleChangeRate)
-
-                        else
-                            model.image.turnAngle
-
-                    updateAngle angle model_ =
-                        { model_
-                            | image = Image.withTurnAngle angle model_.image
-                            , turnAngleInputValue = String.fromFloat angle
-                        }
-
-                    -- Color stuff
-                    newColor =
-                        let
-                            color =
-                                case model.colorTarget of
-                                    Stroke ->
-                                        model.image.strokeColor
-
-                                    Background ->
-                                        model.image.backgroundColor
-
-                            { h, s, v, a } =
-                                Colors.toHsva color
-
-                            numberOfSectors =
-                                8
-
-                            sectorSize =
-                                2 * pi / numberOfSectors
-
-                            sectorPosition =
-                                floatModBy sectorSize (h + 0.01) / sectorSize
-                        in
-                        if Set.member video.changeColorLinear model.playingVideo then
-                            Colors.hsva (h + 0.01) s v a
-
-                        else if Set.member video.changeColorSinusoidal model.playingVideo then
-                            if sectorPosition < 0.5 then
-                                Colors.hsva (h + 0.01) s (1 - sin (sectorPosition / 0.5 * pi) * 0.5) a
-
-                            else
-                                Colors.hsva (h + 0.01) (1 - sin ((sectorPosition - 0.5) / 0.5 * pi) * 0.5) v a
-
-                        else
-                            color
-
-                    updateColor color model_ =
-                        { model_
-                            | image =
-                                case model.colorTarget of
-                                    Stroke ->
-                                        Image.withStrokeColor color model_.image
-
-                                    Background ->
-                                        Image.withBackgroundColor color model_.image
-                            , colorWheel = ColorWheel.withColor color model_.colorWheel
-                        }
-                in
-                ( updateAngle newAngle <| updateColor newColor model, Cmd.none, NothingToUpdate )
+                ( nextVideoFrame model, Cmd.none, NothingToUpdate )
 
             ToggleSlowMotion ->
                 case model.slowMotion of
@@ -1150,6 +1082,117 @@ updateColorWheel image target =
                     image.backgroundColor
     in
     ColorWheel.withColor color
+
+
+nextVideoFrame : Model -> Model
+nextVideoFrame model =
+    let
+        -- Angle stuff
+        newAngle =
+            if Set.member video.changeAngle model.playingVideo then
+                case model.slowMotion of
+                    NotSet ->
+                        model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate)
+
+                    Slowly by ->
+                        model.image.turnAngle + (by * model.videoAngleChangeDirection * model.videoAngleChangeRate)
+
+            else
+                model.image.turnAngle
+
+        updateAngle angle model_ =
+            { model_
+                | image = Image.withTurnAngle angle model_.image
+                , turnAngleInputValue = String.fromFloat angle
+            }
+
+        -- Color stuff
+        newColor =
+            let
+                color =
+                    case model.colorTarget of
+                        Stroke ->
+                            model.image.strokeColor
+
+                        Background ->
+                            model.image.backgroundColor
+
+                { h, s, v, a } =
+                    Colors.toHsva color
+
+                numberOfSectors =
+                    8
+
+                sectorSize =
+                    2 * pi / numberOfSectors
+
+                sectorPosition =
+                    floatModBy sectorSize (h + 0.01) / sectorSize
+            in
+            if Set.member video.changeColorLinear model.playingVideo then
+                Colors.hsva (h + 0.01) s v a
+
+            else if Set.member video.changeColorSinusoidal model.playingVideo then
+                if sectorPosition < 0.5 then
+                    Colors.hsva (h + 0.01) s (1 - sin (sectorPosition / 0.5 * pi) * 0.5) a
+
+                else
+                    Colors.hsva (h + 0.01) (1 - sin ((sectorPosition - 0.5) / 0.5 * pi) * 0.5) v a
+
+            else
+                color
+
+        updateColor color model_ =
+            { model_
+                | image =
+                    case model.colorTarget of
+                        Stroke ->
+                            Image.withStrokeColor color model_.image
+
+                        Background ->
+                            Image.withBackgroundColor color model_.image
+                , colorWheel = ColorWheel.withColor color model_.colorWheel
+            }
+
+        -- Slowdown based on prettyScore
+        slowDownOnPrettyImage model_ =
+            let
+                range =
+                    List.range 0 10
+                        |> List.map toFloat
+                        |> List.map (\v -> v / 10 ^ 5 / 2)
+
+                futureFrame =
+                    model.image
+                        |> Image.withTurnAngle (model.image.turnAngle + 1 * (model.videoAngleChangeDirection * model.videoAngleChangeRate))
+
+                futureRange =
+                    range
+                        |> List.map
+                            (\diff ->
+                                Image.withTurnAngle (futureFrame.turnAngle + diff) futureFrame
+                            )
+
+                score =
+                    futureRange
+                        |> List.map Image.computeScore
+                        |> List.foldl (+) 0
+            in
+            if score > 2000 then
+                { model_ | slowMotion = Slowly 0.01 }
+
+            else
+                model_
+
+        {--
+            if Image.prettyScore model_.image > 500 then
+                { model_ | slowMotion = Slowly 0.01 }
+
+            else
+                model_
+            --}
+    in
+    slowDownOnPrettyImage <| updateAngle newAngle <| updateColor newColor model
 
 
 processMidi : Encode.Value -> Model -> Model

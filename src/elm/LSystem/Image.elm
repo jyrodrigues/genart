@@ -17,6 +17,7 @@ module LSystem.Image exposing
     , blockBlueprintString
     , blocksToImages
     , centralize
+    , computeScore
     , decoder
     , defaultImage
     , dropBlockAtIndex
@@ -758,6 +759,20 @@ imageToSvgPathString { composition, turnAngle, curve } =
     }
 
 
+computeScore : Image -> Int
+computeScore { composition, turnAngle, curve } =
+    let
+        finalEverything =
+            Core.digestComposition composition
+                |> List.foldl (processCompositionStep curve turnAngle) baseEverything
+    in
+    finalEverything.repeatedPositionCount
+
+
+
+-- COMPUTE
+
+
 baseEverything : EverythingInOnePass
 baseEverything =
     { pathString = ""
@@ -811,7 +826,7 @@ processCompositionStep pathCurve turnAngleSize step { pathString, angle, positio
                     T
 
         precision =
-            10.0 ^ 6
+            10.0 ^ 3
 
         nextPositionInt =
             nextPosition
