@@ -1,0 +1,675 @@
+[
+    {
+        "composition": [
+            "DLDLDLD",
+            "D",
+            "DLDLDLD",
+            "DLDLDLD",
+            "DLDLDLD",
+            "DLDLDLD",
+            "DLDLDLD"
+        ],
+        "turnAngle": 164.99681417177706,
+        "backgroundColor": "#5efc76",
+        "strokeColor": "#0076b4",
+        "strokeWidth": 0.004045095735206887,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "D",
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DLDLDLDLDLDL",
+            "DD",
+            "DLD"
+        ],
+        "turnAngle": 159.94664453611628,
+        "backgroundColor": "#002ede",
+        "strokeColor": "#4dc7bc",
+        "strokeWidth": 0.010313385377218032,
+        "translateX": 2.35029126213592,
+        "translateY": -1.3000000000000032,
+        "scale": 1.0399999999999983,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "D",
+            "DDDDDDDDDDDDDDDDDDDDDDD",
+            "DLDLDLDLDLDL",
+            "DDDDDDDDDDDDDDDDDDLD",
+            "DLD"
+        ],
+        "turnAngle": 160.00016210365544,
+        "backgroundColor": "#000000",
+        "strokeColor": "#8d06c7",
+        "strokeWidth": 0.005461068784896892,
+        "translateX": 2.35029126213592,
+        "translateY": -1.3000000000000032,
+        "scale": 1.0399999999999983,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "D",
+            "DDDDDDDDDDDDDDDDDDDDDDD",
+            "DLDLDLDLDLDL",
+            "DDDDDDDDDDDDDDDDDDLD",
+            "DLDDD"
+        ],
+        "turnAngle": 90.0310139516856,
+        "backgroundColor": "#000000",
+        "strokeColor": "#06c761",
+        "strokeWidth": 0.011466261606433327,
+        "translateX": 3.02825989544436,
+        "translateY": -1.6750000000000047,
+        "scale": 1.3399999999999983,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "D",
+            "DDDDDDDDDDDDDDDDDDDDDDD",
+            "DLDLDLDLDLDL",
+            "DDDDDDDDDDDDDDDDDDLD",
+            "DLDDD"
+        ],
+        "turnAngle": 59.98684041460939,
+        "backgroundColor": "#000000",
+        "strokeColor": "#06c761",
+        "strokeWidth": 0.017518795609420417,
+        "translateX": 3.02825989544436,
+        "translateY": -1.6750000000000047,
+        "scale": 1.3399999999999983,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLD",
+            "DLDDDLLDDDRDDRDDDLLDDDLD",
+            "DLDDDLLDDDRDDRDDDLLDDDLD",
+            "DLDLDLDLDLD"
+        ],
+        "turnAngle": 59.995715480691494,
+        "backgroundColor": "#cc907f",
+        "strokeColor": "#7909ff",
+        "strokeWidth": 0.0029693349987445694,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.3,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL",
+            "DLDDRDRDRDDDDDRRDDDRDDDDDLLDDDDR"
+        ],
+        "turnAngle": 44.99368205937077,
+        "backgroundColor": "#e3f205",
+        "strokeColor": "#d600ff",
+        "strokeWidth": 0.018491611124784844,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.3,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL",
+            "DLDDRDRDRDDDDDRRDDDRDDDDDLLDDDDR"
+        ],
+        "turnAngle": 40.04095461224948,
+        "backgroundColor": "#00ffef",
+        "strokeColor": "#5706e8",
+        "strokeWidth": 0.009791543378091547,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.3,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL",
+            "DLDDRDRDRDDDDDRRDDDRDDDDDLLDDDDR"
+        ],
+        "turnAngle": 79.97543165935012,
+        "backgroundColor": "#000000",
+        "strokeColor": "#c74d7a",
+        "strokeWidth": 0.006071531417477298,
+        "translateX": 3.0282598954443656,
+        "translateY": -1.6750000000000058,
+        "scale": 1.34,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL",
+            "DLDDRDRDRDDDDDRRDDDRDDDDDLLDDDDR"
+        ],
+        "turnAngle": 79.9845209757624,
+        "backgroundColor": "#fff5b9",
+        "strokeColor": "#c74d7a",
+        "strokeWidth": 0.006071531417477298,
+        "translateX": 3.0282598954443656,
+        "translateY": -1.6750000000000058,
+        "scale": 1.34,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL",
+            "DLDDRDRDRDDDDDRRDDDRDDDDDLLDDDDR"
+        ],
+        "turnAngle": 80.03417306243232,
+        "backgroundColor": "#000000",
+        "strokeColor": "#ff07bc",
+        "strokeWidth": 0.01274801148394439,
+        "translateX": 3.0282598954443656,
+        "translateY": -1.6750000000000058,
+        "scale": 1.34,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLDLLDLDLDRDRRDRDR",
+            "DLDLLDLDLDRDRRDRDR",
+            "DLDLLDLDLDRDRRDRDR",
+            "DLDLLDLDLDRDRRDRDR"
+        ],
+        "turnAngle": -175.69354584153135,
+        "backgroundColor": "#a7cc67",
+        "strokeColor": "#43828f",
+        "strokeWidth": 0.002670782963727885,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLD",
+            "DLLSDRRDDDDLRDDRDDLDDRDDDDS",
+            "LLRLRLRDLDDLLL",
+            "DLDLLDLDLDRDRRDRDR"
+        ],
+        "turnAngle": 60.0881762843583,
+        "backgroundColor": "#1b143b",
+        "strokeColor": "#d000ff",
+        "strokeWidth": 0.006931448431554007,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.6,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLRDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "RDRRDLLDDDLDDDLDDD"
+        ],
+        "turnAngle": 159.10067485025485,
+        "backgroundColor": "#1b143b",
+        "strokeColor": "#ff008d",
+        "strokeWidth": 0.03777057489457658,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "RDDDRLDDSDLDDDLSDRLD",
+            "DLR",
+            "RDRRDLLDDDLDDDLDDD",
+            "DDDRLLRSDSDLRLRLSRDRRLRRLRSRDRLDDDRRLDDDS"
+        ],
+        "turnAngle": 120,
+        "backgroundColor": "#1b143b",
+        "strokeColor": "#ff008d",
+        "strokeWidth": 0.2828427124746413,
+        "translateX": 9.667582303842206,
+        "translateY": -39.637059314954094,
+        "scale": 1.6300000000000006,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DDLDDLDDRRDDD",
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DDLD"
+        ],
+        "turnAngle": 89.99670999028999,
+        "backgroundColor": "#0a0907",
+        "strokeColor": "#e700ff",
+        "strokeWidth": 0.0075048055904252085,
+        "translateX": 3.0282598954443656,
+        "translateY": -1.6750000000000058,
+        "scale": 1.34,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DDLDDLDDRRDDD",
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DDLD"
+        ],
+        "turnAngle": 89.99670999028999,
+        "backgroundColor": "#0a0907",
+        "strokeColor": "#e700ff",
+        "strokeWidth": 0.0075048055904252085,
+        "translateX": 3.0282598954443656,
+        "translateY": -1.6750000000000058,
+        "scale": 1.34,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DDLD",
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DDLD"
+        ],
+        "turnAngle": 89.95090052277767,
+        "backgroundColor": "#0a0907",
+        "strokeColor": "#ff00f8",
+        "strokeWidth": 0.009958970552942955,
+        "translateX": 3.0282598954443656,
+        "translateY": -1.6750000000000058,
+        "scale": 1.34,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DDLD",
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DDLD"
+        ],
+        "turnAngle": 90.02647130345146,
+        "backgroundColor": "#0a0907",
+        "strokeColor": "#b82dff",
+        "strokeWidth": 0.009958970552942955,
+        "translateX": 2.3502912621359253,
+        "translateY": -1.3000000000000045,
+        "scale": 1.04,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+            "DDDDDDDDDDLDDDDDDDDLLDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
+        ],
+        "turnAngle": 199.6689868508794,
+        "backgroundColor": "#0a0907",
+        "strokeColor": "#00b4ff",
+        "strokeWidth": 0.40638291873125365,
+        "translateX": 3.0282598954443656,
+        "translateY": -1.6750000000000058,
+        "scale": 1.34,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DDDD",
+            "SLLDSLLDSLLDRRSDLL"
+        ],
+        "turnAngle": 45,
+        "backgroundColor": "#000000",
+        "strokeColor": "#ff8500",
+        "strokeWidth": 8.325532074019128,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 0.7,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DDDDRRDDDDRRDDDDRRDDD",
+            "SLLDSLLDSLLDRRSDLL"
+        ],
+        "turnAngle": 45,
+        "backgroundColor": "#000000",
+        "strokeColor": "#ff8500",
+        "strokeWidth": 8.325532074019128,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 0.7,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DDDDRRDDDDRRDDDDRRDDD",
+            "SLLDSLLDSLLDRRSDLL",
+            "SLLDSLLDSLLDRRSDLL",
+            "SLLDSLLDSLLDRRSDLL",
+            "SLLDSLLDSLLDRRSDLL",
+            "SLLDSLLDSLLDRRSDLL"
+        ],
+        "turnAngle": 45,
+        "backgroundColor": "#000000",
+        "strokeColor": "#ff8500",
+        "strokeWidth": 7.4884407574976395,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.3,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DDDDRDDDDRDDDDRDDDD",
+            "SLDSLDSLDRSDL",
+            "SLDSLDSSSLDDDDSSSSLSSSSRSSSSSSSSSSSSSSSSSSSSDD",
+            "LDDDLDRRDDDDLDDDLDDRDDDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS"
+        ],
+        "turnAngle": 90,
+        "backgroundColor": "#000000",
+        "strokeColor": "#b1b4a9",
+        "strokeWidth": 2.885399811814529,
+        "translateX": -22.22997890332418,
+        "translateY": -65.75249198402818,
+        "scale": 1.4800000000000004,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DDDDRDDDDRDDDDRDDDD",
+            "SLDSLDSLDRSDL",
+            "SLDSLDSSSLDDDDSSSSLSSSSRSSSSSSSSSSSSSSSSSSSSDD",
+            "LDDDLDRRDDDDLDDDLDDRDDDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS"
+        ],
+        "turnAngle": 90,
+        "backgroundColor": "#000000",
+        "strokeColor": "#b1b4a9",
+        "strokeWidth": 222.35689227250043,
+        "translateX": -22.22997890332418,
+        "translateY": -65.75249198402818,
+        "scale": 1.4800000000000004,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DDDDRDDDDRDDDDRDDDD",
+            "SLDSLDSLDRSDL",
+            "SLDSLDSLDRSDL",
+            "DSLLSDSDLLSDSSLDSLSSSSSLSSLSSRSLDRSLSD"
+        ],
+        "turnAngle": 90,
+        "backgroundColor": "#000000",
+        "strokeColor": "#b1b4a9",
+        "strokeWidth": 8.32553207401882,
+        "translateX": 13.770021096675821,
+        "translateY": -1.752491984028186,
+        "scale": 1.4800000000000004,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDD",
+            "DDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDDLDDD",
+            "DDDDDDDDDDDDDDD"
+        ],
+        "turnAngle": 1111111111,
+        "backgroundColor": "#8ddd55",
+        "strokeColor": "#1084e7",
+        "strokeWidth": 1,
+        "translateX": -11.00256947572367,
+        "translateY": 2.0925638350619185,
+        "scale": 1.23,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DLDLDLD",
+            "DDRDDDRRDDDLDLDRRDDDDDRRDDRDDDDDDDDDDDDDDDDDDSS",
+            "DDRDDDRRDDDLDLDRRDDDDDR",
+            "DDRDDDRRDDDDDDDDDDDDDDDDDDDDDDDD"
+        ],
+        "turnAngle": 289,
+        "backgroundColor": "#333333",
+        "strokeColor": "#00b46e",
+        "strokeWidth": 1,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.6,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DDLDLDLDDDLDLDLDDDLDLDLDDDLDLDLD",
+            "DDLDLDLDLDDRDRDDDDDRRDDDDDDD",
+            "DDLDLDLDDDLDLDLDDDLDLDLDDDLDLDLD"
+        ],
+        "turnAngle": 60.00449610542186,
+        "backgroundColor": "#000000",
+        "strokeColor": "#23b484",
+        "strokeWidth": 0.011,
+        "translateX": -0.7899106857837239,
+        "translateY": -0.43079206932840963,
+        "scale": 1.3400000000000003,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL",
+            "DDLLDRDS",
+            "DDLLDRDSLDDDLDDDSLDDDSSLDDS",
+            "DDLLDRDSLDDDLDDDSLDDDSSLDDS"
+        ],
+        "turnAngle": 119.99978169712517,
+        "backgroundColor": "#333333",
+        "strokeColor": "#f5aa36",
+        "strokeWidth": 0.020385140245256127,
+        "translateX": 73.28179128618208,
+        "translateY": -287.6801439451283,
+        "scale": 4.4799999999999995,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLD",
+            "DLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLDDLDLDLDLDLD"
+        ],
+        "turnAngle": 96.28490000000946,
+        "backgroundColor": "#040b20",
+        "strokeColor": "#3bdddb",
+        "strokeWidth": 0.005312663277910158,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.6,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLD",
+            "DLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLDDLDLD"
+        ],
+        "turnAngle": 90.93889999999735,
+        "backgroundColor": "#000000",
+        "strokeColor": "#1042b4",
+        "strokeWidth": 0.020021204502300268,
+        "translateX": 22.131194372558074,
+        "translateY": -39.18175179621922,
+        "scale": 1.2000000000000002,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DDDLSLLSSDRDRLLLSDRDRDSLDLSRRLLSLLDDSLRDRDLLDSLRSD",
+            "DLDSLSRDRRSLSLRDLDDDDLLRRDDDDDRRRDDDDLLSRLDLLLLDLD",
+            "LDLLLDLDRLLLLLDDDLLDLRLLLLLRDDRDRSDDDRSLLLRSDDDRSL",
+            "LLDRRDRRLSDDLLLLLLLLLDDLSLDDLRSSRLDRSSLLLLLDDSRSLLSDDDDDDSSSSSDDSSSSSSSSSSSSSSSS"
+        ],
+        "turnAngle": 120.00009510072132,
+        "backgroundColor": "#232e33",
+        "strokeColor": "#ebbe5a",
+        "strokeWidth": 3.2053609187865573,
+        "translateX": 83.90698175398882,
+        "translateY": 68.98599787983974,
+        "scale": 8.589999999999986,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL",
+            "DLLDLLDLDLLDLLDDRRDRRDRDRRDRRDLLDLLDLDLLDDRRDRDRRD"
+        ],
+        "turnAngle": 168.04776814124264,
+        "backgroundColor": "#fffbb2",
+        "strokeColor": "#0461ff",
+        "strokeWidth": 0.03544387817762917,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.6,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL",
+            "DLLDLLDLDLLDLLDDRRDRRDRDRRDRRDLLDLLDLDLLDDRRDRDRRD"
+        ],
+        "turnAngle": 165.71208331520194,
+        "backgroundColor": "#030000",
+        "strokeColor": "#28ff08",
+        "strokeWidth": 0.09198703793573113,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.6,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL",
+            "DLLDLLDLDLLDLLDDRRDRRDRDRRDRRDLLDLLDLDLLDDRRDRDRRD"
+        ],
+        "turnAngle": 164.19430978203468,
+        "backgroundColor": "#030000",
+        "strokeColor": "#ff4bdd",
+        "strokeWidth": 0.09198703793573113,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.6,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLL",
+            "DRDLLDRD",
+            "DRDLLDRD",
+            "DRDLLDRD",
+            "DRDLLDRD",
+            "DRDLLDRD"
+        ],
+        "turnAngle": 60,
+        "backgroundColor": "#030000",
+        "strokeColor": "#ff4bdd",
+        "strokeWidth": 6.547202611507122,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.3,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLL",
+            "DRDLLDRD",
+            "DLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLLDLL"
+        ],
+        "turnAngle": 91.335606905069,
+        "backgroundColor": "#030000",
+        "strokeColor": "#ffb300",
+        "strokeWidth": 0.014023647474397083,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.6,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLD",
+            "DLDL",
+            "DLDL",
+            "DLDL",
+            "DLDL",
+            "DLDL",
+            "DLDL",
+            "DLDL"
+        ],
+        "turnAngle": 60.001082767653095,
+        "backgroundColor": "#a374f9",
+        "strokeColor": "#f0e7ea",
+        "strokeWidth": 0.007425699774779912,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.3,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLD",
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLD"
+        ],
+        "turnAngle": 119.99193627431971,
+        "backgroundColor": "#a374f9",
+        "strokeColor": "#f0e7ea",
+        "strokeWidth": 0.0011071524158520105,
+        "translateX": 0,
+        "translateY": 0,
+        "scale": 1.3,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL",
+            "DLDL",
+            "DLDL",
+            "DLDL",
+            "DDRRDDDRDRD"
+        ],
+        "turnAngle": 60,
+        "backgroundColor": "#333333",
+        "strokeColor": "#ffb73c",
+        "strokeWidth": 0.04758592359560477,
+        "translateX": -9.651840695788707,
+        "translateY": -23.384719154299688,
+        "scale": 1.2200000000000004,
+        "curve": "line"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL",
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDL"
+        ],
+        "turnAngle": 91.76536339382513,
+        "backgroundColor": "#333333",
+        "strokeColor": "#ff325f",
+        "strokeWidth": 0.005140979886893275,
+        "translateX": -1.277270735894857,
+        "translateY": -1.9341998697531257,
+        "scale": 1.0300000000000002,
+        "curve": "curve"
+    },
+    {
+        "composition": [
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLD",
+            "DDDLLSDLRLDLDDDRDR",
+            "DLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLDLD"
+        ],
+        "turnAngle": 51.37937861451031,
+        "backgroundColor": "#333333",
+        "strokeColor": "#00fff4",
+        "strokeWidth": 0.03693935170237823,
+        "translateX": -1.6492913385826793,
+        "translateY": -2.4975590551181135,
+        "scale": 1.3300000000000003,
+        "curve": "curve"
+    }
+]
