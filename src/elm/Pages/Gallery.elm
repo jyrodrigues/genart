@@ -70,6 +70,7 @@ type alias Model =
 type Msg
     = RemovedFromGallery Int
     | CopiedToEditor Int
+    | BackToEditor
     | DownloadRequested
     | UploadRequested
     | SelectedGallery File
@@ -77,7 +78,7 @@ type Msg
 
 
 type ExternalMsg
-    = OpenedEditor Image
+    = OpenedEditor (Maybe Image)
     | UpdatedGallery
     | NothingToUpdate
 
@@ -97,6 +98,9 @@ initialModel =
 
 update : Msg -> Model -> ( Model, Cmd Msg, ExternalMsg )
 update msg model =
+    -- TODO: Change this to (galleryCmd, externalMsg), given that one of those msgs will be
+    -- `GalleryUpdated Gallery.Model`. On other msgs the model didn't changed and isn't necessary to update
+    -- the main model.
     case msg of
         RemovedFromGallery index ->
             let
@@ -112,10 +116,13 @@ update msg model =
             in
             case maybeImage of
                 Just image ->
-                    ( model, Cmd.none, OpenedEditor image )
+                    ( model, Cmd.none, OpenedEditor (Just image) )
 
                 Nothing ->
                     ( model, Cmd.none, NothingToUpdate )
+
+        BackToEditor ->
+            ( model, Cmd.none, OpenedEditor Nothing )
 
         DownloadRequested ->
             let
@@ -186,7 +193,7 @@ view model =
                     , boxSizing borderBox
                     ]
                 ]
-                [ C.anchorButton routeFor.editor "Back to editor"
+                [ C.primaryButton BackToEditor "Back to editor"
                 , C.primaryButton DownloadRequested "Download gallery"
                 , C.primaryButton UploadRequested "Upload gallery"
                 ]

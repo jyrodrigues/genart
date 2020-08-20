@@ -12,7 +12,7 @@ import Html
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
-import Pages.Editor as Editor exposing (ExternalMsg(..))
+import Pages.Editor as Editor
 import Pages.Gallery as Gallery
 import Routes exposing (Page(..), Route(..), mapRouteToPage, parseUrl)
 import Url
@@ -216,35 +216,55 @@ update msg model =
                     Cmd.map EditorMsg editorCmd
             in
             case externalMsg of
-                UpdatedEditor ->
+                Editor.UpdatedEditor ->
                     ( newModel, Cmd.batch [ cmd, saveModelToLocalStorage (encode newModel) ] )
 
-                UpdatedGallery image ->
-                    ( { newModel | gallery = Gallery.addImage image newModel.gallery }, cmd )
+                Editor.UpdatedGallery image ->
+                    let
+                        newModelWithUpdatedGallery =
+                            { newModel | gallery = Gallery.addImage image newModel.gallery }
+                    in
+                    ( newModelWithUpdatedGallery
+                    , Cmd.batch
+                        [ cmd
+                        , saveModelToLocalStorage (encode newModelWithUpdatedGallery)
+                        ]
+                    )
 
-                NothingToUpdate ->
+                Editor.NothingToUpdate ->
                     ( newModel, cmd )
 
         GalleryMsg galleryMsg ->
             let
+                -- TODO: Change this to (galleryCmd, externalMsg), given that one of those msgs will be
+                -- `GalleryUpdated Gallery.Model`. On other msgs the model didn't changed and isn't necessary to update
+                -- the main model.
                 ( gallery, galleryCmd, externalMsg ) =
                     Gallery.update galleryMsg model.gallery
-
-                newModel =
-                    { model | gallery = gallery }
 
                 cmd =
                     Cmd.map GalleryMsg galleryCmd
             in
             case externalMsg of
                 Gallery.UpdatedGallery ->
+                    let
+                        newModel =
+                            { model | gallery = gallery }
+                    in
                     ( newModel, Cmd.batch [ cmd, saveModelToLocalStorage (encode newModel) ] )
 
-                Gallery.OpenedEditor image ->
-                    ( { newModel | editor = Editor.withImage image model.editor, viewingPage = EditorPage }, cmd )
+                Gallery.OpenedEditor maybeImage ->
+                    let
+                        newModel =
+                            { model
+                                | editor = Editor.withImage (Maybe.withDefault model.editor.image maybeImage) model.editor
+                                , viewingPage = EditorPage
+                            }
+                    in
+                    ( newModel, Cmd.batch [ cmd, Nav.replaceUrl newModel.navKey (Editor.encodeIntoUrl newModel.editor) ] )
 
                 Gallery.NothingToUpdate ->
-                    ( newModel, cmd )
+                    ( model, cmd )
 
 
 

@@ -1604,11 +1604,6 @@ queryParser =
     Parser.query Image.queryParser
 
 
-
--- urlEncoder : Model -> Url.Query -- Or something like this
--- (routeFor EditorPage ++ Image.toQuery model.image)
-
-
 encodeIntoUrl : Model -> String
 encodeIntoUrl model =
     routeFor.editor ++ Image.toQuery model.image
