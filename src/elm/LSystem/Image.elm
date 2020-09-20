@@ -100,6 +100,8 @@ type alias SvgPathAndBoundaries =
 type alias Boundaries =
     { leftTop : Position
     , rightBottom : Position
+    , centerOfMass : Position
+    , counter : Float
     }
 
 
@@ -734,7 +736,7 @@ baseEverything =
         ""
         0
         ( 0, 0 )
-        (Boundaries ( 0, 0 ) ( 0, 0 ))
+        (Boundaries ( 0, 0 ) ( 0, 0 ) ( 0, 0 ) 0)
 
 
 {-|
@@ -765,9 +767,14 @@ processCompositionStep pathCurve turnAngleSize step { pathString, angle, positio
         nextPosition =
             Utils.pairExec (+) nextPositionDelta_ position
 
+        nextStrokeCenterOfMass =
+            Utils.pairExec (+) (Utils.pairMap (\v -> v / 2) nextPositionDelta_) position
+
         updatedBoundaries =
             { leftTop = Utils.pairExec min boundaries.leftTop nextPosition
             , rightBottom = Utils.pairExec max boundaries.rightBottom nextPosition
+            , centerOfMass = Utils.pairExec (+) boundaries.centerOfMass nextStrokeCenterOfMass
+            , counter = boundaries.counter + 1
             }
 
         curve =
