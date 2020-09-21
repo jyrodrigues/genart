@@ -232,6 +232,8 @@ blockToString =
 
 
 -- STEP CONVERSIONS
+-- TODO Since I'm adding letters as an option inside the drawing, neither Steps nor dna can be encoded as simple chars.
+-- Change them into numbers or think another way of encoding them.
 
 
 charToStep : Char -> Step
@@ -250,11 +252,11 @@ charToStep char =
             S
 
         _ ->
-            dnaOrSkip char
+            dnaOrLetter char
 
 
-dnaOrSkip : Char -> Step
-dnaOrSkip char =
+dnaOrLetter : Char -> Step
+dnaOrLetter char =
     case char of
         'c' ->
             D
@@ -269,7 +271,7 @@ dnaOrSkip char =
             S
 
         _ ->
-            S
+            Letter char
 
 
 stepToChar : Step -> Char
