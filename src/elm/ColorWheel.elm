@@ -38,7 +38,7 @@ import Html.Styled exposing (Html, div)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events
 import Json.Decode as Decode exposing (Decoder)
-import LSystem.Image exposing (PathSegment(..), PathSegmentString)
+import Svg.Core exposing (PathSegment(..), PathSegmentString)
 import Svg.Styled exposing (Svg, circle, defs, line, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
     exposing

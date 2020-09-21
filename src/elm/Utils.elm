@@ -4,6 +4,10 @@ import Process
 import Task
 
 
+type alias Position =
+    ( Float, Float )
+
+
 
 -- DELAY
 

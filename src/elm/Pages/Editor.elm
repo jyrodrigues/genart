@@ -98,7 +98,6 @@ import LSystem.Image as Image
         ( Image
         , PartialImage
         , Polygon(..)
-        , Position
         , defaultImage
         , withImage
         )
@@ -110,7 +109,7 @@ import Svg.Styled exposing (Svg)
 import Task
 import Time
 import Url.Parser as Parser exposing (Parser)
-import Utils exposing (delay, floatModBy)
+import Utils exposing (Position, delay, floatModBy)
 
 
 

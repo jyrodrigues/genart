@@ -1,7 +1,7 @@
 module LSystem.Draw exposing (drawBlocks, drawFixedImage, drawImage)
 
 import Colors exposing (Color)
-import LSystem.Image as Image exposing (Boundaries, Image, Position)
+import LSystem.Image as Image exposing (Boundaries, Image)
 import Svg.Styled exposing (Svg, circle, defs, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
     exposing
@@ -21,7 +21,7 @@ import Svg.Styled.Attributes
         , viewBox
         )
 import Svg.Styled.Events exposing (onClick)
-import Utils exposing (floatsToSpacedString, pairExec, pairMap)
+import Utils exposing (Position, floatsToSpacedString, pairExec, pairMap)
 
 
 type alias Id =
