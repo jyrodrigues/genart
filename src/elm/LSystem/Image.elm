@@ -640,7 +640,7 @@ keyFor =
 
     Using uppercase letters only because Elm forces us when creating types,
     *BUT* every case represents lowercase counterparts from the
-    SVG specification!
+    SVG specification, which represent relative movements!
 
 
     Also check:
@@ -681,6 +681,76 @@ type
       -- Arc curve
       -- a rx ry x-axis-rotation large-arc-flag sweep-flag dx dy
     | A Position Float Bool Bool Position
+
+
+letterH =
+    [ M ( 7.2792, -4.4348 )
+    , Q ( 0, -0.132 ) ( 0.132, -0.132 )
+    , L ( 0.4356, 0 )
+    , Q ( 0.132, 0 ) ( 0.132, 0.132 )
+    , L ( 0, 8.976 )
+    , Q ( 0, 0.132 ) ( -0.132, 0.132 )
+    , L ( -0.4356, 0 )
+    , Q ( -0.132, 0 ) ( -0.132, -0.132 )
+    , L ( 0, -4.1448 )
+    , Q ( 0, -0.0528 ) ( -0.0528, -0.0528 )
+    , L ( -4.5408, 0 )
+    , Q ( -0.0528, 0 ) ( -0.0528, 0.0528 )
+    , L ( 0, 4.1448 )
+    , Q ( 0, 0.132 ) ( -0.132, 0.132 )
+    , L ( -0.4356, 0 )
+    , Q ( -0.132, 0 ) ( -0.132, -0.132 )
+    , L ( 0, -8.976 )
+    , Q ( 0, -0.132 ) ( 0.132, -0.132 )
+    , L ( 0.4356, 0 )
+    , Q ( 0.132, 0 ) ( 0.132, 0.132 )
+    , L ( 0, 4.1052 )
+    , Q ( 0, 0.0528 ) ( 0.0528, 0.0528 )
+    , L ( 4.5408, 0 )
+    , Q ( 0.0528, 0 ) ( 0.0528, -0.0528 )
+    , L ( 0, -4.1052 )
+    , Z
+    , M ( -7.2792, 4.4348 )
+    ]
+
+
+rotateSegmentTo : Position -> PathSegment -> PathSegment
+rotateSegmentTo direction segment =
+    let
+        ( _, tetha ) =
+            toPolar direction
+
+        rotate position =
+            let
+                ( size, alpha ) =
+                    toPolar position
+            in
+            fromPolar ( size, alpha + tetha )
+    in
+    case segment of
+        M position ->
+            M (rotate position)
+
+        L position ->
+            L (rotate position)
+
+        C position0 position1 position2 ->
+            C (rotate position0) (rotate position1) (rotate position2)
+
+        S position0 position1 ->
+            S (rotate position0) (rotate position1)
+
+        Q position0 position1 ->
+            Q (rotate position0) (rotate position1)
+
+        T position ->
+            T (rotate position)
+
+        A position0 float bool0 bool1 position1 ->
+            A (rotate position0) float bool0 bool1 (rotate position1)
+
+        _ ->
+            segment
 
 
 type alias PathSegmentString =
@@ -784,6 +854,12 @@ processCompositionStep pathCurve turnAngleSize step { pathString, angle, positio
 
                 Curve ->
                     T
+
+        makeLetter letterArray =
+            List.map (rotateSegmentTo nextPositionDelta_) letterArray
+                ++ [ M nextPositionDelta_ ]
+                |> List.map segmentToString
+                |> String.join ""
     in
     case step of
         Core.D ->
@@ -796,6 +872,13 @@ processCompositionStep pathCurve turnAngleSize step { pathString, angle, positio
         Core.S ->
             EverythingInOnePass
                 (pathString ++ segmentToString (M nextPositionDelta_))
+                angle
+                nextPosition
+                updatedBoundaries
+
+        Core.Letter char ->
+            EverythingInOnePass
+                (pathString ++ makeLetter letterH)
                 angle
                 nextPosition
                 updatedBoundaries

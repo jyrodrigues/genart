@@ -39,6 +39,7 @@ type Step
     | R
     | L
     | S
+    | Letter Char
 
 
 type alias Block =
@@ -285,6 +286,9 @@ stepToChar step =
 
         S ->
             'S'
+
+        Letter char ->
+            char
 
 
 

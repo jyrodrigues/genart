@@ -1368,6 +1368,9 @@ processKey model keyPressed =
         "ArrowDown" ->
             appendStep S
 
+        "h" ->
+            appendStep (Letter 'h')
+
         "Backspace" ->
             ( { model | image = Image.dropLastStepAtIndex model.editingIndex model.image }, True )
 
