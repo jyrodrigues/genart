@@ -42,13 +42,14 @@ module LSystem.Image exposing
     )
 
 import Colors exposing (Color)
+import Dict
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra as DecodeExtra
 import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
 import Random
 import Svg.Core exposing (PathSegment(..), rotateSegmentTo, segmentToString)
-import Svg.Letters exposing (letterH)
+import Svg.Letters exposing (lettersDict)
 import Url.Builder
 import Url.Parser.Query as Query
 import Utils exposing (Position)
@@ -723,42 +724,42 @@ processCompositionStep pathCurve turnAngleSize step { pathString, angle, positio
                 ++ [ M nextPositionDelta_ ]
                 |> List.map segmentToString
                 |> String.join ""
+
+        drawWith path =
+            EverythingInOnePass
+                (pathString ++ path)
+                angle
+                nextPosition
+                updatedBoundaries
+
+        turnWith compoundAngle =
+            EverythingInOnePass
+                pathString
+                (modBy360 compoundAngle)
+                position
+                boundaries
     in
     case step of
         Core.D ->
-            EverythingInOnePass
-                (pathString ++ segmentToString (curve nextPositionDelta_))
-                angle
-                nextPosition
-                updatedBoundaries
+            drawWith (segmentToString (curve nextPositionDelta_))
 
         Core.S ->
-            EverythingInOnePass
-                (pathString ++ segmentToString (M nextPositionDelta_))
-                angle
-                nextPosition
-                updatedBoundaries
+            drawWith (segmentToString (M nextPositionDelta_))
 
         Core.Letter char ->
-            EverythingInOnePass
-                (pathString ++ makeLetter letterH)
-                angle
-                nextPosition
-                updatedBoundaries
+            case Dict.get char lettersDict of
+                Just letter ->
+                    drawWith (makeLetter letter)
+
+                Nothing ->
+                    -- Skip
+                    drawWith (segmentToString (M nextPositionDelta_))
 
         Core.L ->
-            EverythingInOnePass
-                pathString
-                (modBy360 (angle + turnAngleSize))
-                position
-                boundaries
+            turnWith (angle + turnAngleSize)
 
         Core.R ->
-            EverythingInOnePass
-                pathString
-                (modBy360 (angle - turnAngleSize))
-                position
-                boundaries
+            turnWith (angle - turnAngleSize)
 
 
 {-| TODO This `10` value here is scaling the drawing. It's probably related to the viewbox size. Extract it.

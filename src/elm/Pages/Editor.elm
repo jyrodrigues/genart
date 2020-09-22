@@ -1368,7 +1368,16 @@ processKey model keyPressed =
             appendStep S
 
         "h" ->
-            appendStep (Letter 'h')
+            appendStep (Letter 'H')
+
+        "e" ->
+            appendStep (Letter 'E')
+
+        "l" ->
+            appendStep (Letter 'L')
+
+        "O" ->
+            appendStep (Letter 'O')
 
         "Backspace" ->
             ( { model | image = Image.dropLastStepAtIndex model.editingIndex model.image }, True )
@@ -1450,10 +1459,16 @@ processKey model keyPressed =
         -- CHANGE CURVE
         --
         "o" ->
-            ( { model | image = Image.withCurve Image.Curve model.image }, True )
+            let
+                curve =
+                    case model.image.curve of
+                        Image.Curve ->
+                            Image.Line
 
-        "l" ->
-            ( { model | image = Image.withCurve Image.Line model.image }, True )
+                        Image.Line ->
+                            Image.Curve
+            in
+            ( { model | image = Image.withCurve curve model.image }, True )
 
         -- CHANGE ANGLE
         --
