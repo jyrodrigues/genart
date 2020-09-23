@@ -49,7 +49,7 @@ import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
 import Random
 import Svg.Core exposing (PathSegment(..), rotateSegmentTo, segmentToString)
-import Svg.FontBarlowLight as FontToSVG
+import Svg.FontMajorMono as FontToSVG
 import Url.Builder
 import Url.Parser.Query as Query
 import Utils exposing (Position)
