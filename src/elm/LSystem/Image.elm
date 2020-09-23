@@ -49,7 +49,7 @@ import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
 import Random
 import Svg.Core exposing (PathSegment(..), rotateSegmentTo, segmentToString)
-import Svg.Letters exposing (lettersDict)
+import Svg.FontBarlowLight as FontToSVG
 import Url.Builder
 import Url.Parser.Query as Query
 import Utils exposing (Position)
@@ -658,7 +658,7 @@ imageToSvgPathString { composition, turnAngle, curve } =
         ++ " "
         ++ String.fromFloat lastY
         ++ " "
-        ++ segmentToString (Svg.Core.L (nextPositionDelta finalEverything.angle))
+        ++ segmentToString (Svg.Core.L (nextPositionDelta finalEverything.angle 10))
       -- TopRight and BottomLeft extremes of final image
     , finalEverything.boundaries
     )
@@ -693,10 +693,14 @@ baseEverything =
 
 -}
 processCompositionStep : PathCurve -> Float -> Step -> EverythingInOnePass -> EverythingInOnePass
-processCompositionStep pathCurve turnAngleSize step { pathString, angle, position, boundaries } =
+processCompositionStep pathCurve turnAngleSize step currentEverything =
     let
+        { pathString, angle, position, boundaries } =
+            currentEverything
+
+        -- TODO This `10` value here is scaling the drawing. It's probably related to the viewbox size. Extract it.
         nextPositionDelta_ =
-            nextPositionDelta angle
+            nextPositionDelta angle 10
 
         nextPosition =
             Utils.pairExec (+) nextPositionDelta_ position
@@ -719,12 +723,6 @@ processCompositionStep pathCurve turnAngleSize step { pathString, angle, positio
                 Curve ->
                     Svg.Core.T
 
-        makeLetter letterArray =
-            List.map (rotateSegmentTo nextPositionDelta_) letterArray
-                ++ [ M nextPositionDelta_ ]
-                |> List.map segmentToString
-                |> String.join ""
-
         drawWith path =
             EverythingInOnePass
                 (pathString ++ path)
@@ -746,14 +744,8 @@ processCompositionStep pathCurve turnAngleSize step { pathString, angle, positio
         Core.S ->
             drawWith (segmentToString (M nextPositionDelta_))
 
-        Core.Letter char ->
-            case Dict.get char lettersDict of
-                Just letter ->
-                    drawWith (makeLetter letter)
-
-                Nothing ->
-                    -- Skip
-                    drawWith (segmentToString (M nextPositionDelta_))
+        Core.Glyph char ->
+            Maybe.withDefault currentEverything (Maybe.map (drawWithGlyph currentEverything) (Dict.get char FontToSVG.dict))
 
         Core.L ->
             turnWith (angle + turnAngleSize)
@@ -762,12 +754,46 @@ processCompositionStep pathCurve turnAngleSize step { pathString, angle, positio
             turnWith (angle - turnAngleSize)
 
 
-{-| TODO This `10` value here is scaling the drawing. It's probably related to the viewbox size. Extract it.
--}
-nextPositionDelta : Float -> Position
-nextPositionDelta angle =
+drawWithGlyph : EverythingInOnePass -> ( List PathSegment, Float ) -> EverythingInOnePass
+drawWithGlyph currentEverything ( pathSegments, glyphAdvance ) =
+    let
+        { pathString, angle, position, boundaries } =
+            currentEverything
+
+        -- TODO this is the only line that changes from the above `let ... in` to this function
+        -- So we can improve the ergonomics here
+        nextPositionDelta_ =
+            nextPositionDelta angle glyphAdvance
+
+        nextPosition =
+            Utils.pairExec (+) nextPositionDelta_ position
+
+        nextStrokeCenterOfMass =
+            Utils.pairExec (+) (Utils.pairMap (\v -> v / 2) nextPositionDelta_) position
+
+        updatedBoundaries =
+            { leftTop = Utils.pairExec min boundaries.leftTop nextPosition
+            , rightBottom = Utils.pairExec max boundaries.rightBottom nextPosition
+            , centerOfMass = Utils.pairExec (+) boundaries.centerOfMass nextStrokeCenterOfMass
+            , counter = boundaries.counter + 1
+            }
+
+        path =
+            List.map (rotateSegmentTo nextPositionDelta_) pathSegments
+                |> List.map segmentToString
+                |> String.join ""
+    in
+    EverythingInOnePass
+        (pathString ++ path)
+        angle
+        nextPosition
+        updatedBoundaries
+
+
+nextPositionDelta : Float -> Float -> Position
+nextPositionDelta angle advance =
     fromPolar ( 1, degrees angle )
-        |> Utils.pairMap ((*) 10)
+        |> Utils.pairMap ((*) advance)
         |> adjustForViewportAxisOrientation
 
 

@@ -39,7 +39,7 @@ type Step
     | R
     | L
     | S
-    | Letter Char
+    | Glyph Char
 
 
 type alias Block =
@@ -252,11 +252,11 @@ charToStep char =
             S
 
         _ ->
-            dnaOrLetter char
+            dnaOrGlyph char
 
 
-dnaOrLetter : Char -> Step
-dnaOrLetter char =
+dnaOrGlyph : Char -> Step
+dnaOrGlyph char =
     case char of
         'c' ->
             D
@@ -271,7 +271,7 @@ dnaOrLetter char =
             S
 
         _ ->
-            Letter char
+            Glyph char
 
 
 stepToChar : Step -> Char
@@ -289,7 +289,7 @@ stepToChar step =
         S ->
             'S'
 
-        Letter char ->
+        Glyph char ->
             char
 
 
