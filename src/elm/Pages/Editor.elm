@@ -252,7 +252,7 @@ type alias Model =
     , keyboardInput : KeyboardInput
 
     -- Alert Popup
-    , alertActive : Bool
+    , alert : Maybe String
 
     -- URL (for getting protocol and host to make shareable URL)
     , url : Maybe Url.Url
@@ -340,7 +340,7 @@ initialModel =
     , keyboardInput = ShortcutsMode
 
     -- Alert Popup
-    , alertActive = False
+    , alert = Nothing
 
     -- URL
     , url = Nothing
@@ -394,11 +394,12 @@ view : Model -> Browser.Document Msg
 view model =
     let
         alert =
-            if model.alertActive then
-                [ C.alert "Image saved!" ]
+            case model.alert of
+                Just message ->
+                    [ C.alert message ]
 
-            else
-                []
+                Nothing ->
+                    []
     in
     { title = "Generative Art"
     , body =
@@ -834,9 +835,17 @@ update msg model =
                         in
                         ( model, copyTextToClipboard url, NothingToUpdate )
 
-            CopyUrlToClipboardResult result ->
+            CopyUrlToClipboardResult copiedSuccessfully ->
+                let
+                    message =
+                        if copiedSuccessfully then
+                            "URL copied!"
+
+                        else
+                            "There was an error :("
+                in
                 -- `4000` here is enough to make the transition visible until it removes the node from the DOM.
-                ( { model | alertActive = True }
+                ( { model | alert = Just message }
                 , delay 4000 HideAlert
                 , NothingToUpdate
                 )
@@ -1219,7 +1228,7 @@ update msg model =
 
             SavedToGallery ->
                 -- `4000` here is enough to make the transition visible until it removes the node from the DOM.
-                ( { model | alertActive = True }
+                ( { model | alert = Just "Image saved!" }
                 , delay 4000 HideAlert
                 , UpdatedGallery model.image
                 )
@@ -1230,7 +1239,7 @@ update msg model =
                 ( processMidi value model, Cmd.none, NothingToUpdate )
 
             HideAlert ->
-                ( { model | alertActive = False }, Cmd.none, NothingToUpdate )
+                ( { model | alert = Nothing }, Cmd.none, NothingToUpdate )
 
             NoOp ->
                 ( model, Cmd.none, NothingToUpdate )
