@@ -39,6 +39,7 @@ type Step
     | R
     | L
     | S
+    | Glyph Char
 
 
 type alias Block =
@@ -231,6 +232,8 @@ blockToString =
 
 
 -- STEP CONVERSIONS
+-- TODO Since I'm adding letters as an option inside the drawing, neither Steps nor dna can be encoded as simple chars.
+-- Change them into numbers or think another way of encoding them.
 
 
 charToStep : Char -> Step
@@ -249,11 +252,11 @@ charToStep char =
             S
 
         _ ->
-            dnaOrSkip char
+            dnaOrGlyph char
 
 
-dnaOrSkip : Char -> Step
-dnaOrSkip char =
+dnaOrGlyph : Char -> Step
+dnaOrGlyph char =
     case char of
         'c' ->
             D
@@ -268,7 +271,7 @@ dnaOrSkip char =
             S
 
         _ ->
-            S
+            Glyph char
 
 
 stepToChar : Step -> Char
@@ -285,6 +288,9 @@ stepToChar step =
 
         S ->
             'S'
+
+        Glyph char ->
+            char
 
 
 

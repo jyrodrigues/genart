@@ -13,7 +13,7 @@ module Events exposing
 import Html.Styled
 import Html.Styled.Events exposing (on, preventDefaultOn)
 import Json.Decode as Decode exposing (Decoder)
-import LSystem.Image exposing (Position)
+import Utils exposing (Position)
 
 
 type alias ShiftKey =

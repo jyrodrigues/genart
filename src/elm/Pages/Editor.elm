@@ -98,8 +98,8 @@ import LSystem.Image as Image
         ( Image
         , PartialImage
         , Polygon(..)
-        , Position
         , defaultImage
+        , welcomeImage
         , withImage
         )
 import Midi exposing (adjustInputForStrokeWidth)
@@ -110,7 +110,7 @@ import Svg.Styled exposing (Svg)
 import Task
 import Time
 import Url.Parser as Parser exposing (Parser)
-import Utils exposing (delay, floatModBy)
+import Utils exposing (Position, delay, floatModBy)
 
 
 
@@ -142,6 +142,7 @@ type
     -- TODO change to `KeyPress Where String`
     = EditorKeyPress String
     | InputKeyPress String
+    | SetKeyboardInput KeyboardInput
       -- Main commands
     | AddSimpleBlock
     | ResetDrawing
@@ -234,6 +235,7 @@ type alias Model =
 
     -- Input controls value
     , turnAngleInputValue : String
+    , keyboardInput : KeyboardInput
 
     -- Alert Popup
     , alertActive : Bool
@@ -261,6 +263,11 @@ type ColorTarget
     | Background
 
 
+type KeyboardInput
+    = ShortcutsMode
+    | WritingMode
+
+
 {-| Those are Strings because we use a Set to check which ones are playing
 --- and Sets can't have custom/union types in it, only comparables.
 -}
@@ -282,7 +289,7 @@ video =
 initialModel : Model
 initialModel =
     -- Aplication heart
-    { image = defaultImage
+    { image = welcomeImage
     , editingIndex = 1
 
     -- Pan and Zoom
@@ -304,13 +311,14 @@ initialModel =
     , focus = EditorFocus
 
     -- Video
-    , videoAngleChangeRate = 0.01
+    , videoAngleChangeRate = 0.0001
     , slowMotion = NotSet
-    , playingVideo = Set.empty
+    , playingVideo = Set.fromList [ video.changeAngle, video.changeColorLinear ]
     , videoAngleChangeDirection = 1
 
     -- Input controls value
     , turnAngleInputValue = String.fromFloat defaultImage.turnAngle
+    , keyboardInput = ShortcutsMode
 
     -- Alert Popup
     , alertActive = False
@@ -398,6 +406,7 @@ controlPanel model =
             ]
         ]
         [ infoAndBasicControls
+        , keyboardInputModeControls model.keyboardInput
         , colorControls model.colorTarget model.colorWheel model.playingVideo
         , videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion
         , turnAngleControl model.turnAngleInputValue
@@ -422,6 +431,14 @@ infoAndBasicControls =
         , C.primaryButtonHalf ResetDrawing "Reset"
         , C.primaryButtonHalf RandomRequested "Rand"
         , C.primaryButtonHalf DownloadSvgAsJpeg "JPEG"
+        ]
+
+
+keyboardInputModeControls : KeyboardInput -> Html Msg
+keyboardInputModeControls inputMode =
+    C.controlBlockFlex
+        [ C.primaryButtonSelectable (inputMode == ShortcutsMode) (SetKeyboardInput ShortcutsMode) "Shortcuts mode"
+        , C.primaryButtonSelectable (inputMode == WritingMode) (SetKeyboardInput WritingMode) "Writing mode"
         ]
 
 
@@ -822,20 +839,41 @@ update msg model =
 
             EditorKeyPress keyString ->
                 let
-                    ( newModel, shouldUpdate ) =
-                        processKey model keyString
+                    maybeNewModelArrowsAndBackspace =
+                        processArrowsAndBackspace model keyString
+
+                    maybeNewModelShortcut =
+                        processShortcut model keyString
+
+                    maybeNewModelWriting =
+                        processWritingInput model keyString
                 in
-                if keyString == "a" then
-                    ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.focus "TurnAngle"), NothingToUpdate )
+                case maybeNewModelArrowsAndBackspace of
+                    Just newModel ->
+                        ( newModel, Cmd.none, UpdatedEditor )
 
-                else if keyString == "q" then
-                    ( model, Random.generate GotRandomImage Image.random, UpdatedEditor )
+                    Nothing ->
+                        if model.keyboardInput == WritingMode then
+                            case maybeNewModelWriting of
+                                Just newModel ->
+                                    ( newModel, Cmd.none, UpdatedEditor )
 
-                else if shouldUpdate then
-                    ( newModel, Cmd.none, NothingToUpdate )
+                                Nothing ->
+                                    ( model, Cmd.none, NothingToUpdate )
 
-                else
-                    ( model, Cmd.none, NothingToUpdate )
+                        else if keyString == "a" then
+                            ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.focus "TurnAngle"), NothingToUpdate )
+
+                        else if keyString == "q" then
+                            ( model, Random.generate GotRandomImage Image.random, UpdatedEditor )
+
+                        else
+                            case maybeNewModelShortcut of
+                                Just newModel ->
+                                    ( newModel, Cmd.none, NothingToUpdate )
+
+                                Nothing ->
+                                    ( model, Cmd.none, NothingToUpdate )
 
             -- also, see `scaleAbout` in https://github.com/ianmackenzie/elm-geometry-svg/blob/master/src/Geometry/Svg.elm
             -- and later check https://package.elm-lang.org/packages/ianmackenzie/elm-geometry-svg/latest/
@@ -956,6 +994,12 @@ update msg model =
 
                     _ ->
                         ( model, Cmd.none, NothingToUpdate )
+
+            SetKeyboardInput inputMode ->
+                ( { model | keyboardInput = inputMode }
+                , Cmd.none
+                , NothingToUpdate
+                )
 
             SetStrokeWidth width ->
                 ( { model | image = Image.withStrokeWidth width model.image }
@@ -1321,19 +1365,63 @@ processMidi value model =
             model
 
 
-processKey : Model -> String -> ( Model, Bool )
-processKey model keyPressed =
+processArrowsAndBackspace : Model -> String -> Maybe Model
+processArrowsAndBackspace model keyPressed =
     let
         appendStep step =
-            ( { model | image = Image.appendStepAtIndex step model.editingIndex model.image }, True )
+            { model | image = Image.appendStepAtIndex step model.editingIndex model.image }
+    in
+    case keyPressed of
+        "ArrowLeft" ->
+            Just (appendStep L)
 
-        updateAngle deg =
-            ( { model
-                | image = Image.withTurnAngle deg model.image
-                , turnAngleInputValue = String.fromFloat deg
-              }
-            , True
+        "ArrowRight" ->
+            Just (appendStep R)
+
+        "ArrowUp" ->
+            Just (appendStep D)
+
+        "ArrowDown" ->
+            Just (appendStep S)
+
+        "Backspace" ->
+            Just { model | image = Image.dropLastStepAtIndex model.editingIndex model.image }
+
+        _ ->
+            Nothing
+
+
+processWritingInput : Model -> String -> Maybe Model
+processWritingInput model keyPressed =
+    let
+        append step =
+            Just { model | image = Image.appendStepAtIndex step model.editingIndex model.image }
+    in
+    if keyPressed == " " then
+        append S
+
+    else
+        Maybe.andThen
+            (\( key, tail ) ->
+                if String.length tail > 0 then
+                    -- Key pressed is something like "Shift". TODO What kind of bugs can appear from this?
+                    Nothing
+
+                else
+                    append (Glyph key)
             )
+            (String.uncons keyPressed)
+
+
+processShortcut : Model -> String -> Maybe Model
+processShortcut model keyPressed =
+    let
+        updateAngle deg =
+            Just
+                { model
+                    | image = Image.withTurnAngle deg model.image
+                    , turnAngleInputValue = String.fromFloat deg
+                }
 
         exponentialMove config value op =
             let
@@ -1354,104 +1442,91 @@ processKey model keyPressed =
             { model | videoAngleChangeRate = exponentialMove videoRateSliderConfig model.videoAngleChangeRate op }
     in
     case keyPressed of
-        -- DRAW
-        --
-        "ArrowLeft" ->
-            appendStep L
-
-        "ArrowRight" ->
-            appendStep R
-
-        "ArrowUp" ->
-            appendStep D
-
-        "ArrowDown" ->
-            appendStep S
-
-        "Backspace" ->
-            ( { model | image = Image.dropLastStepAtIndex model.editingIndex model.image }, True )
-
         -- RESET POSITION AND ZOOM
         --
         "c" ->
-            ( { model | image = Image.centralize model.image }, True )
+            Just { model | image = Image.centralize model.image }
 
         -- ITERATE / DEITERATE
         --
         "i" ->
-            ( duplicateAndAppendBlock model model.editingIndex, True )
+            Just (duplicateAndAppendBlock model model.editingIndex)
 
         "d" ->
-            ( dropLastBlock model, True )
+            Just (dropLastBlock model)
 
         -- VIDEO CONTROLS
         --
         -- Play / pause
         " " ->
-            ( { model
-                | playingVideo =
-                    if Set.member video.changeAngle model.playingVideo then
-                        Set.remove video.changeAngle model.playingVideo
+            Just
+                { model
+                    | playingVideo =
+                        if Set.member video.changeAngle model.playingVideo then
+                            Set.remove video.changeAngle model.playingVideo
 
-                    else
-                        Set.insert video.changeAngle model.playingVideo
-              }
-            , True
-              -- Saving because we don't save while video is being played
-            )
+                        else
+                            Set.insert video.changeAngle model.playingVideo
+                }
 
         -- Slow motion
         "s" ->
             case model.slowMotion of
                 Slowly _ ->
-                    ( { model | slowMotion = NotSet }, True )
+                    Just { model | slowMotion = NotSet }
 
                 NotSet ->
-                    ( { model | slowMotion = Slowly 0.05 }, True )
+                    Just { model | slowMotion = Slowly 0.05 }
 
         "," ->
-            ( updateVideoRate (-), True )
+            Just (updateVideoRate (-))
 
         "." ->
-            ( updateVideoRate (+), True )
+            Just (updateVideoRate (+))
 
         -- Change turn angle direction
         "r" ->
-            ( { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }, True )
+            Just { model | videoAngleChangeDirection = model.videoAngleChangeDirection * -1 }
 
         -- ZOOM
         --
         -- Zoom out large
         "-" ->
-            ( applyZoom 30 model.imgDivCenter model, True )
+            Just (applyZoom 30 model.imgDivCenter model)
 
         -- Zoom out small
         "_" ->
-            ( applyZoom 1 model.imgDivCenter model, True )
+            Just (applyZoom 1 model.imgDivCenter model)
 
         -- Zoom in Large
         "=" ->
-            ( applyZoom -30 model.imgDivCenter model, True )
+            Just (applyZoom -30 model.imgDivCenter model)
 
         -- Zoom in small
         "+" ->
-            ( applyZoom -1 model.imgDivCenter model, True )
+            Just (applyZoom -1 model.imgDivCenter model)
 
         -- STROKE WIDTH
         --
         "[" ->
-            ( updateStrokeWidth (-), True )
+            Just (updateStrokeWidth (-))
 
         "]" ->
-            ( updateStrokeWidth (+), True )
+            Just (updateStrokeWidth (+))
 
         -- CHANGE CURVE
         --
         "o" ->
-            ( { model | image = Image.withCurve Image.Curve model.image }, True )
+            let
+                curve =
+                    case model.image.curve of
+                        Image.Curve ->
+                            Image.Line
 
-        "l" ->
-            ( { model | image = Image.withCurve Image.Line model.image }, True )
+                        Image.Line ->
+                            Image.Curve
+            in
+            Just { model | image = Image.withCurve curve model.image }
 
         -- CHANGE ANGLE
         --
@@ -1496,7 +1571,7 @@ processKey model keyPressed =
             updateAngle 165
 
         _ ->
-            ( model, False )
+            Nothing
 
 
 strokeWidthSliderConfig : Utils.MinMaxCenterAt
@@ -1596,7 +1671,7 @@ subscriptions model isVisible =
 
 framesInterval : Float
 framesInterval =
-    50
+    100
 
 
 queryParser : Parser (PartialImage -> a) a

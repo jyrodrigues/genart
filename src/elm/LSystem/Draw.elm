@@ -1,7 +1,7 @@
 module LSystem.Draw exposing (drawBlocks, drawFixedImage, drawImage)
 
 import Colors exposing (Color)
-import LSystem.Image as Image exposing (Boundaries, Image, Position)
+import LSystem.Image as Image exposing (Boundaries, Image)
 import Svg.Styled exposing (Svg, circle, defs, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
     exposing
@@ -21,7 +21,7 @@ import Svg.Styled.Attributes
         , viewBox
         )
 import Svg.Styled.Events exposing (onClick)
-import Utils exposing (floatsToSpacedString, pairExec, pairMap)
+import Utils exposing (Position, floatsToSpacedString, pairExec, pairMap)
 
 
 type alias Id =
@@ -163,9 +163,8 @@ calculateViewBox : Boundaries -> ( Position, Position )
 calculateViewBox { leftTop, rightBottom, centerOfMass, counter } =
     let
         vecTranslateOriginToDrawingCenter =
-            pairMap (\v -> v / counter) centerOfMass
-
-        {--TODO: This function could recieve an option to choose between center of mass or boundaries to position--
+            --pairMap (\v -> v / counter) centerOfMass
+            {--TODO: This function could recieve an option to choose between center of mass or boundaries to position--}
             rightBottom
                 -- Sum boundaries and get the mean for both axis.
                 -- Essentially this compensates positive/negative values
@@ -173,6 +172,7 @@ calculateViewBox { leftTop, rightBottom, centerOfMass, counter } =
                 -- it gives us the vector from the origin to the drawing center.
                 |> pairExec (+) leftTop
                 |> pairMap (\value -> value / 2)
+
         --}
         -- This will be the viewport size (its width and height)
         scaledSize =
