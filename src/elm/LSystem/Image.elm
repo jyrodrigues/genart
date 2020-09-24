@@ -137,7 +137,8 @@ welcomeImage : Image
 welcomeImage =
     { composition =
         Core.fromList
-            [ [ D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D ]
+            --[ [ D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D ]
+            [ [ D, D, D, D, D, D, D ]
             , [ D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L ]
             , [ Glyph 'W', Glyph 'E', Glyph 'L', Glyph 'C', Glyph 'O', Glyph 'M', Glyph 'E', R, R, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, R, R, R, Core.S, Core.S, R, R, R, Core.S, Core.S, Glyph 'T', Glyph 'O', R, R, Core.S, Core.S, Core.S, Core.S, R, R, R, Core.S, Core.S, R, R, R, Glyph 'G', Glyph 'E', Glyph 'N', Glyph 'A', Glyph 'R', Glyph 'T', R, R, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, R, Core.S, Core.S, Core.S, Core.S, R, Core.S ]
             ]
@@ -145,7 +146,7 @@ welcomeImage =
     , svgPathAndBoundaries = Nothing
     , backgroundColor = Colors.black
     , strokeColor = Colors.pink
-    , strokeWidth = 0.006
+    , strokeWidth = 0.01
     , translate = ( 0, 0 )
     , scale = 1.1
     , curve = Line
@@ -743,13 +744,6 @@ processCompositionStep pathCurve turnAngleSize step currentEverything =
                 Curve ->
                     Svg.Core.T
 
-        drawWith path =
-            EverythingInOnePass
-                (pathString ++ path)
-                angle
-                nextPosition
-                updatedBoundaries
-
         turnWith compoundAngle =
             EverythingInOnePass
                 pathString
@@ -759,10 +753,18 @@ processCompositionStep pathCurve turnAngleSize step currentEverything =
     in
     case step of
         Core.D ->
-            drawWith (segmentToString (curve nextPositionDelta_))
+            EverythingInOnePass
+                (pathString ++ segmentToString (curve nextPositionDelta_))
+                angle
+                nextPosition
+                updatedBoundaries
 
         Core.S ->
-            drawWith (segmentToString (M nextPositionDelta_))
+            EverythingInOnePass
+                (pathString ++ segmentToString (M nextPositionDelta_))
+                angle
+                nextPosition
+                boundaries
 
         Core.Glyph char ->
             Maybe.withDefault currentEverything (Maybe.map (drawWithGlyph currentEverything) (Dict.get char FontToSVG.dict))
