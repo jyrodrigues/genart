@@ -226,8 +226,8 @@ fromList blocks_ =
 
 blockToString : Block -> String
 blockToString =
-    List.map stepToChar
-        >> String.fromList
+    List.map stepToString
+        >> String.concat
 
 
 
@@ -271,26 +271,28 @@ dnaOrGlyph char =
             S
 
         _ ->
+            -- TODO bug: 'L' or 'S' or ... will never get to here. Should we return a Maybe instead?
+            -- This doesn't seem right.
             Glyph char
 
 
-stepToChar : Step -> Char
-stepToChar step =
+stepToString : Step -> String
+stepToString step =
     case step of
         D ->
-            'D'
+            "D"
 
         R ->
-            'R'
+            "R"
 
         L ->
-            'L'
+            "L"
 
         S ->
-            'S'
+            "S"
 
         Glyph char ->
-            char
+            "_" ++ String.fromChar char
 
 
 
@@ -330,9 +332,26 @@ compositionDecoder =
 -}
 encodeBlock : Block -> Encode.Value
 encodeBlock block =
-    Encode.string (String.fromList (List.map stepToChar block))
+    Encode.string (String.concat (List.map stepToString block))
 
 
 blockDecoder : Decoder Block
 blockDecoder =
-    Decode.map (String.toList >> List.map charToStep) Decode.string
+    Decode.map stringToBlock Decode.string
+
+
+stringToBlock : String -> Block
+stringToBlock =
+    String.foldl
+        (\char ( blockSoFar, nextIsGlyph ) ->
+            if nextIsGlyph then
+                ( blockSoFar ++ [ Glyph char ], False )
+
+            else if char == '_' then
+                ( blockSoFar, True )
+
+            else
+                ( blockSoFar ++ [ charToStep char ], False )
+        )
+        ( [], False )
+        >> Tuple.first
