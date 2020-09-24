@@ -24,7 +24,7 @@ try {
         storage.editor = storage.image;
     }
 } catch (e) {
-    console.log("Error while parsing localStorage[" + storageKey + "] = " + encodedStorage, e);
+    console.log("GENART: Error while parsing localStorage[" + storageKey + "] = " + encodedStorage, e);
 }
 
 

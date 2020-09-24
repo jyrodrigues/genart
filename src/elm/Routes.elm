@@ -1,8 +1,18 @@
-module Routes exposing (Page(..), Route(..), editorParser, galleryParser, mapRouteToPage, parseUrl, routeFor)
+module Routes exposing
+    ( Page(..)
+    , Route(..)
+    , editorEncodeIntoUrl
+    , editorParser
+    , galleryParser
+    , mapRouteToPage
+    , parseUrl
+    )
 
-import LSystem.Image as Image exposing (PartialImage)
+import Config exposing (routeFor)
+import LSystem.Image exposing (PartialImage)
+import Pages.Editor as Editor
 import Url
-import Url.Parser as Parser exposing (Parser)
+import Url.Parser as Parser exposing ((<?>), Parser)
 
 
 
@@ -12,13 +22,8 @@ import Url.Parser as Parser exposing (Parser)
 type Route
     = Editor PartialImage
     | Gallery
-    | NotFound
-
-
-routeFor =
-    { gallery = "gallery"
-    , editor = "editor"
-    }
+      -- | Welcome -- Match with top "/"
+    | NotFound -- Show random image with a 404 overlay and a button to go to any page (gallery, editor, welcome?)
 
 
 parseUrl : Url.Url -> Route
@@ -42,7 +47,12 @@ galleryParser =
 
 editorParser : Parser (Route -> a) a
 editorParser =
-    Parser.map Editor (Parser.query Image.queryParser)
+    Parser.map Editor (Parser.s routeFor.editor <?> Editor.queryParser)
+
+
+editorEncodeIntoUrl : Editor.Model -> String
+editorEncodeIntoUrl editor =
+    routeFor.editor ++ Editor.queryEncode editor
 
 
 

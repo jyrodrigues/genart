@@ -8,6 +8,7 @@ port module Main exposing (decoder, encode, main)
 
 import Browser
 import Browser.Navigation as Nav
+import Config exposing (routeFor)
 import Html
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -98,10 +99,9 @@ main =
 init : Encode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init locallyStoredModel url navKey =
     let
-        ( initialEditorFromStorage, initialGallery ) =
+        ( editorFromStorage, galleryFromStorage ) =
             case Decode.decodeValue decoder locallyStoredModel of
                 Ok ( storedEditor, storedGallery ) ->
-                    -- Change name to `withStorage` or change `storedEditor` to `storedPartialImage` ?
                     ( storedEditor, storedGallery )
 
                 Err _ ->
@@ -113,34 +113,28 @@ init locallyStoredModel url navKey =
         viewingPage =
             mapRouteToPage route
 
-        initialEditor =
+        editor =
             case route of
-                -- TODO Make this name consistent with the above (check above comment about `storedEditor`)
                 Editor partialImage ->
-                    Editor.withPartialImage partialImage initialEditorFromStorage
+                    -- Merging the URL encoded image with the LocalStorage one allows for easily changing the image via
+                    -- query parameters!
+                    Editor.withPartialImage partialImage editorFromStorage
 
                 _ ->
-                    initialEditorFromStorage
+                    editorFromStorage
 
         updateUrlForEditor =
             case viewingPage of
                 EditorPage ->
-                    {--
-                        Note about Nav.replaceUrl: Browsers may rate-limit this function by throwing an
-                        exception. The discussion here suggests that the limit is 100 calls per 30 second
-                        interval in Safari in 2016. It also suggests techniques for people changing the
-                        URL based on scroll position.
-
-                        https://package.elm-lang.org/packages/elm/browser/latest/Browser-Navigation#replaceUrl
-                    --}
-                    Nav.replaceUrl navKey (Editor.encodeIntoUrl initialEditor)
+                    -- Replace URL to get rid of Image in query string and have a clean URL
+                    Nav.replaceUrl navKey routeFor.editor
 
                 GalleryPage ->
                     Cmd.none
 
         model =
-            { editor = initialEditor
-            , gallery = initialGallery
+            { editor = editor
+            , gallery = galleryFromStorage
             , viewingPage = viewingPage
             , url = url
             , navKey = navKey
@@ -148,7 +142,7 @@ init locallyStoredModel url navKey =
     in
     ( model
     , Cmd.batch
-        [ Cmd.map EditorMsg (Editor.initialCmd initialEditor)
+        [ Cmd.map EditorMsg (Editor.initialCmd editor)
         , saveModelToLocalStorage (encode model)
         , updateUrlForEditor
         ]
@@ -196,7 +190,7 @@ update msg model =
                 Browser.Internal url ->
                     case url.path of
                         "/" ->
-                            ( model, Nav.pushUrl model.navKey (Editor.encodeIntoUrl model.editor) )
+                            ( model, Nav.pushUrl model.navKey (Routes.editorEncodeIntoUrl model.editor) )
 
                         _ ->
                             ( model, Nav.pushUrl model.navKey (Url.toString url) )
@@ -261,7 +255,7 @@ update msg model =
                                 , viewingPage = EditorPage
                             }
                     in
-                    ( newModel, Cmd.batch [ cmd, Nav.replaceUrl newModel.navKey (Editor.encodeIntoUrl newModel.editor) ] )
+                    ( newModel, Cmd.batch [ cmd, Nav.replaceUrl newModel.navKey (Routes.editorEncodeIntoUrl newModel.editor) ] )
 
                 Gallery.NothingToUpdate ->
                     ( model, cmd )

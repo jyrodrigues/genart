@@ -4,9 +4,10 @@ port module Pages.Editor exposing
     , Msg
     , decoder
     , encode
-    , encodeIntoUrl
     , initialCmd
     , initialModel
+    , queryEncode
+    , queryParser
     , subscriptions
     , update
     , view
@@ -20,6 +21,7 @@ import Browser.Events
 import ColorWheel
 import Colors exposing (Color, offWhite, toCssColor)
 import Components as C
+import Config exposing (routeFor)
 import Css
     exposing
         ( absolute
@@ -104,12 +106,12 @@ import LSystem.Image as Image
         )
 import Midi exposing (adjustInputForStrokeWidth)
 import Random
-import Routes exposing (Page(..), routeFor)
 import Set exposing (Set)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
 import Url.Parser as Parser exposing (Parser)
+import Url.Parser.Query as Query
 import Utils exposing (Position, delay, floatModBy)
 
 
@@ -1674,14 +1676,14 @@ framesInterval =
     100
 
 
-queryParser : Parser (PartialImage -> a) a
+queryParser : Query.Parser PartialImage
 queryParser =
-    Parser.query Image.queryParser
+    Image.queryParser
 
 
-encodeIntoUrl : Model -> String
-encodeIntoUrl model =
-    routeFor.editor ++ Image.toQuery model.image
+queryEncode : Model -> String
+queryEncode model =
+    Image.toQuery model.image
 
 
 
