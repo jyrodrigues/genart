@@ -15,6 +15,7 @@ module AppInit exposing (suite)
 
 import Color exposing (rgba)
 import Colors exposing (Color)
+import Config exposing (routeFor)
 import Expect
 import Fuzz exposing (Fuzzer)
 import Json.Decode as Decode
@@ -165,7 +166,14 @@ suite =
                 --                      &scale=1.480000000000001
                 [ fuzz imageFuzzer "Happy path: Image on query" <|
                     \fuzzyImage ->
-                        Maybe.withDefault emptyUrl (Url.fromString ("https://test.art" ++ Image.toQuery fuzzyImage))
+                        Maybe.withDefault emptyUrl
+                            (Url.fromString
+                                ("https://test.art/"
+                                    ++ routeFor.editor
+                                    ++ Image.toQuery
+                                        fuzzyImage
+                                )
+                            )
                             |> parseUrl
                             |> Expect.equal
                                 (Editor
