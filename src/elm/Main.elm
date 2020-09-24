@@ -99,6 +99,7 @@ main =
 init : Encode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init locallyStoredModel url navKey =
     let
+        -- Decode Local Storage or fallback to default values
         ( editorFromStorage, galleryFromStorage ) =
             case Decode.decodeValue decoder locallyStoredModel of
                 Ok ( storedEditor, storedGallery ) ->
@@ -110,41 +111,33 @@ init locallyStoredModel url navKey =
         route =
             parseUrl url
 
-        viewingPage =
-            mapRouteToPage route
-
-        editor =
+        -- Combine URL data with storage/default editor model
+        ( editor, updateUrlIfInEditor ) =
             case route of
                 Editor partialImage ->
                     -- Merging the URL encoded image with the LocalStorage one allows for easily changing the image via
                     -- query parameters!
-                    Editor.withPartialImage partialImage editorFromStorage
+                    ( Editor.withPartialImage partialImage editorFromStorage
+                      -- Replace URL to get rid of Image in query string and have a clean URL
+                    , Nav.replaceUrl navKey routeFor.editor
+                    )
 
                 _ ->
-                    editorFromStorage
-
-        updateUrlForEditor =
-            case viewingPage of
-                EditorPage ->
-                    -- Replace URL to get rid of Image in query string and have a clean URL
-                    Nav.replaceUrl navKey routeFor.editor
-
-                GalleryPage ->
-                    Cmd.none
+                    ( editorFromStorage, Cmd.none )
 
         model =
             { editor = editor
             , gallery = galleryFromStorage
-            , viewingPage = viewingPage
+            , viewingPage = mapRouteToPage route
             , url = url
             , navKey = navKey
             }
     in
     ( model
     , Cmd.batch
-        [ Cmd.map EditorMsg (Editor.initialCmd editor)
-        , saveModelToLocalStorage (encode model)
-        , updateUrlForEditor
+        [ saveModelToLocalStorage (encode model)
+        , updateUrlIfInEditor
+        , Cmd.map EditorMsg (Editor.initialCmd editor)
         ]
     )
 
@@ -188,12 +181,7 @@ update msg model =
         LinkClicked urlRequest ->
             case urlRequest of
                 Browser.Internal url ->
-                    case url.path of
-                        "/" ->
-                            ( model, Nav.pushUrl model.navKey (Routes.editorEncodeIntoUrl model.editor) )
-
-                        _ ->
-                            ( model, Nav.pushUrl model.navKey (Url.toString url) )
+                    ( model, Nav.pushUrl model.navKey (Url.toString url) )
 
                 Browser.External href ->
                     ( model, Nav.load href )
@@ -250,12 +238,17 @@ update msg model =
                 Gallery.OpenedEditor maybeImage ->
                     let
                         newModel =
-                            { model
-                                | editor = Editor.withImage (Maybe.withDefault model.editor.image maybeImage) model.editor
-                                , viewingPage = EditorPage
-                            }
+                            { model | editor = Editor.withImage (Maybe.withDefault model.editor.image maybeImage) model.editor }
                     in
-                    ( newModel, Cmd.batch [ cmd, Nav.replaceUrl newModel.navKey (Routes.editorEncodeIntoUrl newModel.editor) ] )
+                    ( newModel
+                    , Cmd.batch
+                        [ cmd
+
+                        -- This will trigger UrlChanged and then viewingPage will be set to its right value.
+                        , Nav.replaceUrl newModel.navKey routeFor.editor
+                        , saveModelToLocalStorage (encode newModel)
+                        ]
+                    )
 
                 Gallery.NothingToUpdate ->
                     ( model, cmd )
@@ -273,21 +266,12 @@ subscriptions model =
 
 
 
--- WITH* PATTERN
-
-
-withRoute : Route -> Model -> Model
-withRoute route model =
-    { model | viewingPage = mapRouteToPage route }
-
-
-
 -- ENCODER
 -- DECODER
 
 
-keyFor : { editor : String, gallery : String }
-keyFor =
+storageKeyFor : { editor : String, gallery : String }
+storageKeyFor =
     { editor = "editor"
     , gallery = "gallery"
     }
@@ -296,8 +280,8 @@ keyFor =
 encode : { a | editor : Editor.Model, gallery : Gallery.Model } -> Encode.Value
 encode { editor, gallery } =
     Encode.object
-        [ ( keyFor.editor, Editor.encode editor )
-        , ( keyFor.gallery, Gallery.encode gallery )
+        [ ( storageKeyFor.editor, Editor.encode editor )
+        , ( storageKeyFor.gallery, Gallery.encode gallery )
         ]
 
 
@@ -308,6 +292,6 @@ decoder =
         -- TODO Decouple editor/image decoder success/failure from gallery success/failure.
         --      What happens if just one of the two has corrupted data?
         [ Decode.map2 Tuple.pair
-            (Decode.field keyFor.editor Editor.decoder)
-            (Decode.field keyFor.gallery Gallery.decoder)
+            (Decode.field storageKeyFor.editor Editor.decoder)
+            (Decode.field storageKeyFor.gallery Gallery.decoder)
         ]

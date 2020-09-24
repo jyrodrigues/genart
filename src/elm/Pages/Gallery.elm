@@ -78,7 +78,9 @@ type Msg
     | LoadedGallery String
 
 
-type ExternalMsg
+type
+    ExternalMsg
+    -- Maybe Image because when clicking on "Go back to editor" we set it with Nothing
     = OpenedEditor (Maybe Image)
     | UpdatedGallery
     | NothingToUpdate
