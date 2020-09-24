@@ -99,13 +99,13 @@ import LSystem.Image as Image
         , PartialImage
         , Polygon(..)
         , defaultImage
+        , welcomeImage
         , withImage
         )
 import Midi exposing (adjustInputForStrokeWidth)
 import Random
 import Routes exposing (Page(..), routeFor)
 import Set exposing (Set)
-import Svg.FontBarlowLight
 import Svg.Styled exposing (Svg)
 import Task
 import Time
@@ -289,7 +289,7 @@ video =
 initialModel : Model
 initialModel =
     -- Aplication heart
-    { image = defaultImage
+    { image = welcomeImage
     , editingIndex = 1
 
     -- Pan and Zoom
@@ -311,9 +311,9 @@ initialModel =
     , focus = EditorFocus
 
     -- Video
-    , videoAngleChangeRate = 0.01
+    , videoAngleChangeRate = 0.0001
     , slowMotion = NotSet
-    , playingVideo = Set.empty
+    , playingVideo = Set.fromList [ video.changeAngle, video.changeColorLinear ]
     , videoAngleChangeDirection = 1
 
     -- Input controls value
@@ -1671,7 +1671,7 @@ subscriptions model isVisible =
 
 framesInterval : Float
 framesInterval =
-    50
+    100
 
 
 queryParser : Parser (PartialImage -> a) a

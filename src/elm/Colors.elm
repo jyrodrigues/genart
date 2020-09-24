@@ -19,6 +19,7 @@ module Colors exposing
     , lightBlue
     , lightGray
     , offWhite
+    , pink
     , pureBlue
     , pureGreen
     , pureRed
@@ -560,6 +561,11 @@ defaultGreen : Color
 defaultGreen =
     --Color 0 180 110 0.7
     fromHexString "#00b46e"
+
+
+pink : Color
+pink =
+    rgb255 255 72 146
 
 
 allColors : List Color

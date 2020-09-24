@@ -29,6 +29,7 @@ module LSystem.Image exposing
     , resetImageComposition
     , toQuery
     , updateSvgPathAndBoundaries
+    , welcomeImage
     , withBackgroundColor
     , withCurve
     , withImage
@@ -128,6 +129,25 @@ defaultImage =
     , strokeWidth = 1
     , translate = ( 0, 0 )
     , scale = 1
+    , curve = Line
+    }
+
+
+welcomeImage : Image
+welcomeImage =
+    { composition =
+        Core.fromList
+            [ [ D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D ]
+            , [ D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L ]
+            , [ Glyph 'W', Glyph 'E', Glyph 'L', Glyph 'C', Glyph 'O', Glyph 'M', Glyph 'E', R, R, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, R, R, R, Core.S, Core.S, R, R, R, Core.S, Core.S, Glyph 'T', Glyph 'O', R, R, Core.S, Core.S, Core.S, Core.S, R, R, R, Core.S, Core.S, R, R, R, Glyph 'G', Glyph 'E', Glyph 'N', Glyph 'A', Glyph 'R', Glyph 'T', R, R, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, R, Core.S, Core.S, Core.S, Core.S, R, Core.S ]
+            ]
+    , turnAngle = polygonAngle Square
+    , svgPathAndBoundaries = Nothing
+    , backgroundColor = Colors.black
+    , strokeColor = Colors.pink
+    , strokeWidth = 0.006
+    , translate = ( 0, 0 )
+    , scale = 1.1
     , curve = Line
     }
 
