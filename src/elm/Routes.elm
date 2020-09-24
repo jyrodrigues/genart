@@ -21,7 +21,7 @@ import Url.Parser as Parser exposing (Parser)
 type Route
     = Editor PartialImage
     | Gallery
-      -- | Welcome -- Match with top "/"
+    | Welcome -- Match with top "/"
     | NotFound -- Show random image with a 404 overlay and a button to go to any page (gallery, editor, welcome?)
 
 
@@ -29,7 +29,14 @@ parseUrl : Url.Url -> Route
 parseUrl url =
     let
         parsedRoute =
-            Parser.parse (Parser.oneOf [ editorParser, galleryParser ]) url
+            Parser.parse
+                (Parser.oneOf
+                    [ welcomeParser
+                    , editorParser
+                    , galleryParser
+                    ]
+                )
+                url
     in
     case parsedRoute of
         Just route ->
@@ -49,6 +56,11 @@ editorParser =
     Parser.map Editor Editor.urlParser
 
 
+welcomeParser : Parser (Route -> a) a
+welcomeParser =
+    Parser.map Welcome Parser.top
+
+
 
 -- Pages
 
@@ -56,6 +68,7 @@ editorParser =
 type Page
     = EditorPage
     | GalleryPage
+    | WelcomePage
 
 
 mapRouteToPage : Route -> Page
@@ -67,6 +80,9 @@ mapRouteToPage route =
 
         Editor _ ->
             EditorPage
+
+        Welcome ->
+            WelcomePage
 
         NotFound ->
             EditorPage

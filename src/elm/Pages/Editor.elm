@@ -186,7 +186,6 @@ type
     | DownloadSvgAsJpeg
       -- Focus
     | SetFocus Focus
-      -- URL
       -- Video
     | ToggleVideo Video
     | VideoTick

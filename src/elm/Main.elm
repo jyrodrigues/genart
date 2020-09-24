@@ -15,6 +15,7 @@ import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
 import Pages.Editor as Editor
 import Pages.Gallery as Gallery
+import Pages.Welcome as Welcome
 import Routes exposing (Page(..), Route(..), mapRouteToPage, parseUrl)
 import Url
 
@@ -34,6 +35,7 @@ type alias Model =
     -- Pages
     { editor : Editor.Model
     , gallery : Gallery.Model
+    , welcome : Welcome.Model
     , viewingPage : Page
 
     -- Url
@@ -51,6 +53,7 @@ type Msg
     | LinkClicked Browser.UrlRequest
     | EditorMsg Editor.Msg
     | GalleryMsg Gallery.Msg
+    | WelcomeMsg Welcome.Msg
 
 
 
@@ -66,6 +69,7 @@ initialModel url navKey =
     -- Pages
     { editor = Editor.initialModel
     , gallery = []
+    , welcome = Welcome.initialModel
 
     -- Current viewing page
     , viewingPage = EditorPage
@@ -128,6 +132,7 @@ init locallyStoredModel url navKey =
         model =
             { editor = Editor.withUrl url editor
             , gallery = galleryFromStorage
+            , welcome = Welcome.initialModel
             , viewingPage = mapRouteToPage route
             , url = url
             , navKey = navKey
@@ -138,6 +143,7 @@ init locallyStoredModel url navKey =
         [ saveModelToLocalStorage (encode model)
         , updateUrlIfInEditor
         , Cmd.map EditorMsg (Editor.initialCmd editor)
+        , Cmd.map WelcomeMsg Welcome.initialCmd
         ]
     )
 
@@ -165,6 +171,9 @@ view model =
 
         GalleryPage ->
             documentMap GalleryMsg (Gallery.view model.gallery)
+
+        WelcomePage ->
+            documentMap WelcomeMsg (Welcome.view model.welcome)
 
 
 
@@ -253,6 +262,21 @@ update msg model =
                 Gallery.NothingToUpdate ->
                     ( model, cmd )
 
+        WelcomeMsg welcomeMsg ->
+            let
+                ( welcome, welcomeCmd, externalMsg ) =
+                    Welcome.update welcomeMsg model.welcome
+
+                cmd =
+                    Cmd.map WelcomeMsg welcomeCmd
+            in
+            case externalMsg of
+                Welcome.GoToEditor image ->
+                    ( { model | editor = Editor.withImage image model.editor }, Nav.replaceUrl model.navKey routeFor.editor )
+
+                Welcome.UpdateWelcome ->
+                    ( { model | welcome = welcome }, cmd )
+
 
 
 -- SUBSCRIPTIONS
@@ -262,6 +286,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Sub.map EditorMsg <| Editor.subscriptions model.editor (model.viewingPage == EditorPage)
+        , Sub.map WelcomeMsg <| Welcome.subscriptions model.welcome (model.viewingPage == WelcomePage)
         ]
 
 

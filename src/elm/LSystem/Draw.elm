@@ -163,8 +163,9 @@ calculateViewBox : Boundaries -> ( Position, Position )
 calculateViewBox { leftTop, rightBottom, centerOfMass, counter } =
     let
         vecTranslateOriginToDrawingCenter =
-            --pairMap (\v -> v / counter) centerOfMass
-            {--TODO: This function could recieve an option to choose between center of mass or boundaries to position--}
+            pairMap (\v -> v / counter) centerOfMass
+
+        {--TODO: This function could recieve an option to choose between center of mass or boundaries to position--
             rightBottom
                 -- Sum boundaries and get the mean for both axis.
                 -- Essentially this compensates positive/negative values
