@@ -6,13 +6,14 @@ port module Pages.Editor exposing
     , encode
     , initialCmd
     , initialModel
-    , queryEncode
-    , queryParser
     , subscriptions
     , update
+    , urlEncode
+    , urlParser
     , view
     , withImage
     , withPartialImage
+    , withUrl
     )
 
 import Browser
@@ -110,7 +111,9 @@ import Set exposing (Set)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
-import Url.Parser as Parser exposing (Parser)
+import Url
+import Url.Builder
+import Url.Parser as Parser exposing ((<?>), Parser)
 import Url.Parser.Query as Query
 import Utils exposing (Position, delay, floatModBy)
 
@@ -126,6 +129,12 @@ port downloadSvgAsJpeg : () -> Cmd msg
 
 
 port requestFullscreen : () -> Cmd msg
+
+
+port copyTextToClipboard : String -> Cmd msg
+
+
+port copyToClipboardResult : (Bool -> msg) -> Sub msg
 
 
 port midiEvent : (Encode.Value -> msg) -> Sub msg
@@ -169,6 +178,9 @@ type
     | SetTurnAngleInputValue String
       -- Stroke width
     | SetStrokeWidth Float
+      -- Share
+    | CopyUrlToClipboard
+    | CopyUrlToClipboardResult Bool
       -- Download
     | DownloadSvg
     | DownloadSvgAsJpeg
@@ -241,6 +253,9 @@ type alias Model =
 
     -- Alert Popup
     , alertActive : Bool
+
+    -- URL (for getting protocol and host to make shareable URL)
+    , url : Maybe Url.Url
     }
 
 
@@ -315,7 +330,9 @@ initialModel =
     -- Video
     , videoAngleChangeRate = 0.0001
     , slowMotion = NotSet
-    , playingVideo = Set.fromList [ video.changeAngle, video.changeColorLinear ]
+
+    --, playingVideo = Set.fromList [ video.changeAngle, video.changeColorLinear ]
+    , playingVideo = Set.empty
     , videoAngleChangeDirection = 1
 
     -- Input controls value
@@ -324,6 +341,9 @@ initialModel =
 
     -- Alert Popup
     , alertActive = False
+
+    -- URL
+    , url = Nothing
     }
 
 
@@ -359,6 +379,11 @@ withPartialImage partialImage model =
 withEditIndexLast : Model -> Model
 withEditIndexLast model =
     { model | editingIndex = Image.length model.image - 1 }
+
+
+withUrl : Url.Url -> Model -> Model
+withUrl url model =
+    { model | url = Just url }
 
 
 
@@ -408,6 +433,7 @@ controlPanel model =
             ]
         ]
         [ infoAndBasicControls
+        , share
         , keyboardInputModeControls model.keyboardInput
         , colorControls model.colorTarget model.colorWheel model.playingVideo
         , videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion
@@ -434,6 +460,11 @@ infoAndBasicControls =
         , C.primaryButtonHalf RandomRequested "Rand"
         , C.primaryButtonHalf DownloadSvgAsJpeg "JPEG"
         ]
+
+
+share : Html Msg
+share =
+    C.controlBlock "Share" [ C.primaryButton CopyUrlToClipboard "Copy URL" ]
 
 
 keyboardInputModeControls : KeyboardInput -> Html Msg
@@ -786,6 +817,28 @@ update msg model =
                     |> withEditIndexLast
                 , Cmd.none
                 , UpdatedEditor
+                )
+
+            CopyUrlToClipboard ->
+                case model.url of
+                    Nothing ->
+                        ( model, Cmd.none, NothingToUpdate )
+
+                    Just currentUrl ->
+                        let
+                            { protocol, host, port_ } =
+                                currentUrl
+
+                            url =
+                                Utils.protocolToString protocol ++ host ++ Utils.portToString port_ ++ "/" ++ urlEncode model
+                        in
+                        ( model, copyTextToClipboard url, NothingToUpdate )
+
+            CopyUrlToClipboardResult result ->
+                -- `4000` here is enough to make the transition visible until it removes the node from the DOM.
+                ( { model | alertActive = True }
+                , delay 4000 HideAlert
+                , NothingToUpdate
                 )
 
             DownloadSvg ->
@@ -1663,6 +1716,7 @@ subscriptions model isVisible =
             , panSubs
             , videoSub
             , midiEvent GotMidiEvent
+            , copyToClipboardResult CopyUrlToClipboardResult
             , windowResize
             , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
             ]
@@ -1681,9 +1735,14 @@ queryParser =
     Image.queryParser
 
 
-queryEncode : Model -> String
-queryEncode model =
-    Image.toQuery model.image
+urlParser : Parser (PartialImage -> a) a
+urlParser =
+    Parser.s routeFor.editor <?> Image.queryParser
+
+
+urlEncode : Model -> String
+urlEncode model =
+    routeFor.editor ++ Image.toQuery model.image
 
 
 

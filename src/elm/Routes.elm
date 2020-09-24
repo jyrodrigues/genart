@@ -1,7 +1,6 @@
 module Routes exposing
     ( Page(..)
     , Route(..)
-    , editorEncodeIntoUrl
     , editorParser
     , galleryParser
     , mapRouteToPage
@@ -12,7 +11,7 @@ import Config exposing (routeFor)
 import LSystem.Image exposing (PartialImage)
 import Pages.Editor as Editor
 import Url
-import Url.Parser as Parser exposing ((<?>), Parser)
+import Url.Parser as Parser exposing (Parser)
 
 
 
@@ -47,12 +46,7 @@ galleryParser =
 
 editorParser : Parser (Route -> a) a
 editorParser =
-    Parser.map Editor (Parser.s routeFor.editor <?> Editor.queryParser)
-
-
-editorEncodeIntoUrl : Editor.Model -> String
-editorEncodeIntoUrl editor =
-    routeFor.editor ++ Editor.queryEncode editor
+    Parser.map Editor Editor.urlParser
 
 
 

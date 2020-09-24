@@ -126,7 +126,7 @@ init locallyStoredModel url navKey =
                     ( editorFromStorage, Cmd.none )
 
         model =
-            { editor = editor
+            { editor = Editor.withUrl url editor
             , gallery = galleryFromStorage
             , viewingPage = mapRouteToPage route
             , url = url

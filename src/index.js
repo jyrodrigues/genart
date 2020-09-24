@@ -64,6 +64,23 @@ elmApp.ports.requestFullscreen.subscribe(function() {
     mainImage.requestFullscreen();
 });
 
+elmApp.ports.copyTextToClipboard.subscribe(function(textToCopy) {
+    if (!navigator.clipboard) {
+        // TODO Fallback. Do we really want a fallback??
+        return;
+    }
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        // Success
+        elmApp.ports.copyToClipboardResult.send(true);
+        console.log("Successfully copied shareable URL into clipboard!");
+    }, (err) => {
+        // Error
+        elmApp.ports.copyToClipboardResult.send(false);
+        console.error("GENART: couldn't copy into clipboard", err);
+    });
+});
+
 
 
 /**
