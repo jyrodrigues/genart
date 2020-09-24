@@ -4,14 +4,16 @@ port module Pages.Editor exposing
     , Msg
     , decoder
     , encode
-    , encodeIntoUrl
     , initialCmd
     , initialModel
     , subscriptions
     , update
+    , urlEncode
+    , urlParser
     , view
     , withImage
     , withPartialImage
+    , withUrl
     )
 
 import Browser
@@ -20,6 +22,7 @@ import Browser.Events
 import ColorWheel
 import Colors exposing (Color, offWhite, toCssColor)
 import Components as C
+import Config exposing (routeFor)
 import Css
     exposing
         ( absolute
@@ -104,12 +107,14 @@ import LSystem.Image as Image
         )
 import Midi exposing (adjustInputForStrokeWidth)
 import Random
-import Routes exposing (Page(..), routeFor)
 import Set exposing (Set)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
-import Url.Parser as Parser exposing (Parser)
+import Url
+import Url.Builder
+import Url.Parser as Parser exposing ((<?>), Parser)
+import Url.Parser.Query as Query
 import Utils exposing (Position, delay, floatModBy)
 
 
@@ -124,6 +129,12 @@ port downloadSvgAsJpeg : () -> Cmd msg
 
 
 port requestFullscreen : () -> Cmd msg
+
+
+port copyTextToClipboard : String -> Cmd msg
+
+
+port copyToClipboardResult : (Bool -> msg) -> Sub msg
 
 
 port midiEvent : (Encode.Value -> msg) -> Sub msg
@@ -167,6 +178,9 @@ type
     | SetTurnAngleInputValue String
       -- Stroke width
     | SetStrokeWidth Float
+      -- Share
+    | CopyUrlToClipboard
+    | CopyUrlToClipboardResult Bool
       -- Download
     | DownloadSvg
     | DownloadSvgAsJpeg
@@ -238,7 +252,10 @@ type alias Model =
     , keyboardInput : KeyboardInput
 
     -- Alert Popup
-    , alertActive : Bool
+    , alert : Maybe String
+
+    -- URL (for getting protocol and host to make shareable URL)
+    , url : Maybe Url.Url
     }
 
 
@@ -313,7 +330,9 @@ initialModel =
     -- Video
     , videoAngleChangeRate = 0.0001
     , slowMotion = NotSet
-    , playingVideo = Set.fromList [ video.changeAngle, video.changeColorLinear ]
+
+    --, playingVideo = Set.fromList [ video.changeAngle, video.changeColorLinear ]
+    , playingVideo = Set.empty
     , videoAngleChangeDirection = 1
 
     -- Input controls value
@@ -321,7 +340,10 @@ initialModel =
     , keyboardInput = ShortcutsMode
 
     -- Alert Popup
-    , alertActive = False
+    , alert = Nothing
+
+    -- URL
+    , url = Nothing
     }
 
 
@@ -359,6 +381,11 @@ withEditIndexLast model =
     { model | editingIndex = Image.length model.image - 1 }
 
 
+withUrl : Url.Url -> Model -> Model
+withUrl url model =
+    { model | url = Just url }
+
+
 
 -- VIEW
 
@@ -367,11 +394,12 @@ view : Model -> Browser.Document Msg
 view model =
     let
         alert =
-            if model.alertActive then
-                [ C.alert "Image saved!" ]
+            case model.alert of
+                Just message ->
+                    [ C.alert message ]
 
-            else
-                []
+                Nothing ->
+                    []
     in
     { title = "Generative Art"
     , body =
@@ -406,6 +434,7 @@ controlPanel model =
             ]
         ]
         [ infoAndBasicControls
+        , share
         , keyboardInputModeControls model.keyboardInput
         , colorControls model.colorTarget model.colorWheel model.playingVideo
         , videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion
@@ -432,6 +461,11 @@ infoAndBasicControls =
         , C.primaryButtonHalf RandomRequested "Rand"
         , C.primaryButtonHalf DownloadSvgAsJpeg "JPEG"
         ]
+
+
+share : Html Msg
+share =
+    C.controlBlock "Share" [ C.primaryButton CopyUrlToClipboard "Copy URL" ]
 
 
 keyboardInputModeControls : KeyboardInput -> Html Msg
@@ -784,6 +818,36 @@ update msg model =
                     |> withEditIndexLast
                 , Cmd.none
                 , UpdatedEditor
+                )
+
+            CopyUrlToClipboard ->
+                case model.url of
+                    Nothing ->
+                        ( model, Cmd.none, NothingToUpdate )
+
+                    Just currentUrl ->
+                        let
+                            { protocol, host, port_ } =
+                                currentUrl
+
+                            url =
+                                Utils.protocolToString protocol ++ host ++ Utils.portToString port_ ++ "/" ++ urlEncode model
+                        in
+                        ( model, copyTextToClipboard url, NothingToUpdate )
+
+            CopyUrlToClipboardResult copiedSuccessfully ->
+                let
+                    message =
+                        if copiedSuccessfully then
+                            "URL copied!"
+
+                        else
+                            "There was an error :("
+                in
+                -- `4000` here is enough to make the transition visible until it removes the node from the DOM.
+                ( { model | alert = Just message }
+                , delay 4000 HideAlert
+                , NothingToUpdate
                 )
 
             DownloadSvg ->
@@ -1164,7 +1228,7 @@ update msg model =
 
             SavedToGallery ->
                 -- `4000` here is enough to make the transition visible until it removes the node from the DOM.
-                ( { model | alertActive = True }
+                ( { model | alert = Just "Image saved!" }
                 , delay 4000 HideAlert
                 , UpdatedGallery model.image
                 )
@@ -1175,7 +1239,7 @@ update msg model =
                 ( processMidi value model, Cmd.none, NothingToUpdate )
 
             HideAlert ->
-                ( { model | alertActive = False }, Cmd.none, NothingToUpdate )
+                ( { model | alert = Nothing }, Cmd.none, NothingToUpdate )
 
             NoOp ->
                 ( model, Cmd.none, NothingToUpdate )
@@ -1661,6 +1725,7 @@ subscriptions model isVisible =
             , panSubs
             , videoSub
             , midiEvent GotMidiEvent
+            , copyToClipboardResult CopyUrlToClipboardResult
             , windowResize
             , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
             ]
@@ -1674,13 +1739,18 @@ framesInterval =
     100
 
 
-queryParser : Parser (PartialImage -> a) a
+queryParser : Query.Parser PartialImage
 queryParser =
-    Parser.query Image.queryParser
+    Image.queryParser
 
 
-encodeIntoUrl : Model -> String
-encodeIntoUrl model =
+urlParser : Parser (PartialImage -> a) a
+urlParser =
+    Parser.s routeFor.editor <?> Image.queryParser
+
+
+urlEncode : Model -> String
+urlEncode model =
     routeFor.editor ++ Image.toQuery model.image
 
 

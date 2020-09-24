@@ -13,6 +13,7 @@ module Pages.Gallery exposing
 import Browser
 import Colors exposing (toCssColor)
 import Components as C
+import Config exposing (routeFor)
 import Css
     exposing
         ( absolute
@@ -50,7 +51,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Draw as LDraw
 import LSystem.Image as Image exposing (Image)
-import Routes exposing (Page(..), routeFor)
+import Routes exposing (Page(..))
 import Task
 import Utils
 
@@ -77,7 +78,9 @@ type Msg
     | LoadedGallery String
 
 
-type ExternalMsg
+type
+    ExternalMsg
+    -- Maybe Image because when clicking on "Go back to editor" we set it with Nothing
     = OpenedEditor (Maybe Image)
     | UpdatedGallery
     | NothingToUpdate

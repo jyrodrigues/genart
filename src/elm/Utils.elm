@@ -2,6 +2,7 @@ module Utils exposing (..)
 
 import Process
 import Task
+import Url exposing (Protocol(..))
 
 
 type alias Position =
@@ -186,3 +187,27 @@ maybeMap6 func ma mb mc md me mf =
 
                                                 Just f ->
                                                     Just (func a b c d e f)
+
+
+
+-- URL
+
+
+portToString : Maybe Int -> String
+portToString port_ =
+    case port_ of
+        Just int ->
+            ":" ++ String.fromInt int
+
+        Nothing ->
+            ""
+
+
+protocolToString : Url.Protocol -> String
+protocolToString protocol =
+    case protocol of
+        Http ->
+            "http://"
+
+        Https ->
+            "https://"
