@@ -163,9 +163,8 @@ calculateViewBox : Boundaries -> ( Position, Position )
 calculateViewBox { leftTop, rightBottom, centerOfMass, counter } =
     let
         vecTranslateOriginToDrawingCenter =
-            pairMap (\v -> v / counter) centerOfMass
-
-        {--TODO: This function could recieve an option to choose between center of mass or boundaries to position--
+            --pairMap (\v -> v / counter) centerOfMass
+            {--TODO: This function could recieve an option to choose between center of mass or boundaries to position--}
             rightBottom
                 -- Sum boundaries and get the mean for both axis.
                 -- Essentially this compensates positive/negative values
@@ -173,6 +172,7 @@ calculateViewBox { leftTop, rightBottom, centerOfMass, counter } =
                 -- it gives us the vector from the origin to the drawing center.
                 |> pairExec (+) leftTop
                 |> pairMap (\value -> value / 2)
+
         --}
         -- This will be the viewport size (its width and height)
         scaledSize =
