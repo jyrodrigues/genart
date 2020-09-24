@@ -15,7 +15,7 @@ import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
 import Pages.Editor as Editor
 import Pages.Gallery as Gallery
-import Pages.Video as Video
+import Pages.Welcome as Welcome
 import Routes exposing (Page(..), Route(..), mapRouteToPage, parseUrl)
 import Url
 
@@ -35,7 +35,7 @@ type alias Model =
     -- Pages
     { editor : Editor.Model
     , gallery : Gallery.Model
-    , welcome : Video.Model
+    , welcome : Welcome.Model
     , viewingPage : Page
 
     -- Url
@@ -53,7 +53,7 @@ type Msg
     | LinkClicked Browser.UrlRequest
     | EditorMsg Editor.Msg
     | GalleryMsg Gallery.Msg
-    | WelcomeMsg Video.Msg
+    | WelcomeMsg Welcome.Msg
 
 
 
@@ -69,7 +69,7 @@ initialModel url navKey =
     -- Pages
     { editor = Editor.initialModel
     , gallery = []
-    , welcome = Video.welcomeModel
+    , welcome = Welcome.initialModel
 
     -- Current viewing page
     , viewingPage = EditorPage
@@ -132,7 +132,7 @@ init locallyStoredModel url navKey =
         model =
             { editor = Editor.withUrl url editor
             , gallery = galleryFromStorage
-            , welcome = Video.welcomeModel
+            , welcome = Welcome.initialModel
             , viewingPage = mapRouteToPage route
             , url = url
             , navKey = navKey
@@ -143,6 +143,7 @@ init locallyStoredModel url navKey =
         [ saveModelToLocalStorage (encode model)
         , updateUrlIfInEditor
         , Cmd.map EditorMsg (Editor.initialCmd editor)
+        , Cmd.map WelcomeMsg Welcome.initialCmd
         ]
     )
 
@@ -172,7 +173,7 @@ view model =
             documentMap GalleryMsg (Gallery.view model.gallery)
 
         WelcomePage ->
-            documentMap WelcomeMsg (Video.view model.welcome)
+            documentMap WelcomeMsg (Welcome.view model.welcome)
 
 
 
@@ -264,16 +265,16 @@ update msg model =
         WelcomeMsg welcomeMsg ->
             let
                 ( welcome, welcomeCmd, externalMsg ) =
-                    Video.update welcomeMsg model.welcome
+                    Welcome.update welcomeMsg model.welcome
 
                 cmd =
                     Cmd.map WelcomeMsg welcomeCmd
             in
             case externalMsg of
-                Video.VideoEnded image ->
+                Welcome.GoToEditor image ->
                     ( { model | editor = Editor.withImage image model.editor }, Nav.replaceUrl model.navKey routeFor.editor )
 
-                Video.UpdateVideo ->
+                Welcome.UpdateWelcome ->
                     ( { model | welcome = welcome }, cmd )
 
 
@@ -285,7 +286,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Sub.map EditorMsg <| Editor.subscriptions model.editor (model.viewingPage == EditorPage)
-        , Sub.map WelcomeMsg <| Video.subscriptions model.welcome (model.viewingPage == WelcomePage)
+        , Sub.map WelcomeMsg <| Welcome.subscriptions model.welcome (model.viewingPage == WelcomePage)
         ]
 
 
