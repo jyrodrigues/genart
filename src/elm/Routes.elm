@@ -21,8 +21,9 @@ import Url.Parser as Parser exposing (Parser)
 type Route
     = Editor PartialImage
     | Gallery
+    | Writting
     | Welcome -- Match with top "/"
-    | NotFound -- Show random image with a 404 overlay and a button to go to any page (gallery, editor, welcome?)
+    | NotFound -- TODO Show random image with a 404 overlay and a button to go to any page (gallery, editor, welcome?)
 
 
 parseUrl : Url.Url -> Route
@@ -32,6 +33,7 @@ parseUrl url =
             Parser.parse
                 (Parser.oneOf
                     [ welcomeParser
+                    , writtingParser
                     , editorParser
                     , galleryParser
                     ]
@@ -46,14 +48,19 @@ parseUrl url =
             NotFound
 
 
+editorParser : Parser (Route -> a) a
+editorParser =
+    Parser.map Editor Editor.urlParser
+
+
 galleryParser : Parser (Route -> a) a
 galleryParser =
     Parser.map Gallery (Parser.s routeFor.gallery)
 
 
-editorParser : Parser (Route -> a) a
-editorParser =
-    Parser.map Editor Editor.urlParser
+writtingParser : Parser (Route -> a) a
+writtingParser =
+    Parser.map Writting (Parser.s routeFor.writting)
 
 
 welcomeParser : Parser (Route -> a) a
@@ -69,6 +76,7 @@ type Page
     = EditorPage
     | GalleryPage
     | WelcomePage
+    | WrittingPage
 
 
 mapRouteToPage : Route -> Page
@@ -83,6 +91,9 @@ mapRouteToPage route =
 
         Welcome ->
             WelcomePage
+
+        Writting ->
+            WrittingPage
 
         NotFound ->
             EditorPage
