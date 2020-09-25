@@ -192,8 +192,12 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UrlChanged url ->
+            let
+                viewingPage =
+                    mapRouteToPage (parseUrl url)
+            in
             -- Called via replaceUrl (and indirectly via click on internal links/href, see LinkClicked above)
-            ( { model | viewingPage = mapRouteToPage (parseUrl url) }, Cmd.none )
+            ( { model | viewingPage = viewingPage }, initializeCmds model viewingPage )
 
         LinkClicked urlRequest ->
             case urlRequest of
@@ -299,6 +303,30 @@ update msg model =
 
                 Writting.UpdateWritting ->
                     ( { model | writting = writting }, cmd )
+
+                Writting.NothingToUpdate ->
+                    ( model, cmd )
+
+
+
+-- TODO Refactor to something like changeViews to be called on UrlChanged
+-- TODO Maybe remove initialCmds from init function?
+
+
+initializeCmds : Model -> Page -> Cmd Msg
+initializeCmds model page =
+    case page of
+        EditorPage ->
+            Cmd.map EditorMsg (Editor.initialCmd model.editor)
+
+        GalleryPage ->
+            Cmd.none
+
+        WelcomePage ->
+            Cmd.map WelcomeMsg Welcome.initialCmd
+
+        WrittingPage ->
+            Cmd.map WrittingMsg Writting.initialCmd
 
 
 

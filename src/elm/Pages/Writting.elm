@@ -1,6 +1,7 @@
-module Pages.Writting exposing (ExternalMsg(..), Model, Msg, initialModel, subscriptions, update, view)
+module Pages.Writting exposing (ExternalMsg(..), Model, Msg, initialCmd, initialModel, subscriptions, update, view)
 
 import Browser
+import Browser.Dom
 import Colors exposing (Color)
 import Components as C
 import Css
@@ -33,6 +34,7 @@ import Html.Styled.Events exposing (onClick, onInput)
 import LSystem.Core as LCore exposing (Block, Composition, Step(..))
 import LSystem.Draw exposing (drawImage)
 import LSystem.Image as Image exposing (Image)
+import Task
 import Time
 
 
@@ -51,7 +53,7 @@ type alias Model =
 
 initialWritting : String
 initialWritting =
-    "Welcome\n  to\nGenart"
+    "ART  "
 
 
 initialVideoAngleChangeRate : Float
@@ -92,11 +94,14 @@ type Msg
     | SumCopies Int
     | AdjustWidth Float
     | ToggleVideo
+    | ResetAngle
+    | NoOp
 
 
 type ExternalMsg
     = UpdateWritting
     | OpenedEditor Image
+    | NothingToUpdate
 
 
 
@@ -139,12 +144,13 @@ controls model =
         ]
         [ inputWritting model
         , div [ css [] ]
-            [ controlButton (SumCopies 1) "More Copies"
-            , controlButton (SumCopies -1) "Less Copies"
-            , controlButton GoToEditor "Open Editor"
-            , controlButton ToggleVideo "Play/Pause"
+            [ controlButton ToggleVideo "Play/Pause"
+            , controlButton ResetAngle "Reset Video"
+            , controlButton (SumCopies 10) "More Copies"
+            , controlButton (SumCopies -10) "Less Copies"
             , controlButton (AdjustWidth 1) "Thicker"
             , controlButton (AdjustWidth -1) "Thinner"
+            , controlButton GoToEditor "Open Editor"
             ]
         ]
 
@@ -159,6 +165,8 @@ inputWritting model =
             , backgroundColor (Colors.toCssColor model.image.backgroundColor)
             , color (Colors.toCssColor Colors.offWhite)
             , Css.fontSize (px 20)
+            , Css.flexShrink zero
+            , Css.fontFamily Css.monospace
             ]
         , onInput InputWritting
         ]
@@ -186,12 +194,10 @@ update msg model =
             let
                 image =
                     Image.withComposition (stringToComposition string model.copies) model.image
-                        |> Image.withTurnAngle 90
             in
             ( { model
                 | writting = string
                 , image = image
-                , videoAngleChangeRate = initialVideoAngleChangeRate
               }
             , Cmd.none
             , UpdateWritting
@@ -209,6 +215,15 @@ update msg model =
         AdjustWidth direction ->
             ( { model
                 | image = Image.withStrokeWidth (adjustWidth direction model.image.strokeWidth) model.image
+              }
+            , Cmd.none
+            , UpdateWritting
+            )
+
+        ResetAngle ->
+            ( { model
+                | image = Image.withTurnAngle 90 model.image
+                , videoAngleChangeRate = initialVideoAngleChangeRate
               }
             , Cmd.none
             , UpdateWritting
@@ -247,6 +262,9 @@ update msg model =
         GoToEditor ->
             ( model, Cmd.none, OpenedEditor model.image )
 
+        NoOp ->
+            ( model, Cmd.none, NothingToUpdate )
+
 
 
 -- MAKE COMPOSITION FROM INPUT
@@ -275,7 +293,9 @@ stringToComposition string numberOfCopies =
             lineBlocks
                 |> List.intersperse [ R, S, S, R, R, R ]
                 |> List.concat
-                |> (\l -> l ++ goBackToStartingPoint)
+                -- This last D is to allow single letter art:
+                -- with it we can have an intermediate block that is DRRSRR which will make a single letter rotate.
+                |> (\l -> l ++ goBackToStartingPoint ++ [ S ])
     in
     LCore.appendBlock writting (baseWrittingComposition numberOfCopies)
 
@@ -304,7 +324,10 @@ wordToBlock =
 
 baseWrittingComposition : Int -> Composition
 baseWrittingComposition numberOfCopies =
-    LCore.fromList [ List.repeat numberOfCopies D ]
+    LCore.fromList
+        [ List.repeat numberOfCopies D
+        , [ D, R, R, S, R, R ]
+        ]
 
 
 
@@ -340,3 +363,8 @@ subscriptions model isVisible =
 
     else
         Sub.none
+
+
+initialCmd : Cmd Msg
+initialCmd =
+    Task.attempt (always NoOp) (Browser.Dom.focus "WrittingInput")
