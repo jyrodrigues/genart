@@ -1,8 +1,8 @@
 module ColorWheel exposing
-    ( Model
-    , Msg
+    ( Msg
+    , State
     , getElementDimensions
-    , initialModel
+    , initialState
     , subscriptions
     , trackMouseOutsideWheel
     , update
@@ -73,7 +73,7 @@ type alias Position =
     ( Float, Float )
 
 
-type alias Model =
+type alias State =
     -- TODO make it opaque
     { id : String
     , elementDimensions : Maybe Element
@@ -92,12 +92,12 @@ type alias Model =
     }
 
 
-initialModel : String -> Model
-initialModel id_ =
+initialState : String -> Maybe Color -> State
+initialState id_ maybeColor =
     { id = id_
     , elementDimensions = Nothing
     , mouseTracking = False
-    , color = makeColor ( 0, 0 )
+    , color = Maybe.withDefault (makeColor ( 0, 0 )) maybeColor
 
     -- For Development
     , mousePosition = ( 0, 0 )
@@ -127,7 +127,7 @@ type Msg
     | ToggledDynamic
 
 
-update : Msg -> Model -> ( Model, Maybe Color )
+update : Msg -> State -> ( State, Maybe Color )
 update msg model =
     case msg of
         SetOpacity opacity ->
@@ -175,7 +175,7 @@ update msg model =
             ( { model | dynamic = not model.dynamic }, Nothing )
 
 
-subscriptions : Model -> Sub Msg
+subscriptions : State -> Sub Msg
 subscriptions model =
     if model.mouseTracking then
         Sub.batch
@@ -191,12 +191,12 @@ subscriptions model =
 -- CONFIG
 
 
-trackMouseOutsideWheel : Bool -> Model -> Model
+trackMouseOutsideWheel : Bool -> State -> State
 trackMouseOutsideWheel shouldTrack model =
     { model | trackMouseOutsideWheel = shouldTrack }
 
 
-withColor : Color -> Model -> Model
+withColor : Color -> State -> State
 withColor color model =
     { model | color = color }
 
@@ -205,7 +205,7 @@ withColor color model =
 -- COLOR
 
 
-computeColor : Model -> Position -> Color
+computeColor : State -> Position -> Color
 computeColor model ( x, y ) =
     case model.elementDimensions of
         Just dimensions ->
@@ -253,7 +253,7 @@ toPolarPosition color =
 -- VIEW
 
 
-view : Model -> Svg Msg
+view : State -> Svg Msg
 view model =
     let
         { v } =
@@ -277,7 +277,7 @@ view model =
         ]
 
 
-viewForDevelopment : Model -> Svg Msg
+viewForDevelopment : State -> Svg Msg
 viewForDevelopment model =
     let
         { v } =
@@ -317,7 +317,7 @@ viewForDevelopment model =
         ]
 
 
-viewStatic : Model -> Svg Msg
+viewStatic : State -> Svg Msg
 viewStatic model =
     lazy5 viewStaticEager model.id model.mouseTracking model.color model.trackMouseOutsideWheel model.sameHeightAsWidth
 
@@ -528,7 +528,7 @@ sliderInput msg oldValue min_ max_ step_ =
 -- DECODER
 
 
-getElementDimensions : Model -> Cmd Msg
+getElementDimensions : State -> Cmd Msg
 getElementDimensions model =
     Task.attempt GotElementDimensions (Browser.Dom.getElement model.id)
 
@@ -580,7 +580,7 @@ strTruncateFromFloat precision float =
 -- VIEW
 
 
-viewDynamic : Model -> Svg Msg
+viewDynamic : State -> Svg Msg
 viewDynamic model =
     lazy6 viewDynamicEager
         model.id

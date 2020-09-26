@@ -234,7 +234,7 @@ type alias Model =
     , imgDivStart : Position
 
     -- ColorWheel
-    , colorWheel : ColorWheel.Model
+    , colorWheel : ColorWheel.State
     , colorTarget : ColorTarget
 
     -- Browser Focus
@@ -317,9 +317,7 @@ initialModel =
     , imgDivStart = ( 0, 0 )
 
     -- ColorWheel
-    , colorWheel =
-        ColorWheel.initialModel "ColorWheel1"
-            |> ColorWheel.withColor defaultImage.strokeColor
+    , colorWheel = ColorWheel.initialState "ColorWheel1" (Just defaultImage.strokeColor)
     , colorTarget = Stroke
 
     -- Browser Focus
@@ -474,7 +472,7 @@ keyboardInputModeControls inputMode =
         ]
 
 
-colorControls : ColorTarget -> ColorWheel.Model -> Set Video -> Html Msg
+colorControls : ColorTarget -> ColorWheel.State -> Set Video -> Html Msg
 colorControls colorTarget colorWheel videoSet =
     let
         text videoType name =
@@ -1243,7 +1241,7 @@ update msg model =
                 ( model, Cmd.none, NothingToUpdate )
 
 
-updateColorWheel : Image -> ColorTarget -> ColorWheel.Model -> ColorWheel.Model
+updateColorWheel : Image -> ColorTarget -> ColorWheel.State -> ColorWheel.State
 updateColorWheel image target =
     let
         color =
