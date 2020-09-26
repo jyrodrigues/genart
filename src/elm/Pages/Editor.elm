@@ -234,7 +234,7 @@ type alias Model =
     , imgDivStart : Position
 
     -- ColorWheel
-    , colorWheel : ColorWheel.Model
+    , colorWheel : ColorWheel.State
     , colorTarget : ColorTarget
 
     -- Browser Focus
@@ -317,10 +317,7 @@ initialModel =
     , imgDivStart = ( 0, 0 )
 
     -- ColorWheel
-    , colorWheel =
-        ColorWheel.initialModel "ColorWheel1"
-            |> ColorWheel.trackMouseOutsideWheel True
-            |> ColorWheel.withColor defaultImage.strokeColor
+    , colorWheel = ColorWheel.initialState "ColorWheel1" (Just defaultImage.strokeColor)
     , colorTarget = Stroke
 
     -- Browser Focus
@@ -475,7 +472,7 @@ keyboardInputModeControls inputMode =
         ]
 
 
-colorControls : ColorTarget -> ColorWheel.Model -> Set Video -> Html Msg
+colorControls : ColorTarget -> ColorWheel.State -> Set Video -> Html Msg
 colorControls colorTarget colorWheel videoSet =
     let
         text videoType name =
@@ -945,29 +942,29 @@ update msg model =
 
             ColorWheelMsg subMsg ->
                 let
-                    ( updatedColorWheel, _, msgType ) =
+                    ( updatedColorWheel, maybeColor ) =
                         ColorWheel.update subMsg model.colorWheel
 
-                    image =
-                        case model.colorTarget of
-                            Stroke ->
-                                Image.withStrokeColor updatedColorWheel.color model.image
-
-                            Background ->
-                                Image.withBackgroundColor updatedColorWheel.color model.image
+                    updatedModel =
+                        { model | colorWheel = updatedColorWheel }
                 in
-                case msgType of
-                    ColorWheel.ColorChanged ->
-                        ( { model
-                            | colorWheel = updatedColorWheel
-                            , image = image
+                case maybeColor of
+                    Just color ->
+                        ( { updatedModel
+                            | image =
+                                case model.colorTarget of
+                                    Stroke ->
+                                        Image.withStrokeColor color model.image
+
+                                    Background ->
+                                        Image.withBackgroundColor color model.image
                           }
                         , Cmd.none
                         , UpdatedEditor
                         )
 
-                    ColorWheel.SameColor ->
-                        ( { model | colorWheel = updatedColorWheel }, Cmd.none, NothingToUpdate )
+                    Nothing ->
+                        ( updatedModel, Cmd.none, NothingToUpdate )
 
             SetColorTarget target ->
                 ( { model
@@ -1244,7 +1241,7 @@ update msg model =
                 ( model, Cmd.none, NothingToUpdate )
 
 
-updateColorWheel : Image -> ColorTarget -> ColorWheel.Model -> ColorWheel.Model
+updateColorWheel : Image -> ColorTarget -> ColorWheel.State -> ColorWheel.State
 updateColorWheel image target =
     let
         color =
