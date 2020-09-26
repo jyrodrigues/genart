@@ -1,4 +1,4 @@
-module Pages.Writting exposing (ExternalMsg(..), Model, Msg, initialCmd, initialModel, subscriptions, update, view)
+module Pages.Writing exposing (ExternalMsg(..), Model, Msg, initialCmd, initialModel, subscriptions, update, view)
 
 import Browser
 import Browser.Dom
@@ -46,13 +46,13 @@ type alias Model =
     { image : Image
     , isPlaying : Bool
     , videoAngleChangeRate : Float
-    , writting : String
+    , writing : String
     , copies : Int
     }
 
 
-initialWritting : String
-initialWritting =
+initialWriting : String
+initialWriting =
     "ART  "
 
 
@@ -69,7 +69,7 @@ initialNumberOfCopies =
 initialImage : Image
 initialImage =
     Image.welcomeImage
-        |> Image.withComposition (stringToComposition initialWritting initialNumberOfCopies)
+        |> Image.withComposition (stringToComposition initialWriting initialNumberOfCopies)
         |> Image.withStrokeWidth 0.01
 
 
@@ -78,7 +78,7 @@ initialModel =
     { image = initialImage
     , isPlaying = True
     , videoAngleChangeRate = initialVideoAngleChangeRate
-    , writting = initialWritting
+    , writing = initialWriting
     , copies = initialNumberOfCopies
     }
 
@@ -89,7 +89,7 @@ initialModel =
 
 type Msg
     = VideoTick
-    | InputWritting String
+    | InputWriting String
     | GoToEditor
     | SumCopies Int
     | AdjustWidth Float
@@ -99,7 +99,7 @@ type Msg
 
 
 type ExternalMsg
-    = UpdateWritting
+    = UpdateWriting
     | OpenedEditor Image
     | NothingToUpdate
 
@@ -110,7 +110,7 @@ type ExternalMsg
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = "Writting to Genart"
+    { title = "Writing to Genart"
     , body =
         [ div
             [ css
@@ -119,7 +119,7 @@ view model =
                 , overflow hidden
                 ]
             ]
-            [ drawImage (Just "WrittingVideo") Nothing False model.image
+            [ drawImage (Just "WritingVideo") Nothing False model.image
             , controls model
             ]
             |> toUnstyled
@@ -142,7 +142,7 @@ controls model =
             , Css.flexDirection Css.row
             ]
         ]
-        [ inputWritting model
+        [ inputWriting model
         , div [ css [] ]
             [ controlButton ToggleVideo "Play/Pause"
             , controlButton ResetAngle "Reset Video"
@@ -155,10 +155,10 @@ controls model =
         ]
 
 
-inputWritting : Model -> Html Msg
-inputWritting model =
+inputWriting : Model -> Html Msg
+inputWriting model =
     textarea
-        [ id "WrittingInput"
+        [ id "WritingInput"
         , css
             [ width (px 200)
             , height (px 100)
@@ -168,9 +168,9 @@ inputWritting model =
             , Css.flexShrink zero
             , Css.fontFamily Css.monospace
             ]
-        , onInput InputWritting
+        , onInput InputWriting
         ]
-        [ text model.writting ]
+        [ text model.writing ]
 
 
 controlButton : Msg -> String -> Html Msg
@@ -190,26 +190,26 @@ controlButton msg btnText =
 update : Msg -> Model -> ( Model, Cmd Msg, ExternalMsg )
 update msg model =
     case msg of
-        InputWritting string ->
+        InputWriting string ->
             let
                 image =
                     Image.withComposition (stringToComposition string model.copies) model.image
             in
             ( { model
-                | writting = string
+                | writing = string
                 , image = image
               }
             , Cmd.none
-            , UpdateWritting
+            , UpdateWriting
             )
 
         SumCopies num ->
             ( { model
                 | copies = model.copies + num
-                , image = Image.withComposition (stringToComposition model.writting (model.copies + num)) model.image
+                , image = Image.withComposition (stringToComposition model.writing (model.copies + num)) model.image
               }
             , Cmd.none
-            , UpdateWritting
+            , UpdateWriting
             )
 
         AdjustWidth direction ->
@@ -217,7 +217,7 @@ update msg model =
                 | image = Image.withStrokeWidth (adjustWidth direction model.image.strokeWidth) model.image
               }
             , Cmd.none
-            , UpdateWritting
+            , UpdateWriting
             )
 
         ResetAngle ->
@@ -226,13 +226,13 @@ update msg model =
                 , videoAngleChangeRate = initialVideoAngleChangeRate
               }
             , Cmd.none
-            , UpdateWritting
+            , UpdateWriting
             )
 
         ToggleVideo ->
             ( { model | isPlaying = not model.isPlaying, videoAngleChangeRate = initialVideoAngleChangeRate }
             , Cmd.none
-            , UpdateWritting
+            , UpdateWriting
             )
 
         VideoTick ->
@@ -256,7 +256,7 @@ update msg model =
                 , videoAngleChangeRate = min (model.videoAngleChangeRate * 1.07) 0.03
               }
             , Cmd.none
-            , UpdateWritting
+            , UpdateWriting
             )
 
         GoToEditor ->
@@ -289,7 +289,7 @@ stringToComposition string numberOfCopies =
             else
                 []
 
-        writting =
+        writing =
             lineBlocks
                 |> List.intersperse [ R, S, S, R, R, R ]
                 |> List.concat
@@ -297,7 +297,7 @@ stringToComposition string numberOfCopies =
                 -- with it we can have an intermediate block that is DRRSRR which will make a single letter rotate.
                 |> (\l -> l ++ goBackToStartingPoint ++ [ S ])
     in
-    LCore.appendBlock writting (baseWrittingComposition numberOfCopies)
+    LCore.appendBlock writing (baseWritingComposition numberOfCopies)
 
 
 lineToBlock : String -> Block
@@ -322,8 +322,8 @@ wordToBlock =
     String.toList >> List.map Glyph
 
 
-baseWrittingComposition : Int -> Composition
-baseWrittingComposition numberOfCopies =
+baseWritingComposition : Int -> Composition
+baseWritingComposition numberOfCopies =
     LCore.fromList
         [ List.repeat numberOfCopies D
         , [ D, R, R, S, R, R ]
@@ -367,4 +367,4 @@ subscriptions model isVisible =
 
 initialCmd : Cmd Msg
 initialCmd =
-    Task.attempt (always NoOp) (Browser.Dom.focus "WrittingInput")
+    Task.attempt (always NoOp) (Browser.Dom.focus "WritingInput")

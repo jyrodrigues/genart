@@ -16,7 +16,7 @@ import LSystem.Core exposing (Step(..))
 import Pages.Editor as Editor
 import Pages.Gallery as Gallery
 import Pages.Welcome as Welcome
-import Pages.Writting as Writting
+import Pages.Writing as Writing
 import Routes exposing (Page(..), Route(..), mapRouteToPage, parseUrl)
 import Url
 
@@ -37,7 +37,7 @@ type alias Model =
     { editor : Editor.Model
     , gallery : Gallery.Model
     , welcome : Welcome.Model
-    , writting : Writting.Model
+    , writting : Writing.Model
     , viewingPage : Page
 
     -- Url
@@ -56,7 +56,7 @@ type Msg
     | EditorMsg Editor.Msg
     | GalleryMsg Gallery.Msg
     | WelcomeMsg Welcome.Msg
-    | WrittingMsg Writting.Msg
+    | WritingMsg Writing.Msg
 
 
 
@@ -72,7 +72,7 @@ initialModel url navKey =
     -- Pages
     { editor = Editor.initialModel
     , gallery = []
-    , writting = Writting.initialModel
+    , writting = Writing.initialModel
     , welcome = Welcome.initialModel
 
     -- Current viewing page
@@ -180,8 +180,8 @@ view model =
         WelcomePage ->
             documentMap WelcomeMsg (Welcome.view model.welcome)
 
-        WrittingPage ->
-            documentMap WrittingMsg (Writting.view model.writting)
+        WritingPage ->
+            documentMap WritingMsg (Writing.view model.writting)
 
 
 
@@ -289,22 +289,22 @@ update msg model =
                 Welcome.UpdateWelcome ->
                     ( { model | welcome = welcome }, cmd )
 
-        WrittingMsg writtingMsg ->
+        WritingMsg writtingMsg ->
             let
                 ( writting, writtingCmd, externalMsg ) =
-                    Writting.update writtingMsg model.writting
+                    Writing.update writtingMsg model.writting
 
                 cmd =
-                    Cmd.map WrittingMsg writtingCmd
+                    Cmd.map WritingMsg writtingCmd
             in
             case externalMsg of
-                Writting.OpenedEditor image ->
+                Writing.OpenedEditor image ->
                     ( { model | editor = Editor.withImage image model.editor }, Nav.replaceUrl model.navKey routeFor.editor )
 
-                Writting.UpdateWritting ->
+                Writing.UpdateWriting ->
                     ( { model | writting = writting }, cmd )
 
-                Writting.NothingToUpdate ->
+                Writing.NothingToUpdate ->
                     ( model, cmd )
 
 
@@ -325,8 +325,8 @@ initializeCmds model page =
         WelcomePage ->
             Cmd.map WelcomeMsg Welcome.initialCmd
 
-        WrittingPage ->
-            Cmd.map WrittingMsg Writting.initialCmd
+        WritingPage ->
+            Cmd.map WritingMsg Writing.initialCmd
 
 
 
@@ -338,7 +338,7 @@ subscriptions model =
     Sub.batch
         [ Sub.map EditorMsg <| Editor.subscriptions model.editor (model.viewingPage == EditorPage)
         , Sub.map WelcomeMsg <| Welcome.subscriptions model.welcome (model.viewingPage == WelcomePage)
-        , Sub.map WrittingMsg <| Writting.subscriptions model.writting (model.viewingPage == WrittingPage)
+        , Sub.map WritingMsg <| Writing.subscriptions model.writting (model.viewingPage == WritingPage)
         ]
 
 
