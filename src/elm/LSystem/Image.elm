@@ -31,6 +31,7 @@ module LSystem.Image exposing
     , updateSvgPathAndBoundaries
     , welcomeImage
     , withBackgroundColor
+    , withComposition
     , withCurve
     , withImage
     , withScale

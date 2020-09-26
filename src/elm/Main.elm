@@ -16,6 +16,7 @@ import LSystem.Core exposing (Step(..))
 import Pages.Editor as Editor
 import Pages.Gallery as Gallery
 import Pages.Welcome as Welcome
+import Pages.Writing as Writing
 import Routes exposing (Page(..), Route(..), mapRouteToPage, parseUrl)
 import Url
 
@@ -36,6 +37,7 @@ type alias Model =
     { editor : Editor.Model
     , gallery : Gallery.Model
     , welcome : Welcome.Model
+    , writting : Writing.Model
     , viewingPage : Page
 
     -- Url
@@ -54,6 +56,7 @@ type Msg
     | EditorMsg Editor.Msg
     | GalleryMsg Gallery.Msg
     | WelcomeMsg Welcome.Msg
+    | WritingMsg Writing.Msg
 
 
 
@@ -69,6 +72,7 @@ initialModel url navKey =
     -- Pages
     { editor = Editor.initialModel
     , gallery = []
+    , writting = Writing.initialModel
     , welcome = Welcome.initialModel
 
     -- Current viewing page
@@ -130,17 +134,18 @@ init locallyStoredModel url navKey =
                     ( editorFromStorage, Cmd.none )
 
         model =
-            { editor = Editor.withUrl url editor
-            , gallery = galleryFromStorage
-            , welcome = Welcome.initialModel
-            , viewingPage = mapRouteToPage route
-            , url = url
-            , navKey = navKey
+            initialModel url navKey
+
+        modelWithUrlAndStorage =
+            { model
+                | editor = Editor.withUrl url editor
+                , gallery = galleryFromStorage
+                , viewingPage = mapRouteToPage route
             }
     in
-    ( model
+    ( modelWithUrlAndStorage
     , Cmd.batch
-        [ saveModelToLocalStorage (encode model)
+        [ saveModelToLocalStorage (encode modelWithUrlAndStorage)
         , updateUrlIfInEditor
         , Cmd.map EditorMsg (Editor.initialCmd editor)
         , Cmd.map WelcomeMsg Welcome.initialCmd
@@ -175,6 +180,9 @@ view model =
         WelcomePage ->
             documentMap WelcomeMsg (Welcome.view model.welcome)
 
+        WritingPage ->
+            documentMap WritingMsg (Writing.view model.writting)
+
 
 
 -- UPDATE
@@ -184,8 +192,12 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UrlChanged url ->
+            let
+                viewingPage =
+                    mapRouteToPage (parseUrl url)
+            in
             -- Called via replaceUrl (and indirectly via click on internal links/href, see LinkClicked above)
-            ( { model | viewingPage = mapRouteToPage (parseUrl url) }, Cmd.none )
+            ( { model | viewingPage = viewingPage }, initializeCmds model viewingPage )
 
         LinkClicked urlRequest ->
             case urlRequest of
@@ -277,6 +289,45 @@ update msg model =
                 Welcome.UpdateWelcome ->
                     ( { model | welcome = welcome }, cmd )
 
+        WritingMsg writtingMsg ->
+            let
+                ( writting, writtingCmd, externalMsg ) =
+                    Writing.update writtingMsg model.writting
+
+                cmd =
+                    Cmd.map WritingMsg writtingCmd
+            in
+            case externalMsg of
+                Writing.OpenedEditor image ->
+                    ( { model | editor = Editor.withImage image model.editor }, Nav.replaceUrl model.navKey routeFor.editor )
+
+                Writing.UpdateWriting ->
+                    ( { model | writting = writting }, cmd )
+
+                Writing.NothingToUpdate ->
+                    ( model, cmd )
+
+
+
+-- TODO Refactor to something like changeViews to be called on UrlChanged
+-- TODO Maybe remove initialCmds from init function?
+
+
+initializeCmds : Model -> Page -> Cmd Msg
+initializeCmds model page =
+    case page of
+        EditorPage ->
+            Cmd.map EditorMsg (Editor.initialCmd model.editor)
+
+        GalleryPage ->
+            Cmd.none
+
+        WelcomePage ->
+            Cmd.map WelcomeMsg Welcome.initialCmd
+
+        WritingPage ->
+            Cmd.map WritingMsg Writing.initialCmd
+
 
 
 -- SUBSCRIPTIONS
@@ -287,6 +338,7 @@ subscriptions model =
     Sub.batch
         [ Sub.map EditorMsg <| Editor.subscriptions model.editor (model.viewingPage == EditorPage)
         , Sub.map WelcomeMsg <| Welcome.subscriptions model.welcome (model.viewingPage == WelcomePage)
+        , Sub.map WritingMsg <| Writing.subscriptions model.writting (model.viewingPage == WritingPage)
         ]
 
 

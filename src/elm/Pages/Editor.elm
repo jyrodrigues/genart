@@ -922,7 +922,7 @@ update msg model =
                                     ( model, Cmd.none, NothingToUpdate )
 
                         else if keyString == "a" then
-                            ( model, Task.attempt (\_ -> NoOp) (Browser.Dom.focus "TurnAngle"), NothingToUpdate )
+                            ( model, Task.attempt (always NoOp) (Browser.Dom.focus "TurnAngle"), NothingToUpdate )
 
                         else if keyString == "q" then
                             ( model, Random.generate GotRandomImage Image.random, UpdatedEditor )
