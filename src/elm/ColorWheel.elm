@@ -1,7 +1,6 @@
 module ColorWheel exposing
     ( Model
     , Msg
-    , MsgType(..)
     , getElementDimensions
     , initialModel
     , subscriptions
@@ -111,7 +110,7 @@ initialModel id_ =
     , blur = 2
 
     -- Config
-    , trackMouseOutsideWheel = False
+    , trackMouseOutsideWheel = True
     , sameHeightAsWidth = True
     }
 
@@ -128,32 +127,9 @@ type Msg
     | ToggledDynamic
 
 
-type MsgType
-    = ColorChanged
-    | SameColor
-
-
-update : Msg -> Model -> ( Model, Cmd Msg, MsgType )
+update : Msg -> Model -> ( Model, Maybe Color )
 update msg model =
     case msg of
-        GotMousePosition relativePosition ->
-            ( { model
-                | mousePosition = relativePosition
-                , color = computeColor model relativePosition
-              }
-            , Cmd.none
-            , ColorChanged
-            )
-
-        GotElementDimensions result ->
-            ( { model | elementDimensions = Result.toMaybe result }, Cmd.none, SameColor )
-
-        StartedMouseTracking ->
-            ( { model | mouseTracking = True }, Cmd.none, SameColor )
-
-        StoppedMouseTracking ->
-            ( { model | mouseTracking = False }, Cmd.none, SameColor )
-
         SetOpacity opacity ->
             let
                 { h, s } =
@@ -162,20 +138,41 @@ update msg model =
                 color =
                     Colors.hsv h s opacity
             in
-            ( { model | color = color }, Cmd.none, ColorChanged )
+            ( { model | color = color }, Just color )
+
+        GotMousePosition relativePosition ->
+            let
+                color =
+                    computeColor model relativePosition
+            in
+            ( { model
+                | mousePosition = relativePosition
+                , color = color
+              }
+            , Just color
+            )
+
+        GotElementDimensions result ->
+            ( { model | elementDimensions = Result.toMaybe result }, Nothing )
+
+        StartedMouseTracking ->
+            ( { model | mouseTracking = True }, Nothing )
+
+        StoppedMouseTracking ->
+            ( { model | mouseTracking = False }, Nothing )
 
         --
         --
         --
         {--| For Development --}
         SetNumberOfSlices n ->
-            ( { model | numberOfSlices = n }, Cmd.none, SameColor )
+            ( { model | numberOfSlices = n }, Nothing )
 
         SetBlur b ->
-            ( { model | blur = b }, Cmd.none, SameColor )
+            ( { model | blur = b }, Nothing )
 
         ToggledDynamic ->
-            ( { model | dynamic = not model.dynamic }, Cmd.none, SameColor )
+            ( { model | dynamic = not model.dynamic }, Nothing )
 
 
 subscriptions : Model -> Sub Msg
@@ -353,16 +350,6 @@ viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel sameHeightAsWi
             , id id_
             ]
 
-        innerDivEventListeners =
-            [ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
-            , ( True, onMouseDown StartedMouseTracking )
-            , ( True, onMouseUp StoppedMouseTracking )
-            , ( not mouseTrackingOutsideWheel, onMouseOut StoppedMouseTracking )
-            , ( mouseTracking, on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder) )
-            ]
-                |> List.filter Tuple.first
-                |> List.map Tuple.second
-
         innerHeight =
             Css.batch <|
                 if sameHeightAsWidth then
@@ -386,6 +373,16 @@ viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel sameHeightAsWi
                 ]
             , id (id_ ++ "static")
             ]
+
+        innerDivEventListeners =
+            [ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
+            , ( True, onMouseDown StartedMouseTracking )
+            , ( True, onMouseUp StoppedMouseTracking )
+            , ( not mouseTrackingOutsideWheel, onMouseOut StoppedMouseTracking )
+            , ( mouseTracking, on "mousemove" (Decode.map GotMousePosition mouseInfoDecoder) )
+            ]
+                |> List.filter Tuple.first
+                |> List.map Tuple.second
 
         ( x, y ) =
             fromPolar (toPolarPosition color)

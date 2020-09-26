@@ -319,7 +319,6 @@ initialModel =
     -- ColorWheel
     , colorWheel =
         ColorWheel.initialModel "ColorWheel1"
-            |> ColorWheel.trackMouseOutsideWheel True
             |> ColorWheel.withColor defaultImage.strokeColor
     , colorTarget = Stroke
 
@@ -945,29 +944,29 @@ update msg model =
 
             ColorWheelMsg subMsg ->
                 let
-                    ( updatedColorWheel, _, msgType ) =
+                    ( updatedColorWheel, maybeColor ) =
                         ColorWheel.update subMsg model.colorWheel
 
-                    image =
-                        case model.colorTarget of
-                            Stroke ->
-                                Image.withStrokeColor updatedColorWheel.color model.image
-
-                            Background ->
-                                Image.withBackgroundColor updatedColorWheel.color model.image
+                    updatedModel =
+                        { model | colorWheel = updatedColorWheel }
                 in
-                case msgType of
-                    ColorWheel.ColorChanged ->
-                        ( { model
-                            | colorWheel = updatedColorWheel
-                            , image = image
+                case maybeColor of
+                    Just color ->
+                        ( { updatedModel
+                            | image =
+                                case model.colorTarget of
+                                    Stroke ->
+                                        Image.withStrokeColor color model.image
+
+                                    Background ->
+                                        Image.withBackgroundColor color model.image
                           }
                         , Cmd.none
                         , UpdatedEditor
                         )
 
-                    ColorWheel.SameColor ->
-                        ( { model | colorWheel = updatedColorWheel }, Cmd.none, NothingToUpdate )
+                    Nothing ->
+                        ( updatedModel, Cmd.none, NothingToUpdate )
 
             SetColorTarget target ->
                 ( { model
