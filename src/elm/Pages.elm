@@ -1,4 +1,4 @@
-module Pages exposing (Page(..), routeFor)
+module Pages exposing (Page(..), routeFor, toString)
 
 
 type Page
@@ -22,3 +22,19 @@ routeFor page =
 
         WritingPage ->
             "writing"
+
+
+toString : Page -> String
+toString page =
+    case page of
+        EditorPage ->
+            "Editor"
+
+        GalleryPage ->
+            "Gallery"
+
+        WelcomePage ->
+            "Welcome"
+
+        WritingPage ->
+            "Writing"
