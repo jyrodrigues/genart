@@ -22,7 +22,6 @@ import Browser.Events
 import ColorWheel
 import Colors exposing (Color, offWhite, toCssColor)
 import Components as C
-import Config exposing (routeFor)
 import Css
     exposing
         ( absolute
@@ -106,6 +105,7 @@ import LSystem.Image as Image
         , withImage
         )
 import Midi exposing (adjustInputForStrokeWidth)
+import Pages exposing (Page(..), routeFor)
 import Random
 import Set exposing (Set)
 import Svg.Styled exposing (Svg)
@@ -449,7 +449,7 @@ controlPanel model =
 infoAndBasicControls : Html Msg
 infoAndBasicControls =
     C.controlBlockFlex
-        [ C.anchorButtonHalf routeFor.gallery "Gallery"
+        [ C.anchorButtonHalf (routeFor GalleryPage) "Gallery"
         , C.primaryButtonHalf SavedToGallery "Save"
         , C.primaryButtonHalf FullscreenRequested "Full"
         , C.primaryButtonHalf DownloadSvg "Down"
@@ -1742,12 +1742,12 @@ queryParser =
 
 urlParser : Parser (PartialImage -> a) a
 urlParser =
-    Parser.s routeFor.editor <?> Image.queryParser
+    Parser.s (routeFor EditorPage) <?> Image.queryParser
 
 
 urlEncode : Model -> String
 urlEncode model =
-    routeFor.editor ++ Image.toQuery model.image
+    routeFor EditorPage ++ Image.toQuery model.image
 
 
 

@@ -1,14 +1,13 @@
 module Routes exposing
-    ( Page(..)
-    , Route(..)
+    ( Route(..)
     , editorParser
     , galleryParser
     , mapRouteToPage
     , parseUrl
     )
 
-import Config exposing (routeFor)
 import LSystem.Image exposing (PartialImage)
+import Pages exposing (Page(..), routeFor)
 import Pages.Editor as Editor
 import Url
 import Url.Parser as Parser exposing (Parser)
@@ -55,28 +54,17 @@ editorParser =
 
 galleryParser : Parser (Route -> a) a
 galleryParser =
-    Parser.map Gallery (Parser.s routeFor.gallery)
+    Parser.map Gallery (Parser.s (routeFor GalleryPage))
 
 
 writingParser : Parser (Route -> a) a
 writingParser =
-    Parser.map Writing (Parser.s routeFor.writing)
+    Parser.map Writing (Parser.s (routeFor WritingPage))
 
 
 welcomeParser : Parser (Route -> a) a
 welcomeParser =
     Parser.map Welcome Parser.top
-
-
-
--- Pages
-
-
-type Page
-    = EditorPage
-    | GalleryPage
-    | WelcomePage
-    | WritingPage
 
 
 mapRouteToPage : Route -> Page

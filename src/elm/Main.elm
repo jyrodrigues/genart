@@ -8,16 +8,16 @@ port module Main exposing (decoder, encode, main)
 
 import Browser
 import Browser.Navigation as Nav
-import Config exposing (routeFor)
 import Html
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
+import Pages exposing (Page(..), routeFor)
 import Pages.Editor as Editor
 import Pages.Gallery as Gallery
 import Pages.Welcome as Welcome
 import Pages.Writing as Writing
-import Routes exposing (Page(..), Route(..), mapRouteToPage, parseUrl)
+import Routes exposing (Route(..), mapRouteToPage, parseUrl)
 import Url
 
 
@@ -127,7 +127,7 @@ init locallyStoredModel url navKey =
                     -- query parameters!
                     ( Editor.withPartialImage partialImage editorFromStorage
                       -- Replace URL to get rid of Image in query string and have a clean URL
-                    , Nav.replaceUrl navKey routeFor.editor
+                    , Nav.replaceUrl navKey (routeFor EditorPage)
                     )
 
                 _ ->
@@ -266,7 +266,7 @@ update msg model =
                         [ cmd
 
                         -- This will trigger UrlChanged and then viewingPage will be set to its right value.
-                        , Nav.replaceUrl newModel.navKey routeFor.editor
+                        , Nav.replaceUrl newModel.navKey (routeFor EditorPage)
                         , saveModelToLocalStorage (encode newModel)
                         ]
                     )
@@ -284,7 +284,9 @@ update msg model =
             in
             case externalMsg of
                 Welcome.GoToEditor image ->
-                    ( { model | editor = Editor.withImage image model.editor }, Nav.replaceUrl model.navKey routeFor.editor )
+                    ( { model | editor = Editor.withImage image model.editor }
+                    , Nav.replaceUrl model.navKey (routeFor EditorPage)
+                    )
 
                 Welcome.UpdateWelcome ->
                     ( { model | welcome = welcome }, cmd )
@@ -299,7 +301,9 @@ update msg model =
             in
             case externalMsg of
                 Writing.OpenedEditor image ->
-                    ( { model | editor = Editor.withImage image model.editor }, Nav.replaceUrl model.navKey routeFor.editor )
+                    ( { model | editor = Editor.withImage image model.editor }
+                    , Nav.replaceUrl model.navKey (routeFor EditorPage)
+                    )
 
                 Writing.UpdateWriting ->
                     ( { model | writting = writting }, cmd )
