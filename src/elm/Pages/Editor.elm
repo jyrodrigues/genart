@@ -148,11 +148,11 @@ port midiEvent : (Encode.Value -> msg) -> Sub msg
 
 {-| TODO: Rename Msgs: put all verbs in past tense and choose better words.
 -}
-type
-    Msg
-    -- Global keyboard listener
-    -- TODO change to `KeyPress Where String`
-    = EditorKeyPress String
+type Msg
+    = TopBarMsg TopBar.Msg
+      -- Global keyboard listener
+      -- TODO change to `KeyPress Where String`
+    | EditorKeyPress String
     | InputKeyPress String
     | SetKeyboardInput KeyboardInput
       -- Main commands
@@ -251,6 +251,9 @@ type alias Model =
     , turnAngleInputValue : String
     , keyboardInput : KeyboardInput
 
+    -- Top Bar
+    , topBar : TopBar.State Msg
+
     -- Alert Popup
     , alert : Maybe String
 
@@ -305,6 +308,10 @@ video =
 
 initialModel : Model
 initialModel =
+    let
+        colorWheel =
+            ColorWheel.initialState "ColorWheel1" (Just defaultImage.strokeColor)
+    in
     -- Aplication heart
     { image = welcomeImage
     , editingIndex = 1
@@ -318,7 +325,7 @@ initialModel =
     , imgDivStart = ( 0, 0 )
 
     -- ColorWheel
-    , colorWheel = ColorWheel.initialState "ColorWheel1" (Just defaultImage.strokeColor)
+    , colorWheel = colorWheel
     , colorTarget = Stroke
 
     -- Browser Focus
@@ -335,6 +342,9 @@ initialModel =
     -- Input controls value
     , turnAngleInputValue = String.fromFloat defaultImage.turnAngle
     , keyboardInput = ShortcutsMode
+
+    -- Top Bar
+    , topBar = TopBar.init TopBarMsg (List.length <| topBarElements Stroke colorWheel Set.empty)
 
     -- Alert Popup
     , alert = Nothing
@@ -400,7 +410,8 @@ view model =
     in
     { title = "Generative Art"
     , body =
-        [ div
+        [ TopBar.view EditorPage (topBarElements model.colorTarget model.colorWheel model.playingVideo) model.topBar |> toUnstyled
+        , div
             [ css [ width (pct 100), height (pct 100) ] ]
             ([ compositionBlocksList model
              , lazy mainImg model.image
@@ -413,6 +424,36 @@ view model =
             |> toUnstyled
         ]
     }
+
+
+topBarElements : ColorTarget -> ColorWheel.State -> Set Video -> List (TopBar.Element Msg)
+topBarElements colorTarget colorWheel playingVideo =
+    [ TopBar.Dropdown
+        { title = "Title 2"
+        , elements = colorControlsTopBar colorTarget colorWheel playingVideo
+        }
+    ]
+
+
+colorControlsTopBar : ColorTarget -> ColorWheel.State -> Set Video -> List (Html Msg)
+colorControlsTopBar colorTarget colorWheel videoSet =
+    let
+        text videoType name =
+            if Set.member videoType videoSet then
+                "Stop " ++ name
+
+            else
+                "Play " ++ name
+    in
+    [ div [ css [ displayFlex, flexWrap wrap ] ]
+        [ C.primaryButtonSelectable (colorTarget == Stroke) (SetColorTarget Stroke) "Stroke"
+        , C.primaryButtonSelectable (colorTarget == Background) (SetColorTarget Background) "Background"
+        , C.primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
+        , C.primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
+        , C.primaryButtonHalf ExchangeColors "Exchange"
+        ]
+    , div [ css [ padding2 (px 10) zero ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
+    ]
 
 
 controlPanel : Model -> Html Msg
@@ -800,6 +841,13 @@ update : Msg -> Model -> ( Model, Cmd Msg, ExternalMsg )
 update msg model =
     updateSvgPathAndBoundariesIfNeeded <|
         case msg of
+            TopBarMsg subMsg ->
+                let
+                    ( updatedTopBar, cmd ) =
+                        TopBar.update subMsg model.topBar
+                in
+                ( { model | topBar = updatedTopBar }, cmd, UpdatedEditor )
+
             RandomRequested ->
                 ( model, Random.generate GotRandomImage Image.random, NothingToUpdate )
 

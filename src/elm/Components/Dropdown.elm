@@ -3,12 +3,16 @@ module Components.Dropdown exposing (Config, Msg, State, init, update, view)
 import Colors
 import Css exposing (..)
 import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (css)
-import Html.Styled.Events exposing (onBlur, onClick)
+import Html.Styled.Attributes exposing (css, tabindex)
+import Html.Styled.Events exposing (on, onBlur, onClick, onMouseEnter, onMouseLeave)
+import Json.Decode as Decode
+import Utils
 
 
 type alias State =
-    Bool
+    { isOpen : Bool
+    , mouseIsInside : Bool
+    }
 
 
 type alias Config msg =
@@ -19,30 +23,33 @@ type alias Config msg =
 
 
 type Msg
-    = ToggleOpen
+    = MouseEnter
+    | MouseLeave
     | Close
 
 
 init : Bool -> State
 init isOpen =
-    isOpen
+    { isOpen = isOpen
+    , mouseIsInside = False
+    }
 
 
 view : Config msg -> State -> Html msg
-view { title, elements, toMsg } isOpen =
+view { title, elements, toMsg } state =
     div
         [ css
             [ position relative
             , maxHeight (pct 100)
             ]
-        , onBlur (toMsg Close)
+        , onMouseEnter (toMsg MouseEnter)
+        , onMouseLeave (toMsg MouseLeave)
         ]
         (div
-            [ onClick (toMsg ToggleOpen)
-            , css
+            [ css
                 [ color (Colors.toCssColor Colors.offWhite)
                 , backgroundColor <|
-                    if isOpen then
+                    if state.isOpen then
                         Colors.toCssColor Colors.black
 
                     else
@@ -50,17 +57,14 @@ view { title, elements, toMsg } isOpen =
                 , cursor pointer
                 , padding (px 10)
                 ]
-
-            --TODO not working
-            --, onBlur (toMsg Close)
             ]
             [ text title ]
-            :: body elements isOpen
+            :: body toMsg elements state.isOpen
         )
 
 
-body : List (Html msg) -> Bool -> List (Html msg)
-body elements isOpen =
+body : (Msg -> msg) -> List (Html msg) -> Bool -> List (Html msg)
+body toMsg elements isOpen =
     if isOpen then
         [ div
             [ css
@@ -68,10 +72,13 @@ body elements isOpen =
                 , top (calc (pct 100) plus (px 10))
                 , zIndex (int 1)
                 , backgroundColor (Colors.toCssColor Colors.darkGray)
-                , padding (px 10)
                 , borderRadius (px 5)
                 , color (Colors.toCssColor Colors.offWhite)
+                , border3 (px 1) solid (Colors.toCssColor Colors.darkGray)
+                , overflow hidden
                 ]
+            , onMouseEnter (toMsg MouseEnter)
+            , onMouseLeave (toMsg MouseLeave)
             ]
             elements
         ]
@@ -80,11 +87,23 @@ body elements isOpen =
         []
 
 
-update : Msg -> State -> State
-update msg isOpen =
+update : (Msg -> msg) -> Msg -> State -> ( State, Cmd msg )
+update toMsg msg state =
     case msg of
-        ToggleOpen ->
-            not isOpen
+        MouseEnter ->
+            ( { isOpen = True, mouseIsInside = True }, Cmd.none )
+
+        MouseLeave ->
+            ( { state | mouseIsInside = False }, Utils.delay 300 (toMsg Close) )
 
         Close ->
-            False
+            ( { state
+                | isOpen =
+                    if not state.mouseIsInside then
+                        False
+
+                    else
+                        state.isOpen
+              }
+            , Cmd.none
+            )

@@ -51,6 +51,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Draw as LDraw
 import LSystem.Image as Image exposing (Image)
+import List.Extra
 import Pages exposing (Page(..))
 import Task
 import Utils
@@ -61,6 +62,12 @@ import Utils
 
 
 type alias Model =
+    { gallery : Gallery
+    , topBar : TopBar.State Msg
+    }
+
+
+type alias Gallery =
     List Image
 
 
@@ -76,6 +83,7 @@ type Msg
     | UploadRequested
     | SelectedGallery File
     | LoadedGallery String
+    | TopBarMsg TopBar.Msg
 
 
 type
@@ -92,7 +100,9 @@ type
 
 initialModel : Model
 initialModel =
-    []
+    { gallery = []
+    , topBar = TopBar.init TopBarMsg 0
+    }
 
 
 
@@ -107,15 +117,15 @@ update msg model =
     case msg of
         RemovedFromGallery index ->
             let
-                newModel =
-                    Utils.dropIndex index model
+                updatedGallery =
+                    Utils.dropIndex index model.gallery
             in
-            ( newModel, Cmd.none, UpdatedGallery )
+            ( { model | gallery = updatedGallery }, Cmd.none, UpdatedGallery )
 
         CopiedToEditor index ->
             let
                 maybeImage =
-                    Utils.getAt index model
+                    List.Extra.getAt index model.gallery
             in
             case maybeImage of
                 Just image ->
@@ -147,10 +157,17 @@ update msg model =
             in
             case decodedString of
                 Ok uploadedGallery ->
-                    ( uploadedGallery ++ model, Cmd.none, UpdatedGallery )
+                    ( { model | gallery = uploadedGallery.gallery ++ model.gallery }, Cmd.none, UpdatedGallery )
 
                 Err _ ->
                     ( model, Cmd.none, NothingToUpdate )
+
+        TopBarMsg subMsg ->
+            let
+                ( updatedTopBar, cmd ) =
+                    TopBar.update subMsg model.topBar
+            in
+            ( { model | topBar = updatedTopBar }, cmd, UpdatedGallery )
 
 
 
@@ -174,7 +191,8 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "Generative Art"
     , body =
-        [ div
+        [ TopBar.view GalleryPage [] model.topBar |> toUnstyled
+        , div
             [ css [ width (pct 100), height (pct 100), backgroundColor (toCssColor Colors.darkGray), overflow hidden ] ]
             [ div
                 [ css
@@ -186,7 +204,7 @@ view model =
                     , display inlineBlock
                     ]
                 ]
-                (List.indexedMap imageBox model)
+                (List.indexedMap imageBox model.gallery)
             , C.fixedDiv
                 [ css
                     [ width (pct layout.controlPanel)
@@ -238,8 +256,8 @@ imageBox index image =
 
 
 addImage : Image -> Model -> Model
-addImage =
-    (::)
+addImage image model =
+    { model | gallery = image :: model.gallery }
 
 
 
@@ -249,9 +267,10 @@ addImage =
 
 encode : Model -> Encode.Value
 encode model =
-    Encode.list Image.encode model
+    Encode.list Image.encode model.gallery
 
 
 decoder : Decoder Model
 decoder =
-    Decode.list Image.decoder
+    Decode.map (\gallery -> { initialModel | gallery = gallery }) <|
+        Decode.list Image.decoder

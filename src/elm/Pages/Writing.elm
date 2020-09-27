@@ -35,6 +35,7 @@ import Html.Styled.Events exposing (onClick, onInput)
 import LSystem.Core as LCore exposing (Block, Composition, Step(..))
 import LSystem.Draw exposing (drawImage)
 import LSystem.Image as Image exposing (Image)
+import Pages exposing (Page(..))
 import Task
 import Time
 
@@ -49,7 +50,7 @@ type alias Model =
     , videoAngleChangeRate : Float
     , writing : String
     , copies : Int
-    , topBar : TopBar.State
+    , topBar : TopBar.State Msg
     }
 
 
@@ -82,7 +83,7 @@ initialModel =
     , videoAngleChangeRate = initialVideoAngleChangeRate
     , writing = initialWriting
     , copies = initialNumberOfCopies
-    , topBar = TopBar.init
+    , topBar = TopBar.init TopBarMsg (List.length topBarElements)
     }
 
 
@@ -112,35 +113,27 @@ type ExternalMsg
 -- VIEW
 
 
-topBarConfig : Model -> TopBar.Config Msg
-topBarConfig model =
-    TopBar.Config
-        -- TODO Change all below
-        [ TopBar.Dropdown
-            { title = "Title 2"
-            , elements =
-                [ div []
-                    [ div [] [ text "item" ]
-                    , div [ onClick ResetAngle ] [ text "ResetAngle" ]
-                    , div [] [ text "item" ]
-                    ]
+topBarElements : List (TopBar.Element Msg)
+topBarElements =
+    -- TODO Change all below
+    [ TopBar.Dropdown
+        { title = "Title 2"
+        , elements =
+            [ div []
+                [ div [] [ text "item" ]
+                , div [ onClick ResetAngle ] [ text "ResetAngle" ]
+                , div [] [ text "item" ]
                 ]
-            }
-        , TopBar.Dropdown
-            { title = "Title 3"
-            , elements =
-                [ controls model ]
-            }
-        ]
-        TopBarMsg
+            ]
+        }
+    ]
 
 
-view : Model -> TopBar.View Msg -> Browser.Document Msg
-view model topBarView =
+view : Model -> Browser.Document Msg
+view model =
     { title = "Writing to Genart"
     , body =
-        [ topBarView (topBarConfig model) model.topBar
-            |> toUnstyled
+        [ TopBar.view WritingPage topBarElements model.topBar |> toUnstyled
         , div
             [ css
                 [ width (pct 100)
@@ -295,7 +288,11 @@ update msg model =
             ( model, Cmd.none, NothingToUpdate )
 
         TopBarMsg subMsg ->
-            ( { model | topBar = TopBar.update subMsg model.topBar }, Cmd.none, UpdateWriting )
+            let
+                ( updatedTopBar, cmd ) =
+                    TopBar.update subMsg model.topBar
+            in
+            ( { model | topBar = updatedTopBar }, cmd, UpdateWriting )
 
 
 

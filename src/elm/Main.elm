@@ -12,6 +12,8 @@ import Browser
 import Browser.Navigation as Nav
 import Components as C
 import Components.TopBar as TopBar
+import Css
+import Css.Global
 import Html
 import Html.Styled exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
@@ -76,7 +78,7 @@ initialModel : Url.Url -> Nav.Key -> Model
 initialModel url navKey =
     -- Pages
     { editor = Editor.initialModel
-    , gallery = []
+    , gallery = Gallery.initialModel
     , writting = Writing.initialModel
     , welcome = Welcome.initialModel
 
@@ -169,16 +171,17 @@ documentMap msg document =
             document
     in
     { title = title
-    , body = List.map (Html.map msg) body
+    , body =
+        List.map (Html.map msg) body
+            ++ [ Html.Styled.toUnstyled
+                    -- TODO remove all `Css.fontFamily` from codebase; this should suffice.
+                    (Css.Global.global [ Css.Global.selector "body" [ Css.fontFamily Css.sansSerif ] ])
+               ]
     }
 
 
 view : Model -> Browser.Document Msg
 view model =
-    let
-        topBar =
-            topBarForPage model.viewingPage
-    in
     case model.viewingPage of
         EditorPage ->
             documentMap EditorMsg (Editor.view model.editor)
@@ -190,25 +193,7 @@ view model =
             documentMap WelcomeMsg (Welcome.view model.welcome)
 
         WritingPage ->
-            documentMap WritingMsg (Writing.view model.writting topBar)
-
-
-topBarForPage : Page -> TopBar.View msg
-topBarForPage viewingPage config state =
-    let
-        pagesDropdown =
-            TopBar.Dropdown
-                { title = Pages.toString viewingPage
-                , elements =
-                    List.map (C.pageToAnchor viewingPage Pages.toString Pages.routeFor)
-                        [ EditorPage
-                        , GalleryPage
-                        , WritingPage
-                        , WelcomePage
-                        ]
-                }
-    in
-    TopBar.view { config | elements = pagesDropdown :: config.elements } state
+            documentMap WritingMsg (Writing.view model.writting)
 
 
 

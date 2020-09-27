@@ -1,30 +1,36 @@
-module Components.TopBar exposing (Config, Element(..), Msg, State, View, init, update, view)
+module Components.TopBar exposing (Element(..), Msg, State, init, update, view)
 
+import Colors
 import Components as C
 import Components.Dropdown as Dropdown
 import Css exposing (..)
 import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (css)
+import Html.Styled.Attributes exposing (css, href)
 import List.Extra
+import Pages exposing (Page(..))
 
 
-type alias State =
-    Maybe Int
+type State msg
+    = State
+        { dropdownStates : List Dropdown.State
+        , toMsg : Msg -> msg
+        }
 
 
-init : State
-init =
-    Nothing
-
-
-type alias Config msg =
-    { elements : List (Element msg)
-    , toMsg : Msg -> msg
-    }
+init : (Msg -> msg) -> Int -> State msg
+init toMsg numberOfElements =
+    -- This can possibly create `Dropdown.State`s for non-Dropdown elements. But it's fine for now.
+    -- `numberOfElements + 1` to count for `pagesDropdown`.
+    State
+        { dropdownStates = List.repeat (numberOfElements + 1) (Dropdown.init False)
+        , toMsg = toMsg
+        }
 
 
 type Element msg
     = Dropdown { title : String, elements : List (Html msg) }
+      -- TODO Add this option to use with `pagesDropdown`, or something like this
+      --| DropdownCloseOnClick { title : String, elements : List (Html msg) }
     | Any (Html msg)
 
 
@@ -32,12 +38,8 @@ type Msg
     = DropdownMsg Int Dropdown.Msg
 
 
-type alias View msg =
-    Config msg -> State -> Html msg
-
-
-view : View msg
-view { elements, toMsg } state =
+view : Page -> List (Element msg) -> State msg -> Html msg
+view page pageElements (State { dropdownStates, toMsg }) =
     let
         wrapper =
             div
@@ -47,17 +49,19 @@ view { elements, toMsg } state =
                     ]
                 ]
 
-        indexOpen =
-            -- Indexes start at 0 so `-1000` is the same as none (not pretty I know).
-            Maybe.withDefault -1000 state
+        elements =
+            pagesDropdown page :: pageElements
+
+        length =
+            Debug.log "elements length" <| List.length (List.Extra.zip elements dropdownStates)
     in
-    elements
-        |> List.indexedMap (elementToHtml toMsg indexOpen)
+    List.Extra.zip elements dropdownStates
+        |> List.indexedMap (elementToHtml toMsg)
         |> wrapper
 
 
-elementToHtml : (Msg -> msg) -> Int -> Int -> Element msg -> Html msg
-elementToHtml toMsg indexOpen index element =
+elementToHtml : (Msg -> msg) -> Int -> ( Element msg, Dropdown.State ) -> Html msg
+elementToHtml toMsg index ( element, state ) =
     case element of
         Any html ->
             html
@@ -68,60 +72,74 @@ elementToHtml toMsg indexOpen index element =
                 , title = title
                 , elements = elements
                 }
-                (indexOpen == index)
+                state
 
 
-update : Msg -> State -> State
-update msg state =
+update : Msg -> State msg -> ( State msg, Cmd msg )
+update msg (State data) =
+    let
+        { dropdownStates, toMsg } =
+            data
+    in
     case msg of
         DropdownMsg index dropdownMsg ->
-            -- N.B. We could have multiple dropdowns opened at the same time, in that case we would pass the
-            -- `dropdownMsg` to one of them, but then we'd have to store each state inside our own.
-            -- Right now we only want ONE open at a time, so we force the state and ignore the msg.
-            if state == Just index then
-                -- Assuming *ONLY* ToggleDropdown messages (not close on blur, can be a bug. TODO)
-                Nothing
+            case List.Extra.getAt index dropdownStates of
+                Just dropdownState ->
+                    let
+                        ( updatedDropdown, cmd ) =
+                            Dropdown.update (DropdownMsg index >> toMsg) dropdownMsg dropdownState
+                    in
+                    ( State { data | dropdownStates = List.Extra.updateAt index (always updatedDropdown) dropdownStates }, cmd )
+
+                Nothing ->
+                    ( State data, Cmd.none )
+
+
+
+-- HELPERS
+
+
+pagesDropdown : Page -> Element msg
+pagesDropdown currentPage =
+    Dropdown
+        { title = Pages.toString currentPage
+        , elements =
+            List.map (pageToAnchor currentPage)
+                [ EditorPage
+                , GalleryPage
+                , WritingPage
+                , WelcomePage
+                ]
+        }
+
+
+pageToAnchor : Page -> Page -> Html msg
+pageToAnchor activePage page =
+    let
+        activeAttrs =
+            if page == activePage then
+                [ backgroundColor (Colors.toCssColor Colors.black) ]
 
             else
-                Just index
-
-
-
-{--
-type InternalElement msg
-    = InternalDropdown (Dropdown.Config msg) Dropdown.State
-    | InternalAny (Html msg)
---}
-{--
-init : State msg
-init =
-    State
-        (List.map
-            (\element ->
-                case element of
-                    Any html ->
-                        InternalAny html
-
-                    Dropdown config ->
-                        InternalDropdown config (Dropdown.init False)
+                []
+    in
+    a
+        [ css
+            ([ color (Colors.toCssColor Colors.offWhite)
+             , display block
+             , textDecoration none
+             , Css.padding2 (px 10) (px 20)
+             , cursor pointer
+             , textAlign center
+             , hover
+                [ Css.textDecorationLine Css.underline
+                ]
+             , active
+                [ backgroundColor (Colors.toCssColor Colors.black) ]
+             , fontFamily sansSerif
+             ]
+                ++ activeAttrs
             )
-            elements
-        )
-
-
-update : Msg -> State msg -> State msg
-update msg (State items) =
-    case msg of
-        DropdownMsg dropdownMsg msgIndex ->
-            State (List.Extra.updateAt msgIndex (updateDropdown dropdownMsg) items)
-
-
-updateDropdown : Dropdown.Msg -> InternalElement msg -> InternalElement msg
-updateDropdown msg element =
-    case element of
-        InternalAny _ ->
-            element
-
-        InternalDropdown config state ->
-            InternalDropdown config (Dropdown.update msg state)
---}
+        , href ("/" ++ Pages.routeFor page)
+        ]
+        [ text (Pages.toString page) ]

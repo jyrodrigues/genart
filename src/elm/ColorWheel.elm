@@ -375,7 +375,9 @@ viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel sameHeightAsWi
             ]
 
         innerDivEventListeners =
-            [ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
+            -- TODO I'm not sure why I was using `stopPropagationOn` but I'm leaving as a comment in case a bug appears.
+            --[ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
+            [ ( True, on "click" (Decode.map GotMousePosition mouseInfoDecoder) )
             , ( True, onMouseDown StartedMouseTracking )
             , ( True, onMouseUp StoppedMouseTracking )
             , ( not mouseTrackingOutsideWheel, onMouseOut StoppedMouseTracking )
@@ -643,7 +645,9 @@ viewDynamicEager id_ numberOfSlices mouseTracking blur color mouseTrackingOutsid
             ]
 
         divEventListeners =
-            [ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
+            -- TODO I'm not sure why I was using `stopPropagationOn` but I'm leaving as a comment in case a bug appears.
+            --[ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
+            [ ( True, on "click" (Decode.map GotMousePosition mouseInfoDecoder) )
             , ( True, onMouseDown StartedMouseTracking )
             , ( True, onMouseUp StoppedMouseTracking )
             , ( not mouseTrackingOutsideWheel, onMouseOut StoppedMouseTracking )
