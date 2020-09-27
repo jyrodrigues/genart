@@ -55,6 +55,28 @@ import Html.Styled.Events exposing (onClick)
 
 
 
+-- TOP BAR
+
+
+pageToAnchor : page -> (page -> String) -> (page -> String) -> page -> Html msg
+pageToAnchor currentPage toString toUrl page =
+    a
+        [ css
+            [ backgroundColor
+                (if page == currentPage then
+                    Colors.toCssColor Colors.red_
+
+                 else
+                    Colors.toCssColor Colors.black
+                )
+            , color (Colors.toCssColor Colors.offWhite)
+            ]
+        , href ("/" ++ toUrl page)
+        ]
+        [ text (toString page) ]
+
+
+
 -- HTML ATTRIBUTES HELPERS
 
 

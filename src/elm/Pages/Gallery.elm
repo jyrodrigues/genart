@@ -13,6 +13,7 @@ module Pages.Gallery exposing
 import Browser
 import Colors exposing (toCssColor)
 import Components as C
+import Components.TopBar as TopBar
 import Css
     exposing
         ( absolute

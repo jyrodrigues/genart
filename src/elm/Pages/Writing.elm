@@ -4,6 +4,7 @@ import Browser
 import Browser.Dom
 import Colors exposing (Color)
 import Components as C
+import Components.TopBar as TopBar
 import Css
     exposing
         ( auto
@@ -48,6 +49,7 @@ type alias Model =
     , videoAngleChangeRate : Float
     , writing : String
     , copies : Int
+    , topBar : TopBar.State
     }
 
 
@@ -80,6 +82,7 @@ initialModel =
     , videoAngleChangeRate = initialVideoAngleChangeRate
     , writing = initialWriting
     , copies = initialNumberOfCopies
+    , topBar = TopBar.init
     }
 
 
@@ -96,6 +99,7 @@ type Msg
     | ToggleVideo
     | ResetAngle
     | NoOp
+    | TopBarMsg TopBar.Msg
 
 
 type ExternalMsg
@@ -108,11 +112,36 @@ type ExternalMsg
 -- VIEW
 
 
-view : Model -> Browser.Document Msg
-view model =
+topBarConfig : Model -> TopBar.Config Msg
+topBarConfig model =
+    TopBar.Config
+        -- TODO Change all below
+        [ TopBar.Dropdown
+            { title = "Title 2"
+            , elements =
+                [ div []
+                    [ div [] [ text "item" ]
+                    , div [ onClick ResetAngle ] [ text "ResetAngle" ]
+                    , div [] [ text "item" ]
+                    ]
+                ]
+            }
+        , TopBar.Dropdown
+            { title = "Title 3"
+            , elements =
+                [ controls model ]
+            }
+        ]
+        TopBarMsg
+
+
+view : Model -> TopBar.View Msg -> Browser.Document Msg
+view model topBarView =
     { title = "Writing to Genart"
     , body =
-        [ div
+        [ topBarView (topBarConfig model) model.topBar
+            |> toUnstyled
+        , div
             [ css
                 [ width (pct 100)
                 , height (pct 100)
@@ -264,6 +293,9 @@ update msg model =
 
         NoOp ->
             ( model, Cmd.none, NothingToUpdate )
+
+        TopBarMsg subMsg ->
+            ( { model | topBar = TopBar.update subMsg model.topBar }, Cmd.none, UpdateWriting )
 
 
 

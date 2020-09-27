@@ -22,6 +22,7 @@ import Browser.Events
 import ColorWheel
 import Colors exposing (Color, offWhite, toCssColor)
 import Components as C
+import Components.TopBar as TopBar
 import Css
     exposing
         ( absolute

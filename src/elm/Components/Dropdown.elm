@@ -7,8 +7,8 @@ import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events exposing (onBlur, onClick)
 
 
-type State
-    = State Bool
+type alias State =
+    Bool
 
 
 type alias Config msg =
@@ -25,11 +25,11 @@ type Msg
 
 init : Bool -> State
 init isOpen =
-    State isOpen
+    isOpen
 
 
-view : Config externalMsg -> State -> Html externalMsg
-view { title, elements, toMsg } (State isOpen) =
+view : Config msg -> State -> Html msg
+view { title, elements, toMsg } isOpen =
     div
         [ css
             [ position relative
@@ -81,10 +81,10 @@ body elements isOpen =
 
 
 update : Msg -> State -> State
-update msg (State isOpen) =
+update msg isOpen =
     case msg of
         ToggleOpen ->
-            State (not isOpen)
+            not isOpen
 
         Close ->
-            State False
+            False

@@ -6,9 +6,14 @@
 
 port module Main exposing (decoder, encode, main)
 
+--import Components.TopBar
+
 import Browser
 import Browser.Navigation as Nav
+import Components as C
+import Components.TopBar as TopBar
 import Html
+import Html.Styled exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
@@ -170,6 +175,10 @@ documentMap msg document =
 
 view : Model -> Browser.Document Msg
 view model =
+    let
+        topBar =
+            topBarForPage model.viewingPage
+    in
     case model.viewingPage of
         EditorPage ->
             documentMap EditorMsg (Editor.view model.editor)
@@ -181,7 +190,25 @@ view model =
             documentMap WelcomeMsg (Welcome.view model.welcome)
 
         WritingPage ->
-            documentMap WritingMsg (Writing.view model.writting)
+            documentMap WritingMsg (Writing.view model.writting topBar)
+
+
+topBarForPage : Page -> TopBar.View msg
+topBarForPage viewingPage config state =
+    let
+        pagesDropdown =
+            TopBar.Dropdown
+                { title = Pages.toString viewingPage
+                , elements =
+                    List.map (C.pageToAnchor viewingPage Pages.toString Pages.routeFor)
+                        [ EditorPage
+                        , GalleryPage
+                        , WritingPage
+                        , WelcomePage
+                        ]
+                }
+    in
+    TopBar.view { config | elements = pagesDropdown :: config.elements } state
 
 
 
