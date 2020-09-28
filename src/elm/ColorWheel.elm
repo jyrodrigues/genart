@@ -127,8 +127,16 @@ type Msg
     | ToggledDynamic
 
 
-update : Msg -> State -> ( State, Maybe Color )
+update : Msg -> State -> ( State, Maybe Color, Cmd Msg )
 update msg model =
+    let
+        getDimensionsIfNotSet =
+            if model.elementDimensions == Nothing then
+                getElementDimensions model
+
+            else
+                Cmd.none
+    in
     case msg of
         SetOpacity opacity ->
             let
@@ -138,7 +146,7 @@ update msg model =
                 color =
                     Colors.hsv h s opacity
             in
-            ( { model | color = color }, Just color )
+            ( { model | color = color }, Just color, Cmd.none )
 
         GotMousePosition relativePosition ->
             let
@@ -150,29 +158,30 @@ update msg model =
                 , color = color
               }
             , Just color
+            , getDimensionsIfNotSet
             )
 
         GotElementDimensions result ->
-            ( { model | elementDimensions = Result.toMaybe result }, Nothing )
+            ( { model | elementDimensions = Result.toMaybe result }, Nothing, Cmd.none )
 
         StartedMouseTracking ->
-            ( { model | mouseTracking = True }, Nothing )
+            ( { model | mouseTracking = True }, Nothing, Cmd.none )
 
         StoppedMouseTracking ->
-            ( { model | mouseTracking = False }, Nothing )
+            ( { model | mouseTracking = False }, Nothing, Cmd.none )
 
         --
         --
         --
         {--| For Development --}
         SetNumberOfSlices n ->
-            ( { model | numberOfSlices = n }, Nothing )
+            ( { model | numberOfSlices = n }, Nothing, Cmd.none )
 
         SetBlur b ->
-            ( { model | blur = b }, Nothing )
+            ( { model | blur = b }, Nothing, Cmd.none )
 
         ToggledDynamic ->
-            ( { model | dynamic = not model.dynamic }, Nothing )
+            ( { model | dynamic = not model.dynamic }, Nothing, Cmd.none )
 
 
 subscriptions : State -> Sub Msg
@@ -375,7 +384,9 @@ viewStaticEager id_ mouseTracking color mouseTrackingOutsideWheel sameHeightAsWi
             ]
 
         innerDivEventListeners =
-            [ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
+            -- TODO I'm not sure why I was using `stopPropagationOn` but I'm leaving as a comment in case a bug appears.
+            --[ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
+            [ ( True, on "click" (Decode.map GotMousePosition mouseInfoDecoder) )
             , ( True, onMouseDown StartedMouseTracking )
             , ( True, onMouseUp StoppedMouseTracking )
             , ( not mouseTrackingOutsideWheel, onMouseOut StoppedMouseTracking )
@@ -643,7 +654,9 @@ viewDynamicEager id_ numberOfSlices mouseTracking blur color mouseTrackingOutsid
             ]
 
         divEventListeners =
-            [ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
+            -- TODO I'm not sure why I was using `stopPropagationOn` but I'm leaving as a comment in case a bug appears.
+            --[ ( True, stopPropagationOn "click" (alwaysStopPropagation (Decode.map GotMousePosition mouseInfoDecoder)) )
+            [ ( True, on "click" (Decode.map GotMousePosition mouseInfoDecoder) )
             , ( True, onMouseDown StartedMouseTracking )
             , ( True, onMouseUp StoppedMouseTracking )
             , ( not mouseTrackingOutsideWheel, onMouseOut StoppedMouseTracking )

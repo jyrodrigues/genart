@@ -4,6 +4,7 @@ import Browser
 import Browser.Dom
 import Colors exposing (Color)
 import Components as C
+import Components.TopBar as TopBar
 import Css
     exposing
         ( auto
@@ -34,6 +35,7 @@ import Html.Styled.Events exposing (onClick, onInput)
 import LSystem.Core as LCore exposing (Block, Composition, Step(..))
 import LSystem.Draw exposing (drawImage)
 import LSystem.Image as Image exposing (Image)
+import Pages exposing (Page(..))
 import Task
 import Time
 
@@ -48,6 +50,7 @@ type alias Model =
     , videoAngleChangeRate : Float
     , writing : String
     , copies : Int
+    , topBar : TopBar.State Msg
     }
 
 
@@ -80,6 +83,7 @@ initialModel =
     , videoAngleChangeRate = initialVideoAngleChangeRate
     , writing = initialWriting
     , copies = initialNumberOfCopies
+    , topBar = TopBar.init TopBarMsg
     }
 
 
@@ -96,6 +100,7 @@ type Msg
     | ToggleVideo
     | ResetAngle
     | NoOp
+    | TopBarMsg TopBar.Msg
 
 
 type ExternalMsg
@@ -108,11 +113,27 @@ type ExternalMsg
 -- VIEW
 
 
+topBarElements : List (TopBar.Element Msg)
+topBarElements =
+    -- TODO Change all below
+    [ TopBar.Dropdown
+        { title = "Title 2"
+        , body =
+            div []
+                [ div [] [ text "item" ]
+                , div [ onClick ResetAngle ] [ text "ResetAngle" ]
+                , div [] [ text "item" ]
+                ]
+        }
+    ]
+
+
 view : Model -> Browser.Document Msg
 view model =
     { title = "Writing to Genart"
     , body =
-        [ div
+        [ TopBar.view WritingPage topBarElements model.topBar |> toUnstyled
+        , div
             [ css
                 [ width (pct 100)
                 , height (pct 100)
@@ -264,6 +285,13 @@ update msg model =
 
         NoOp ->
             ( model, Cmd.none, NothingToUpdate )
+
+        TopBarMsg subMsg ->
+            let
+                ( updatedTopBar, cmd ) =
+                    TopBar.update subMsg model.topBar
+            in
+            ( { model | topBar = updatedTopBar }, cmd, UpdateWriting )
 
 
 

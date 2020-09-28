@@ -22,6 +22,8 @@ import Browser.Events
 import ColorWheel
 import Colors exposing (Color, offWhite, toCssColor)
 import Components as C
+import Components.Dropdown as Dropdown
+import Components.TopBar as TopBar
 import Css
     exposing
         ( absolute
@@ -30,21 +32,27 @@ import Css
         , block
         , border
         , border3
+        , borderBottom
         , borderBox
         , borderLeft3
         , borderRadius
         , borderRight3
+        , borderTop3
         , bottom
         , boxShadow5
         , boxShadow6
         , boxSizing
         , breakWord
+        , calc
+        , center
         , color
         , contentBox
         , cursor
+        , default
         , display
         , displayFlex
         , fixed
+        , flexDirection
         , flexWrap
         , fontSize
         , height
@@ -52,9 +60,12 @@ import Css
         , hover
         , inset
         , left
+        , margin2
         , margin3
         , marginBottom
+        , marginLeft
         , marginTop
+        , minus
         , none
         , overflow
         , overflowWrap
@@ -62,14 +73,17 @@ import Css
         , overflowY
         , padding
         , padding2
+        , paddingRight
         , pct
         , pointer
         , position
         , px
         , relative
         , right
+        , row
         , scroll
         , solid
+        , textAlign
         , unset
         , vw
         , width
@@ -77,12 +91,13 @@ import Css
         , zero
         )
 import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
-import Html.Styled exposing (Html, div, input, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (css, id, type_, value)
+import Html.Styled exposing (Html, div, input, label, p, span, text, toUnstyled)
+import Html.Styled.Attributes exposing (checked, css, id, type_, value)
 import Html.Styled.Events
     exposing
         ( on
         , onBlur
+        , onCheck
         , onClick
         , onFocus
         , onInput
@@ -147,11 +162,11 @@ port midiEvent : (Encode.Value -> msg) -> Sub msg
 
 {-| TODO: Rename Msgs: put all verbs in past tense and choose better words.
 -}
-type
-    Msg
-    -- Global keyboard listener
-    -- TODO change to `KeyPress Where String`
-    = EditorKeyPress String
+type Msg
+    = TopBarMsg TopBar.Msg
+      -- Global keyboard listener
+      -- TODO change to `KeyPress Where String`
+    | EditorKeyPress String
     | InputKeyPress String
     | SetKeyboardInput KeyboardInput
       -- Main commands
@@ -176,8 +191,9 @@ type
     | ExchangeColors
       -- Angle
     | SetTurnAngleInputValue String
-      -- Stroke width
+      -- Stroke
     | SetStrokeWidth Float
+    | ToggleCurveType
       -- Share
     | CopyUrlToClipboard
     | CopyUrlToClipboardResult Bool
@@ -187,7 +203,8 @@ type
       -- Focus
     | SetFocus Focus
       -- Video
-    | ToggleVideo Video
+    | ToggleVideo
+    | ToggleColorVideo
     | VideoTick
     | ToggleSlowMotion
     | SetVideoAngleChangeRate Float
@@ -244,11 +261,15 @@ type alias Model =
     , videoAngleChangeRate : Float
     , slowMotion : SlowMotion
     , videoAngleChangeDirection : Float
-    , playingVideo : Set Video
+    , playingVideo : Bool
+    , colorInVideo : Bool
 
     -- Input controls value
     , turnAngleInputValue : String
     , keyboardInput : KeyboardInput
+
+    -- Top Bar
+    , topBar : TopBar.State Msg
 
     -- Alert Popup
     , alert : Maybe String
@@ -272,6 +293,15 @@ type
     -- TODO Change to `type alias SlowMotion = Maybe Float` ?
     = NotSet
     | Slowly Float
+
+
+slowMotionToBool : SlowMotion -> Bool
+slowMotionToBool slowMotion =
+    if slowMotion == NotSet then
+        False
+
+    else
+        True
 
 
 type ColorTarget
@@ -328,12 +358,16 @@ initialModel =
     , slowMotion = NotSet
 
     --, playingVideo = Set.fromList [ video.changeAngle, video.changeColorLinear ]
-    , playingVideo = Set.empty
+    , playingVideo = False
+    , colorInVideo = False
     , videoAngleChangeDirection = 1
 
     -- Input controls value
-    , turnAngleInputValue = String.fromFloat defaultImage.turnAngle
+    , turnAngleInputValue = String.fromFloat welcomeImage.turnAngle
     , keyboardInput = ShortcutsMode
+
+    -- Top Bar
+    , topBar = TopBar.init TopBarMsg
 
     -- Alert Popup
     , alert = Nothing
@@ -347,7 +381,6 @@ initialCmd : Model -> Cmd Msg
 initialCmd model =
     Cmd.batch
         [ getImgDivPosition
-        , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
         ]
 
 
@@ -360,6 +393,7 @@ withImage image model =
     { model
         | image = image
         , colorWheel = updateColorWheel image model.colorTarget model.colorWheel
+        , turnAngleInputValue = String.fromFloat image.turnAngle
     }
 
 
@@ -399,13 +433,12 @@ view model =
     in
     { title = "Generative Art"
     , body =
-        [ div
-            [ css [ width (pct 100), height (pct 100) ] ]
+        [ TopBar.view EditorPage (topBarElements model) model.topBar |> toUnstyled
+        , div
+            [ css [ width (pct 100), height (calc (pct 100) minus (px 41)) ] ]
             ([ compositionBlocksList model
              , lazy mainImg model.image
-             , controlPanel model
-
-             --, fixedControlsButtons
+             , turnAngleControl model.turnAngleInputValue
              ]
                 ++ alert
             )
@@ -414,168 +447,187 @@ view model =
     }
 
 
-controlPanel : Model -> Html Msg
-controlPanel model =
-    C.fixedDiv
-        [ css
-            [ height (pct 100)
-            , width (pct layout.controlPanel)
-            , right zero
-            , boxSizing borderBox
-            , borderLeft3 (px 1) solid (toCssColor Colors.black)
-            , overflowY scroll
-            , overflowX hidden
-            , backgroundColor (toCssColor Colors.darkGray)
-            , color (toCssColor offWhite)
-            ]
-        ]
-        [ infoAndBasicControls
-        , share
-        , keyboardInputModeControls model.keyboardInput
-        , colorControls model.colorTarget model.colorWheel model.playingVideo
-        , videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion
-        , turnAngleControl model.turnAngleInputValue
-        , strokeWidthControl model.image.strokeWidth
-        , curatedSettings
-
-        --, controlsList
-        , C.controlBlock "Info"
-            [ p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.imageStepsLenthString model.image) ]
-            , p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
-            ]
-        ]
+topBarElements : Model -> List (TopBar.Element Msg)
+topBarElements model =
+    [ TopBar.Dropdown
+        { title = "File"
+        , body = fileControls
+        }
+    , TopBar.Dropdown
+        { title = "Color"
+        , body = colorControls model.colorTarget model.colorWheel
+        }
+    , TopBar.Dropdown
+        { title = "Video"
+        , body = videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion model.colorInVideo
+        }
+    , TopBar.Dropdown
+        { title = "Stroke"
+        , body = strokeControl model.image.strokeWidth model.image.curve
+        }
+    , TopBar.Dropdown
+        { title = "Info"
+        , body = info model
+        }
+    ]
 
 
-infoAndBasicControls : Html Msg
-infoAndBasicControls =
-    C.controlBlockFlex
-        [ C.anchorButtonHalf (routeFor GalleryPage) "Gallery"
-        , C.primaryButtonHalf SavedToGallery "Save"
-        , C.primaryButtonHalf FullscreenRequested "Full"
-        , C.primaryButtonHalf DownloadSvg "Down"
-        , C.primaryButtonHalf ResetDrawing "Reset"
-        , C.primaryButtonHalf RandomRequested "Rand"
-        , C.primaryButtonHalf DownloadSvgAsJpeg "JPEG"
+fileControls : Html Msg
+fileControls =
+    div [ css [ width (px 200) ] ]
+        -- TODO change all of these to buttons
+        [ div [ css (Dropdown.listItemStyle False), onClick SavedToGallery ] [ text "Save to gallery" ]
+        , div [ css (Dropdown.listItemStyle False), onClick CopyUrlToClipboard ] [ text "Copy URL to share" ]
+        , div [ css (Dropdown.listItemStyle False), onClick DownloadSvg ] [ text "Download as SVG" ]
+        , div [ css (Dropdown.listItemStyle False), onClick DownloadSvgAsJpeg ] [ text "Download as JPEG" ]
+
+        -- TODO Maybe change to a "New" dropdown
+        , div [ css (Dropdown.listItemStyle False), onClick ResetDrawing ] [ text "Reset Image" ]
+        , div [ css (Dropdown.listItemStyle False), onClick RandomRequested ] [ text "Random Image" ]
+
+        -- TODO Remove from here and add a on-screen button
+        , div [ css (Dropdown.listItemStyle False), onClick FullscreenRequested ] [ text "Enter fullscreen" ]
         ]
 
 
-share : Html Msg
-share =
-    C.controlBlock "Share" [ C.primaryButton CopyUrlToClipboard "Copy URL" ]
-
-
-keyboardInputModeControls : KeyboardInput -> Html Msg
-keyboardInputModeControls inputMode =
-    C.controlBlockFlex
-        [ C.primaryButtonSelectable (inputMode == ShortcutsMode) (SetKeyboardInput ShortcutsMode) "Shortcuts mode"
-        , C.primaryButtonSelectable (inputMode == WritingMode) (SetKeyboardInput WritingMode) "Writing mode"
-        ]
-
-
-colorControls : ColorTarget -> ColorWheel.State -> Set Video -> Html Msg
-colorControls colorTarget colorWheel videoSet =
+colorControls : ColorTarget -> ColorWheel.State -> Html Msg
+colorControls colorTarget colorWheel =
     let
-        text videoType name =
-            if Set.member videoType videoSet then
-                "Stop " ++ name
-
-            else
-                "Play " ++ name
-    in
-    C.controlBlock "Color"
-        [ div [ css [ width (pct 100) ] ]
-            [ div [ css [ displayFlex, flexWrap wrap ] ]
-                [ C.primaryButtonSelectable (colorTarget == Stroke) (SetColorTarget Stroke) "Stroke"
-                , C.primaryButtonSelectable (colorTarget == Background) (SetColorTarget Background) "Background"
-                , C.primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
-                , C.primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
-                , C.primaryButtonHalf ExchangeColors "Exchange"
+        colorTargetElement target title =
+            div
+                [ css (Dropdown.flexListItemStyle (colorTarget == target) ++ [ textAlign center ])
+                , onClick (SetColorTarget target)
                 ]
-            , div [ css [ padding2 (px 10) zero ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
+                [ text title ]
+
+        exchangeBtnStyle =
+            Dropdown.listItemStyle False
+                ++ [ textAlign center
+                   , boxSizing borderBox
+                   , borderTop3 (px 1) solid (Colors.toCssColor Colors.theme.active)
+                   ]
+    in
+    div []
+        [ div [ css [ displayFlex, flexDirection row, width (px 270) ] ]
+            [ colorTargetElement Stroke "Stroke"
+            , colorTargetElement Background "Background"
             ]
+        , div [ css [ padding (px 12) ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
+        , div [ css exchangeBtnStyle, onClick ExchangeColors ] [ text "Exchange colors" ]
         ]
 
 
-videoControls : Float -> Set Video -> SlowMotion -> Html Msg
-videoControls angleChangeRate playingVideo slowMotion =
+videoControls : Float -> Bool -> SlowMotion -> Bool -> Html Msg
+videoControls angleChangeRate playingVideo slowMotion colorInVideo =
     let
         playPauseText =
-            if Set.member video.changeAngle playingVideo then
-                "Stop"
+            if playingVideo then
+                "Pause"
 
             else
                 "Play"
 
-        slowMotionText =
-            case slowMotion of
-                NotSet ->
-                    "Off"
+        btnStyle =
+            Dropdown.listItemStyle False ++ [ textAlign center, boxSizing borderBox ]
 
-                Slowly value ->
-                    String.fromFloat value ++ "x"
+        checkbox msg isChecked title =
+            label [ css [ display block, padding2 (px 10) zero, marginTop (px 10), cursor pointer ] ]
+                [ input [ type_ "checkbox", checked isChecked, onCheck msg ] []
+                , span [ css [ marginLeft (px 10) ] ] [ text title ]
+                ]
     in
-    C.controlBlock "Video"
-        [ span [ css [ display block, marginBottom (px 10) ] ]
-            [ text (truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval)) ++ "x")
-            ]
-        , div []
-            [ span [] [ text "Slow Motion: " ]
-            , span [] [ text slowMotionText ]
-            ]
-        , div [ css [ displayFlex, flexWrap wrap ] ]
-            [ C.primaryButton (ToggleVideo video.changeAngle) playPauseText
-            , C.primaryButton ToggleSlowMotion "Slow Motion"
-            , C.primaryButton ReverseAngleChangeDirection "Reverse"
-            ]
+    div [ css [ width (px 240) ] ]
+        -- TODO change `video.changeAngle` to `video` i.e. the whole set
+        [ div [ css btnStyle, onClick ToggleVideo ] [ text playPauseText ]
+        , div [ css btnStyle, onClick ReverseAngleChangeDirection ] [ text "Reverse direction" ]
+        , div [ css [ padding (px 10) ] ]
+            [ span [ css [ display block, margin2 (px 10) zero, cursor default ] ]
+                [ text ("Speed: " ++ (truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval)) ++ "° ∕ second")) ]
 
-        -- Magic values:
-        -- min: 0.00005 * 20 = 0.001 degrees/second
-        -- max: 2 * 20 = 40 degrees/second
-        -- center: 1 * 20 degrees/second at 90% of slider
-        , sliderExponentialInput SetVideoAngleChangeRate angleChangeRate videoRateSliderConfig
+            -- Magic values:
+            -- min: 0.00005 * 20 = 0.001 degrees/second
+            -- max: 2 * 20 = 40 degrees/second
+            -- center: 1 * 20 degrees/second at 90% of slider
+            , sliderExponentialInput SetVideoAngleChangeRate angleChangeRate videoRateSliderConfig
+            , checkbox (always ToggleSlowMotion) (slowMotionToBool slowMotion) "Slow Motion"
+            , checkbox (always ToggleColorVideo) colorInVideo "Also change colors"
+            ]
+        ]
+
+
+strokeControl : Float -> Image.PathCurve -> Html Msg
+strokeControl strokeWidth curve =
+    let
+        btnStyle =
+            -- TODO This is duplicated, move to Components
+            Dropdown.listItemStyle False
+                ++ [ textAlign center
+                   , boxSizing borderBox
+                   , borderTop3 (px 1) solid (Colors.toCssColor Colors.theme.active)
+                   , borderBottom zero
+                   ]
+
+        curveText =
+            "Change to "
+                ++ (if curve == Image.Line then
+                        "organic"
+
+                    else
+                        "sharp"
+                   )
+    in
+    div [ css [ width (px 240) ] ]
+        [ div [ css [ padding (px 10) ] ]
+            [ span [ css [ display block, margin2 (px 10) zero, cursor default ] ]
+                [ text <| "Line Width: " ++ truncateFloatString 6 (String.fromFloat strokeWidth) ]
+
+            -- Magic values:
+            -- min: 0.0001px
+            -- max: 4px
+            -- center: 1px at 90% of slider
+            , sliderExponentialInput SetStrokeWidth strokeWidth strokeWidthSliderConfig
+            ]
+        , div [ css btnStyle, onClick (SetStrokeWidth 1) ] [ text "Reset" ]
+        , div [ css btnStyle, onClick ToggleCurveType ] [ text curveText ]
+        ]
+
+
+info : Model -> Html Msg
+info model =
+    div [ css [ width (px 180), padding (px 10) ] ]
+        [ p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.imageStepsLenthString model.image) ]
+        , p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
         ]
 
 
 turnAngleControl : String -> Html Msg
 turnAngleControl turnAngleInputValue =
-    C.controlBlock "Angle"
-        [ input
-            [ id "TurnAngle" -- See index.js, `id` only exists for use in there.
-            , type_ "text"
-            , value (truncateFloatString 5 turnAngleInputValue)
-            , css
-                [ display block
-                , width (pct 90)
-                , marginTop (px 10)
-                , backgroundColor (Colors.toCssColor Colors.lightGray)
-                , color (Colors.toCssColor Colors.darkGray)
+    input
+        [ id "TurnAngle" -- See index.js, `id` only exists for use in there.
+        , type_ "text"
+        , value (truncateFloatString 5 turnAngleInputValue)
+        , css
+            [ display block
+            , width (px 100)
+            , marginTop (px 10)
+            , backgroundColor (Colors.toCssColor Colors.lightGray)
+            , color (Colors.toCssColor Colors.darkGray)
 
-                --, border3 (px 1) solid (Colors.toCssColor Colors.lightGray)
-                , border unset
-                , boxShadow6 inset zero zero (px 1) (px 1) (toCssColor Colors.darkGray)
-                , padding (px 6)
-                , fontSize (px 14)
-                ]
-            , onInput SetTurnAngleInputValue
-            , onKeyDown InputKeyPress
-            , onFocus (SetFocus TurnAngleInputFocus)
-            , onBlur (SetFocus EditorFocus)
+            --, border3 (px 1) solid (Colors.toCssColor Colors.lightGray)
+            , border unset
+            , boxShadow6 inset zero zero (px 1) (px 1) (toCssColor Colors.darkGray)
+            , padding (px 6)
+            , fontSize (px 14)
+            , position absolute
+            , bottom (px 50)
+            , left (px (layout.transformsList + 100))
             ]
-            []
+        , onInput SetTurnAngleInputValue
+        , onKeyDown InputKeyPress
+        , onFocus (SetFocus TurnAngleInputFocus)
+        , onBlur (SetFocus EditorFocus)
         ]
-
-
-strokeWidthControl : Float -> Html Msg
-strokeWidthControl width =
-    C.controlBlock "Line width"
-        -- Magic values:
-        -- min: 0.0001px
-        -- max: 4px
-        -- center: 1px at 90% of slider
-        [ span [ css [ display block ] ] [ text <| truncateFloatString 6 (String.fromFloat width) ]
-        , sliderExponentialInput SetStrokeWidth width strokeWidthSliderConfig
-        , C.primaryButton (SetStrokeWidth 1) "Reset"
-        ]
+        []
 
 
 {-|
@@ -669,11 +721,12 @@ compositionBlocksList model =
         [ css
             [ backgroundColor (toCssColor Colors.darkGray)
             , height (pct 100)
-            , width (pct layout.transformsList)
+            , width (px (layout.transformsList + layout.paddingToHideScrollbars))
             , overflow scroll
             , boxSizing borderBox
             , borderRight3 (px 1) solid (toCssColor Colors.black)
-            , padding (px 10)
+            , padding (px 15)
+            , paddingRight (px layout.paddingToHideScrollbars)
             ]
         ]
         (C.primaryButtonStyled [ marginBottom (px 20) ] AddSimpleBlock "Add new block" :: compositionBlocks)
@@ -686,7 +739,7 @@ blockBox editingIndex strokeColor index blockSvg =
             ( 20, 3, 5 )
 
         style =
-            [ height (vw 8)
+            [ height (px 150)
             , width (pct 100)
             , margin3 zero auto (px 20)
             , cursor pointer
@@ -754,8 +807,8 @@ mainImg image =
             [ backgroundColor (toCssColor image.backgroundColor)
             , position fixed
             , height (pct 100)
-            , width (pct layout.mainImg)
-            , left (pct layout.transformsList)
+            , width (calc (pct 100) minus (px layout.transformsList))
+            , left (px layout.transformsList)
             , overflow hidden
             ]
         , id "mainImg"
@@ -775,14 +828,12 @@ mainImg image =
 
 
 layout :
-    { controlPanel : Float
-    , transformsList : Float
-    , mainImg : Float
+    { transformsList : Float
+    , paddingToHideScrollbars : Float
     }
 layout =
-    { controlPanel = 15
-    , transformsList = 15
-    , mainImg = 70
+    { transformsList = 300
+    , paddingToHideScrollbars = 40
     }
 
 
@@ -799,6 +850,13 @@ update : Msg -> Model -> ( Model, Cmd Msg, ExternalMsg )
 update msg model =
     updateSvgPathAndBoundariesIfNeeded <|
         case msg of
+            TopBarMsg subMsg ->
+                let
+                    ( updatedTopBar, cmd ) =
+                        TopBar.update subMsg model.topBar
+                in
+                ( { model | topBar = updatedTopBar }, cmd, UpdatedEditor )
+
             RandomRequested ->
                 ( model, Random.generate GotRandomImage Image.random, NothingToUpdate )
 
@@ -942,7 +1000,7 @@ update msg model =
 
             ColorWheelMsg subMsg ->
                 let
-                    ( updatedColorWheel, maybeColor ) =
+                    ( updatedColorWheel, maybeColor, cmd ) =
                         ColorWheel.update subMsg model.colorWheel
 
                     updatedModel =
@@ -959,12 +1017,12 @@ update msg model =
                                     Background ->
                                         Image.withBackgroundColor color model.image
                           }
-                        , Cmd.none
+                        , Cmd.map ColorWheelMsg cmd
                         , UpdatedEditor
                         )
 
                     Nothing ->
-                        ( updatedModel, Cmd.none, NothingToUpdate )
+                        ( updatedModel, Cmd.map ColorWheelMsg cmd, NothingToUpdate )
 
             SetColorTarget target ->
                 ( { model
@@ -976,12 +1034,15 @@ update msg model =
                 )
 
             ExchangeColors ->
-                ( { model
-                    | image =
+                let
+                    updatedImage =
                         model.image
                             |> Image.withStrokeColor model.image.backgroundColor
                             |> Image.withBackgroundColor model.image.strokeColor
-                    , colorWheel = updateColorWheel model.image model.colorTarget model.colorWheel
+                in
+                ( { model
+                    | image = updatedImage
+                    , colorWheel = updateColorWheel updatedImage model.colorTarget model.colorWheel
                   }
                 , Cmd.none
                 , UpdatedEditor
@@ -1007,7 +1068,7 @@ update msg model =
                                         , turnAngleInputValue = stringValue
                                     }
                             in
-                            if Set.member video.changeAngle model.playingVideo then
+                            if model.playingVideo then
                                 -- Don't update URL and Local Storage on each video step
                                 ( newModel, Cmd.none, NothingToUpdate )
 
@@ -1067,6 +1128,21 @@ update msg model =
                 , UpdatedEditor
                 )
 
+            ToggleCurveType ->
+                let
+                    curve =
+                        case model.image.curve of
+                            Image.Curve ->
+                                Image.Line
+
+                            Image.Line ->
+                                Image.Curve
+                in
+                ( { model | image = Image.withCurve curve model.image }
+                , Cmd.none
+                , UpdatedEditor
+                )
+
             PanStarted pos ->
                 ( { model | panStarted = True, lastPos = pos }
                 , Cmd.none
@@ -1121,24 +1197,17 @@ update msg model =
                 , NothingToUpdate
                 )
 
-            ToggleVideo videoType ->
-                if Set.member videoType model.playingVideo then
-                    -- When video stopped save model in URL and Local Storage
-                    -- N.B. Copying the URL while a playing video will copy the last image saved
-                    -- i.e. before playing video or the last not-angle edit while playing.
-                    ( { model | playingVideo = Set.remove videoType model.playingVideo }
-                    , Cmd.none
-                    , UpdatedEditor
-                    )
+            ToggleVideo ->
+                ( { model | playingVideo = not model.playingVideo }, Cmd.none, UpdatedEditor )
 
-                else
-                    ( { model | playingVideo = Set.insert videoType model.playingVideo }, Cmd.none, NothingToUpdate )
+            ToggleColorVideo ->
+                ( { model | colorInVideo = not model.colorInVideo }, Cmd.none, UpdatedEditor )
 
             VideoTick ->
                 let
                     -- Angle stuff
                     newAngle =
-                        if Set.member video.changeAngle model.playingVideo then
+                        if model.playingVideo then
                             case model.slowMotion of
                                 NotSet ->
                                     model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate)
@@ -1168,25 +1237,9 @@ update msg model =
 
                             { h, s, v, a } =
                                 Colors.toHsva color
-
-                            numberOfSectors =
-                                8
-
-                            sectorSize =
-                                2 * pi / numberOfSectors
-
-                            sectorPosition =
-                                floatModBy sectorSize (h + 0.01) / sectorSize
                         in
-                        if Set.member video.changeColorLinear model.playingVideo then
+                        if model.playingVideo && model.colorInVideo then
                             Colors.hsva (h + 0.01) s v a
-
-                        else if Set.member video.changeColorSinusoidal model.playingVideo then
-                            if sectorPosition < 0.5 then
-                                Colors.hsva (h + 0.01) s (1 - sin (sectorPosition / 0.5 * pi) * 0.5) a
-
-                            else
-                                Colors.hsva (h + 0.01) (1 - sin ((sectorPosition - 0.5) / 0.5 * pi) * 0.5) v a
 
                         else
                             color
@@ -1310,14 +1363,7 @@ processMidi value model =
 
             else if command == 153 && noteMap == 36 then
                 -- Play / pause video
-                { model
-                    | playingVideo =
-                        if Set.member video.changeAngle model.playingVideo then
-                            Set.remove video.changeAngle model.playingVideo
-
-                        else
-                            Set.insert video.changeAngle model.playingVideo
-                }
+                { model | playingVideo = not model.playingVideo }
 
             else if command == 176 && noteMap == 18 then
                 -- Stroke Width
@@ -1519,15 +1565,7 @@ processShortcut model keyPressed =
         --
         -- Play / pause
         " " ->
-            Just
-                { model
-                    | playingVideo =
-                        if Set.member video.changeAngle model.playingVideo then
-                            Set.remove video.changeAngle model.playingVideo
-
-                        else
-                            Set.insert video.changeAngle model.playingVideo
-                }
+            Just { model | playingVideo = not model.playingVideo }
 
         -- Slow motion
         "s" ->
@@ -1641,7 +1679,7 @@ strokeWidthSliderConfig =
 
 videoRateSliderConfig : Utils.MinMaxCenterAt
 videoRateSliderConfig =
-    ( ( 0.00005, 2 ), ( 1, 0.9 ) )
+    ( ( 0.00005, 2.000001 ), ( 1, 0.9 ) )
 
 
 duplicateAndAppendBlock : Model -> Int -> Model
@@ -1706,11 +1744,11 @@ subscriptions model isVisible =
                 Sub.none
 
         videoSub =
-            if Set.isEmpty model.playingVideo then
-                Sub.none
+            if model.playingVideo then
+                Time.every framesInterval (always VideoTick)
 
             else
-                Time.every framesInterval (always VideoTick)
+                Sub.none
 
         windowResize =
             Browser.Events.onResize WindowResized

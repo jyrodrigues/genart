@@ -32,6 +32,7 @@ module Colors exposing
     , rangeSaturation
     , rangeValue
     , red_
+    , theme
     , toCssColor
     , toHexString
     , toHsla
@@ -493,6 +494,18 @@ rgba255 r g b a =
 
 
 
+-- THEME
+
+
+theme =
+    { backgroundColor = darkGray
+    , color = white
+    , active = rgb255 22 22 22
+    , hover = rgb255 10 10 10
+    }
+
+
+
 -- CONSTANTS
 
 
@@ -519,7 +532,7 @@ lightGray =
 darkGray : Color
 darkGray =
     -- Color 0 0 0 0.8
-    fromHexString "#333333"
+    fromHexString "#2c2c2c"
 
 
 black : Color

@@ -6,9 +6,16 @@
 
 port module Main exposing (decoder, encode, main)
 
+--import Components.TopBar
+
 import Browser
 import Browser.Navigation as Nav
+import Components as C
+import Components.TopBar as TopBar
+import Css
+import Css.Global
 import Html
+import Html.Styled exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
@@ -71,7 +78,7 @@ initialModel : Url.Url -> Nav.Key -> Model
 initialModel url navKey =
     -- Pages
     { editor = Editor.initialModel
-    , gallery = []
+    , gallery = Gallery.initialModel
     , writting = Writing.initialModel
     , welcome = Welcome.initialModel
 
@@ -164,7 +171,12 @@ documentMap msg document =
             document
     in
     { title = title
-    , body = List.map (Html.map msg) body
+    , body =
+        List.map (Html.map msg) body
+            ++ [ Html.Styled.toUnstyled
+                    -- TODO remove all `Css.fontFamily` from codebase; this should suffice.
+                    (Css.Global.global [ Css.Global.selector "body" [ Css.fontFamily Css.sansSerif ] ])
+               ]
     }
 
 
