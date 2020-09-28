@@ -115,7 +115,7 @@ type ExternalMsg
 
 topBarElements : List (TopBar.Element Msg)
 topBarElements =
-    -- TODO Change all below
+    {--TODO Change all below
     [ TopBar.Dropdown
         { title = "Title 2"
         , body =
@@ -126,6 +126,8 @@ topBarElements =
                 ]
         }
     ]
+    --}
+    []
 
 
 view : Model -> Browser.Document Msg
@@ -215,10 +217,12 @@ update msg model =
             let
                 image =
                     Image.withComposition (stringToComposition string model.copies) model.image
+                        |> Image.withTurnAngle 90
             in
             ( { model
                 | writing = string
                 , image = image
+                , videoAngleChangeRate = initialVideoAngleChangeRate
               }
             , Cmd.none
             , UpdateWriting

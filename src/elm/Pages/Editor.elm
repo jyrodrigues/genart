@@ -807,8 +807,8 @@ mainImg image =
             [ backgroundColor (toCssColor image.backgroundColor)
             , position fixed
             , height (pct 100)
-            , width (calc (pct 100) minus (px layout.transformsList))
-            , left (px layout.transformsList)
+            , width (calc (pct 100) minus (px (layout.transformsList - 10)))
+            , left (px (layout.transformsList + 10))
             , overflow hidden
             ]
         , id "mainImg"
@@ -832,7 +832,7 @@ layout :
     , paddingToHideScrollbars : Float
     }
 layout =
-    { transformsList = 300
+    { transformsList = 240
     , paddingToHideScrollbars = 40
     }
 

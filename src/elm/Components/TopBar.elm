@@ -175,7 +175,7 @@ pagesDropdown currentPage =
     Dropdown
         { title = "Genart " ++ Pages.toString currentPage ++ " ▾"
         , body =
-            div [ css [ width (px 100) ] ] <|
+            div [ css [ width (px 140) ] ] <|
                 List.map (pageToAnchor currentPage)
                     [ EditorPage
                     , GalleryPage

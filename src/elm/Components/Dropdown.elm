@@ -108,7 +108,6 @@ wrapBody toMsg element isOpen =
                 [ position absolute
                 , top (calc (pct 100) plus (px 8))
                 , zIndex (int 1)
-                , minWidth (pct 100)
                 , overflow hidden
                 , backgroundColor (Colors.toCssColor Colors.darkGray)
                 , color (Colors.toCssColor Colors.offWhite)

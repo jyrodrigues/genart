@@ -88,20 +88,20 @@ elmApp.ports.copyTextToClipboard.subscribe(function(textToCopy) {
  */
 
 var turnAngleInput;
-var writtingInput;
+var writingInput;
 
 document.onkeydown = (e) => {
     if (!turnAngleInput) {
         turnAngleInput = document.getElementById("TurnAngle");
     }
 
-    if (!writtingInput) {
-        turnAngleInput = document.getElementById("WrittingInput");
+    if (!writingInput) {
+        turnAngleInput = document.getElementById("WritingInput");
     }
 
     if (e.key === "Backspace" &&
        document.activeElement !== turnAngleInput &&
-       document.activeElement !== writtingInput) {
+       document.activeElement !== writingInput) {
         e.preventDefault();
     }
 }
