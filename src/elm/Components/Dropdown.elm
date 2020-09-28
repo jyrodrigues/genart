@@ -54,7 +54,7 @@ customView styles { title, elements, toMsg } state =
         (div
             [ css
                 [ color (Colors.toCssColor Colors.white)
-                , cursor pointer
+                , cursor default
                 ]
             ]
             [ text title ]
@@ -68,6 +68,11 @@ wrapperCss isOpen =
         activeStyle =
             if isOpen then
                 [ backgroundColor (Colors.toCssColor Colors.black)
+
+                {--
+                box-shadow: 12px 0 15px -4px #111, -12px 0 15px -4px #111;
+                border-radius: 5px;
+                --}
                 ]
 
             else
@@ -89,13 +94,15 @@ body toMsg elements isOpen =
         [ div
             [ css
                 [ position absolute
-                , top (calc (pct 100) plus (px 10))
+                , top (calc (pct 100) plus (px 8))
                 , zIndex (int 1)
-                , backgroundColor (Colors.toCssColor Colors.darkGray)
-                , borderRadius (px 5)
-                , color (Colors.toCssColor Colors.offWhite)
-                , border3 (px 1) solid (Colors.toCssColor Colors.darkGray)
+                , minWidth (pct 100)
                 , overflow hidden
+                , backgroundColor (Colors.toCssColor Colors.darkGray)
+                , color (Colors.toCssColor Colors.offWhite)
+                , boxShadow5 zero zero (px 7) (px -1) (Colors.toCssColor Colors.black)
+                , border3 (px 1.5) solid (Colors.toCssColor Colors.black)
+                , borderRadius (px 5)
                 ]
             , onMouseEnter (toMsg MouseEnter)
             , onMouseLeave (toMsg MouseLeave)

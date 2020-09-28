@@ -123,6 +123,9 @@ wrapperAttrs =
         , backgroundColor (Colors.toCssColor Colors.theme.backgroundColor)
         , height (px 40)
         , position relative
+        , borderBottom3 (px 1) solid (Colors.toCssColor Colors.black)
+        , boxShadow5 zero (px -3) (px 10) (px 1) (Colors.toCssColor Colors.black)
+        , zIndex (int 1)
         ]
     ]
 
@@ -198,9 +201,12 @@ pagesDropdown currentPage =
 pageToAnchor : Page -> Page -> Html msg
 pageToAnchor activePage page =
     let
+        { v } =
+            Colors.toHsva Colors.theme.backgroundColor
+
         activeAttrs =
             if page == activePage then
-                [ backgroundColor (Colors.toCssColor Colors.black) ]
+                [ backgroundColor (Colors.updateValue (v / 2) Colors.theme.backgroundColor |> Colors.toCssColor) ]
 
             else
                 []
@@ -210,11 +216,12 @@ pageToAnchor activePage page =
             ([ color (Colors.toCssColor Colors.offWhite)
              , display block
              , textDecoration none
-             , Css.padding2 (px 10) (px 20)
+             , padding2 (px 10) (px 20)
              , cursor pointer
              , textAlign center
              , hover
-                [ Css.textDecorationLine Css.underline
+                [ textDecorationLine underline
+                , backgroundColor (Colors.toCssColor Colors.black)
                 ]
              , active
                 [ backgroundColor (Colors.toCssColor Colors.black) ]
