@@ -101,7 +101,7 @@ type
 initialModel : Model
 initialModel =
     { gallery = []
-    , topBar = TopBar.init TopBarMsg 0
+    , topBar = TopBar.init TopBarMsg
     }
 
 

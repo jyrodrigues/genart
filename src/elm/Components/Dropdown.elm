@@ -1,4 +1,16 @@
-module Components.Dropdown exposing (Config, Msg, State, View, close, customView, init, update, view)
+module Components.Dropdown exposing
+    ( Config
+    , Msg
+    , State
+    , View
+    , close
+    , customView
+    , flexListItemStyle
+    , init
+    , listItemStyle
+    , update
+    , view
+    )
 
 import Colors
 import Css exposing (..)
@@ -17,7 +29,7 @@ type alias State =
 
 type alias Config msg =
     { title : String
-    , elements : List (Html msg)
+    , body : Html msg
     , toMsg : Msg -> msg
     }
 
@@ -45,7 +57,7 @@ view =
 
 
 customView : List Style -> View msg
-customView styles { title, elements, toMsg } state =
+customView styles { title, body, toMsg } state =
     div
         [ css (wrapperCss state.isOpen ++ styles)
         , onMouseEnter (toMsg MouseEnter)
@@ -58,7 +70,7 @@ customView styles { title, elements, toMsg } state =
                 ]
             ]
             [ text title ]
-            :: body toMsg elements state.isOpen
+            :: wrapBody toMsg body state.isOpen
         )
 
 
@@ -88,8 +100,8 @@ wrapperCss isOpen =
         ++ activeStyle
 
 
-body : (Msg -> msg) -> List (Html msg) -> Bool -> List (Html msg)
-body toMsg elements isOpen =
+wrapBody : (Msg -> msg) -> Html msg -> Bool -> List (Html msg)
+wrapBody toMsg element isOpen =
     if isOpen then
         [ div
             [ css
@@ -107,7 +119,7 @@ body toMsg elements isOpen =
             , onMouseEnter (toMsg MouseEnter)
             , onMouseLeave (toMsg MouseLeave)
             ]
-            elements
+            [ element ]
         ]
 
     else
@@ -140,3 +152,47 @@ update toMsg msg state =
 close : State -> State
 close state =
     { state | isOpen = False }
+
+
+
+-- STYLES PREDEFINED
+
+
+listItemStyle : Bool -> List Style
+listItemStyle isActive =
+    let
+        { v } =
+            Colors.toHsva Colors.theme.backgroundColor
+
+        darkerThanBackground =
+            Colors.theme.backgroundColor
+                |> Colors.updateValue (v / 2)
+                |> Colors.toCssColor
+
+        activeAttrs =
+            if isActive then
+                [ backgroundColor darkerThanBackground ]
+
+            else
+                []
+    in
+    [ display block
+    , width (pct 100)
+    , padding2 (px 15) (px 20)
+    , color (Colors.toCssColor Colors.offWhite)
+    , cursor pointer
+    , borderBottom3 (px 1) solid darkerThanBackground
+    , borderTop3 (px 1) solid darkerThanBackground
+    , textAlign start
+    , textDecoration none
+    , hover
+        [ backgroundColor (Colors.toCssColor Colors.black) ]
+    , active
+        [ backgroundColor (Colors.toCssColor Colors.black) ]
+    ]
+        ++ activeAttrs
+
+
+flexListItemStyle : Bool -> List Style
+flexListItemStyle isActive =
+    listItemStyle isActive ++ [ Css.flexGrow (Css.int 1) ]

@@ -83,7 +83,7 @@ initialModel =
     , videoAngleChangeRate = initialVideoAngleChangeRate
     , writing = initialWriting
     , copies = initialNumberOfCopies
-    , topBar = TopBar.init TopBarMsg (List.length topBarElements)
+    , topBar = TopBar.init TopBarMsg
     }
 
 
@@ -118,13 +118,12 @@ topBarElements =
     -- TODO Change all below
     [ TopBar.Dropdown
         { title = "Title 2"
-        , elements =
-            [ div []
+        , body =
+            div []
                 [ div [] [ text "item" ]
                 , div [ onClick ResetAngle ] [ text "ResetAngle" ]
                 , div [] [ text "item" ]
                 ]
-            ]
         }
     ]
 

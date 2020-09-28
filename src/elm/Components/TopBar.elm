@@ -23,19 +23,23 @@ type State msg
         }
 
 
-init : (Msg -> msg) -> Int -> State msg
-init toMsg numberOfElements =
+init : (Msg -> msg) -> State msg
+init toMsg =
+    let
+        numberOfElements =
+            -- max number of elements this top bar can handle
+            12
+    in
     -- This can possibly create `Dropdown.State`s for non-Dropdown elements. But it's fine for now.
-    -- `numberOfElements + 1` to count for `pagesDropdown`.
     State
-        { dropdownStates = List.repeat (numberOfElements + 1) (Dropdown.init False)
+        { dropdownStates = List.repeat numberOfElements (Dropdown.init False)
         , toMsg = toMsg
         , openDropdownIndex = Nothing
         }
 
 
 type Element msg
-    = Dropdown { title : String, elements : List (Html msg) }
+    = Dropdown { title : String, body : Html msg }
       -- TODO Add this option to use with `pagesDropdown`, or something like this
       --| DropdownCloseOnClick { title : String, elements : List (Html msg) }
     | Any (Html msg)
@@ -67,7 +71,7 @@ view page elements (State { dropdownStates, toMsg }) =
             elementToHtml toMsg (Dropdown.customView [ position absolute, left (px 10) ])
 
         elementsToHtml =
-            List.map (elementToHtml toMsg Dropdown.view) >> List.intersperse separator
+            List.map (elementToHtml toMsg Dropdown.view) >> List.intersperse C.separator
     in
     case indexedElements of
         pagesDropdownTuple :: elementsTuples ->
@@ -83,31 +87,13 @@ elementToHtml toMsg view_ ( index, ( state, element ) ) =
         Any html ->
             html
 
-        Dropdown { title, elements } ->
+        Dropdown { title, body } ->
             view_
                 { toMsg = DropdownMsg index >> toMsg
                 , title = title
-                , elements = elements
+                , body = body
                 }
                 state
-
-
-separator : Html msg
-separator =
-    div
-        [ css
-            [ width (px 2)
-            , height (pct 80)
-            , position relative
-            , top (pct 10)
-            , backgroundColor
-                (Colors.black
-                    |> Colors.updateAlpha 0.3
-                    |> Colors.toCssColor
-                )
-            ]
-        ]
-        []
 
 
 
@@ -188,47 +174,21 @@ pagesDropdown : Page -> Element msg
 pagesDropdown currentPage =
     Dropdown
         { title = "Genart " ++ Pages.toString currentPage ++ " ▾"
-        , elements =
-            List.map (pageToAnchor currentPage)
-                [ EditorPage
-                , GalleryPage
-                , WritingPage
-                , WelcomePage
-                ]
+        , body =
+            div [ css [ width (px 100) ] ] <|
+                List.map (pageToAnchor currentPage)
+                    [ EditorPage
+                    , GalleryPage
+                    , WritingPage
+                    , WelcomePage
+                    ]
         }
 
 
 pageToAnchor : Page -> Page -> Html msg
 pageToAnchor activePage page =
-    let
-        { v } =
-            Colors.toHsva Colors.theme.backgroundColor
-
-        activeAttrs =
-            if page == activePage then
-                [ backgroundColor (Colors.updateValue (v / 2) Colors.theme.backgroundColor |> Colors.toCssColor) ]
-
-            else
-                []
-    in
     a
-        [ css
-            ([ color (Colors.toCssColor Colors.offWhite)
-             , display block
-             , textDecoration none
-             , padding2 (px 10) (px 20)
-             , cursor pointer
-             , textAlign center
-             , hover
-                [ textDecorationLine underline
-                , backgroundColor (Colors.toCssColor Colors.black)
-                ]
-             , active
-                [ backgroundColor (Colors.toCssColor Colors.black) ]
-             , fontFamily sansSerif
-             ]
-                ++ activeAttrs
-            )
+        [ css (Dropdown.listItemStyle (activePage == page))
         , href ("/" ++ Pages.routeFor page)
         ]
         [ text (Pages.toString page) ]

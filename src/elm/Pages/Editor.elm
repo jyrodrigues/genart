@@ -22,6 +22,7 @@ import Browser.Events
 import ColorWheel
 import Colors exposing (Color, offWhite, toCssColor)
 import Components as C
+import Components.Dropdown as Dropdown
 import Components.TopBar as TopBar
 import Css
     exposing
@@ -40,12 +41,14 @@ import Css
         , boxShadow6
         , boxSizing
         , breakWord
+        , center
         , color
         , contentBox
         , cursor
         , display
         , displayFlex
         , fixed
+        , flexDirection
         , flexWrap
         , fontSize
         , height
@@ -69,8 +72,10 @@ import Css
         , px
         , relative
         , right
+        , row
         , scroll
         , solid
+        , textAlign
         , unset
         , vw
         , width
@@ -308,10 +313,6 @@ video =
 
 initialModel : Model
 initialModel =
-    let
-        colorWheel =
-            ColorWheel.initialState "ColorWheel1" (Just defaultImage.strokeColor)
-    in
     -- Aplication heart
     { image = welcomeImage
     , editingIndex = 1
@@ -325,7 +326,7 @@ initialModel =
     , imgDivStart = ( 0, 0 )
 
     -- ColorWheel
-    , colorWheel = colorWheel
+    , colorWheel = ColorWheel.initialState "ColorWheel1" (Just defaultImage.strokeColor)
     , colorTarget = Stroke
 
     -- Browser Focus
@@ -344,7 +345,7 @@ initialModel =
     , keyboardInput = ShortcutsMode
 
     -- Top Bar
-    , topBar = TopBar.init TopBarMsg (List.length <| topBarElements Stroke colorWheel Set.empty)
+    , topBar = TopBar.init TopBarMsg
 
     -- Alert Popup
     , alert = Nothing
@@ -358,7 +359,6 @@ initialCmd : Model -> Cmd Msg
 initialCmd model =
     Cmd.batch
         [ getImgDivPosition
-        , Cmd.map ColorWheelMsg (ColorWheel.getElementDimensions model.colorWheel)
         ]
 
 
@@ -430,42 +430,57 @@ topBarElements : ColorTarget -> ColorWheel.State -> Set Video -> List (TopBar.El
 topBarElements colorTarget colorWheel playingVideo =
     [ TopBar.Dropdown
         { title = "File"
-        , elements = colorControlsTopBar colorTarget colorWheel playingVideo
-        }
-    , TopBar.Dropdown
-        { title = "Video"
-        , elements = colorControlsTopBar colorTarget colorWheel playingVideo
+        , body = fileControls
         }
     , TopBar.Dropdown
         { title = "Color"
-        , elements = colorControlsTopBar colorTarget colorWheel playingVideo
-        }
-    , TopBar.Dropdown
-        { title = "Stroke"
-        , elements = colorControlsTopBar colorTarget colorWheel playingVideo
+        , body = colorControls colorTarget colorWheel
         }
     ]
 
 
-colorControlsTopBar : ColorTarget -> ColorWheel.State -> Set Video -> List (Html Msg)
-colorControlsTopBar colorTarget colorWheel videoSet =
-    let
-        text videoType name =
-            if Set.member videoType videoSet then
-                "Stop " ++ name
+fileControls : Html Msg
+fileControls =
+    div [ css [ width (px 200) ] ]
+        -- TODO change all of these to buttons
+        [ div [ css (Dropdown.listItemStyle False), onClick SavedToGallery ] [ text "Save to gallery" ]
+        , div [ css (Dropdown.listItemStyle False), onClick CopyUrlToClipboard ] [ text "Copy URL to share" ]
+        , div [ css (Dropdown.listItemStyle False), onClick DownloadSvg ] [ text "Download as SVG" ]
+        , div [ css (Dropdown.listItemStyle False), onClick DownloadSvgAsJpeg ] [ text "Download as JPEG" ]
 
-            else
-                "Play " ++ name
-    in
-    [ div [ css [ displayFlex, flexWrap wrap ] ]
-        [ C.primaryButtonSelectable (colorTarget == Stroke) (SetColorTarget Stroke) "Stroke"
-        , C.primaryButtonSelectable (colorTarget == Background) (SetColorTarget Background) "Background"
-        , C.primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
-        , C.primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
-        , C.primaryButtonHalf ExchangeColors "Exchange"
+        -- TODO Maybe change to a "New" dropdown
+        , div [ css (Dropdown.listItemStyle False), onClick ResetDrawing ] [ text "Reset Image" ]
+        , div [ css (Dropdown.listItemStyle False), onClick RandomRequested ] [ text "Random Image" ]
+
+        -- TODO Remove from here and add a on-screen button
+        , div [ css (Dropdown.listItemStyle False), onClick FullscreenRequested ] [ text "Enter fullscreen" ]
         ]
-    , div [ css [ padding2 (px 10) zero ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
-    ]
+
+
+colorControls : ColorTarget -> ColorWheel.State -> Html Msg
+colorControls colorTarget colorWheel =
+    div []
+        [ div [ css [ displayFlex, flexDirection row, width (px 270) ] ]
+            [ div
+                [ css
+                    (Dropdown.flexListItemStyle (colorTarget == Stroke)
+                        ++ [ width (pct 50), textAlign center ]
+                    )
+                , onClick (SetColorTarget Stroke)
+                ]
+                [ text "Stroke" ]
+            , div
+                [ css
+                    (Dropdown.flexListItemStyle (colorTarget == Background)
+                        ++ [ width (pct 50), textAlign center ]
+                    )
+                , onClick (SetColorTarget Background)
+                ]
+                [ text "Background" ]
+            ]
+        , div [ css [ padding (px 12) ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
+        , div [ css (Dropdown.listItemStyle False ++ [ textAlign center, boxSizing borderBox ]), onClick ExchangeColors ] [ text "Exchange colors" ]
+        ]
 
 
 controlPanel : Model -> Html Msg
@@ -483,11 +498,9 @@ controlPanel model =
             , color (toCssColor offWhite)
             ]
         ]
-        [ infoAndBasicControls
-        , share
-        , keyboardInputModeControls model.keyboardInput
-        , colorControls model.colorTarget model.colorWheel model.playingVideo
+        [ keyboardInputModeControls model.keyboardInput
         , videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion
+        , colorVideo model.playingVideo
         , turnAngleControl model.turnAngleInputValue
         , strokeWidthControl model.image.strokeWidth
         , curatedSettings
@@ -500,53 +513,11 @@ controlPanel model =
         ]
 
 
-infoAndBasicControls : Html Msg
-infoAndBasicControls =
-    C.controlBlockFlex
-        [ C.anchorButtonHalf (routeFor GalleryPage) "Gallery"
-        , C.primaryButtonHalf SavedToGallery "Save"
-        , C.primaryButtonHalf FullscreenRequested "Full"
-        , C.primaryButtonHalf DownloadSvg "Down"
-        , C.primaryButtonHalf ResetDrawing "Reset"
-        , C.primaryButtonHalf RandomRequested "Rand"
-        , C.primaryButtonHalf DownloadSvgAsJpeg "JPEG"
-        ]
-
-
-share : Html Msg
-share =
-    C.controlBlock "Share" [ C.primaryButton CopyUrlToClipboard "Copy URL" ]
-
-
 keyboardInputModeControls : KeyboardInput -> Html Msg
 keyboardInputModeControls inputMode =
     C.controlBlockFlex
         [ C.primaryButtonSelectable (inputMode == ShortcutsMode) (SetKeyboardInput ShortcutsMode) "Shortcuts mode"
         , C.primaryButtonSelectable (inputMode == WritingMode) (SetKeyboardInput WritingMode) "Writing mode"
-        ]
-
-
-colorControls : ColorTarget -> ColorWheel.State -> Set Video -> Html Msg
-colorControls colorTarget colorWheel videoSet =
-    let
-        text videoType name =
-            if Set.member videoType videoSet then
-                "Stop " ++ name
-
-            else
-                "Play " ++ name
-    in
-    C.controlBlock "Color"
-        [ div [ css [ width (pct 100) ] ]
-            [ div [ css [ displayFlex, flexWrap wrap ] ]
-                [ C.primaryButtonSelectable (colorTarget == Stroke) (SetColorTarget Stroke) "Stroke"
-                , C.primaryButtonSelectable (colorTarget == Background) (SetColorTarget Background) "Background"
-                , C.primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
-                , C.primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
-                , C.primaryButtonHalf ExchangeColors "Exchange"
-                ]
-            , div [ css [ padding2 (px 10) zero ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
-            ]
         ]
 
 
@@ -587,6 +558,26 @@ videoControls angleChangeRate playingVideo slowMotion =
         -- max: 2 * 20 = 40 degrees/second
         -- center: 1 * 20 degrees/second at 90% of slider
         , sliderExponentialInput SetVideoAngleChangeRate angleChangeRate videoRateSliderConfig
+        ]
+
+
+colorVideo : Set Video -> Html Msg
+colorVideo videoSet =
+    let
+        text videoType name =
+            if Set.member videoType videoSet then
+                "Stop " ++ name
+
+            else
+                "Play " ++ name
+    in
+    C.controlBlock "Color"
+        [ div [ css [ width (pct 100) ] ]
+            [ div [ css [ displayFlex, flexWrap wrap ] ]
+                [ C.primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
+                , C.primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
+                ]
+            ]
         ]
 
 
@@ -1003,7 +994,7 @@ update msg model =
 
             ColorWheelMsg subMsg ->
                 let
-                    ( updatedColorWheel, maybeColor ) =
+                    ( updatedColorWheel, maybeColor, cmd ) =
                         ColorWheel.update subMsg model.colorWheel
 
                     updatedModel =
@@ -1020,12 +1011,12 @@ update msg model =
                                     Background ->
                                         Image.withBackgroundColor color model.image
                           }
-                        , Cmd.none
+                        , Cmd.map ColorWheelMsg cmd
                         , UpdatedEditor
                         )
 
                     Nothing ->
-                        ( updatedModel, Cmd.none, NothingToUpdate )
+                        ( updatedModel, Cmd.map ColorWheelMsg cmd, NothingToUpdate )
 
             SetColorTarget target ->
                 ( { model

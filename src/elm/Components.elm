@@ -39,6 +39,7 @@ import Css
         , pointer
         , position
         , px
+        , relative
         , sansSerif
         , solid
         , textAlign
@@ -238,3 +239,25 @@ controlBlock title list =
 controlBlockFlex : List (Html msg) -> Html msg
 controlBlockFlex =
     div [ css (controlBlockStyle ++ [ displayFlex, flexWrap wrap ]) ]
+
+
+
+-- MISCELLANEA
+
+
+separator : Html msg
+separator =
+    div
+        [ css
+            [ width (px 2)
+            , height (pct 80)
+            , position relative
+            , top (pct 10)
+            , backgroundColor
+                (Colors.black
+                    |> Colors.updateAlpha 0.3
+                    |> Colors.toCssColor
+                )
+            ]
+        ]
+        []
