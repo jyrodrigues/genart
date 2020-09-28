@@ -78,7 +78,7 @@ view model =
             [ css [ width (pct 100), height (pct 100), overflow hidden ]
             , onClick ShowEnterButton
             ]
-            (drawImage (Just "WelcomeVideo") Nothing False model.image
+            (drawImage (Just "WelcomeVideo") False model.image
                 :: showEnterButton
             )
             |> toUnstyled

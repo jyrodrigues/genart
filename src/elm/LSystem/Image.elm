@@ -17,6 +17,7 @@ module LSystem.Image exposing
     , dropLastStepAtIndex
     , duplicateBlock
     , encode
+    , hash
     , imageStepsLenthString
     , imageToSvgPathString
     , length
@@ -49,6 +50,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra as DecodeExtra
 import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
+import Murmur3
 import Random
 import Svg.Core exposing (PathSegment(..), rotateSegmentTo, segmentToString)
 import Svg.FontMajorMono as FontToSVG
@@ -471,6 +473,38 @@ polygonAngle polygon =
 
 
 
+-- HASH
+
+
+hash : Image -> Int
+hash image =
+    let
+        composition =
+            image.composition
+                |> Core.toList
+                |> List.map Core.blockToString
+                |> String.join ""
+    in
+    Murmur3.hashString 8871 composition
+
+
+
+{--
+type alias Image =
+    { composition : Composition
+    , turnAngle : Angle
+
+    -- Refactor to make impossible states impossible: composition + turnAngle + svgPathAndBoundaries
+    , svgPathAndBoundaries : Maybe SvgPathAndBoundaries
+    , backgroundColor : Color
+    , strokeColor : Color
+    , strokeWidth : Width
+    , translate : Position
+    , scale : Scale
+    , curve : PathCurve
+    }
+
+--}
 -- ENCODER
 -- DECODER
 

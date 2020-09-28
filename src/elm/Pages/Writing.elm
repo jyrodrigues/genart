@@ -142,7 +142,7 @@ view model =
                 , overflow hidden
                 ]
             ]
-            [ drawImage (Just "WritingVideo") Nothing False model.image
+            [ drawImage (Just "WritingVideo") False model.image
             , controls model
             ]
             |> toUnstyled

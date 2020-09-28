@@ -46,6 +46,9 @@ import File.Download as Download
 import File.Select as Select
 import Html.Styled exposing (Html, div, toUnstyled)
 import Html.Styled.Attributes exposing (css)
+import Html.Styled.Events exposing (onClick)
+import Html.Styled.Keyed as Keyed
+import Html.Styled.Lazy as Lazy
 import Icons exposing (withColor, withCss, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -68,7 +71,13 @@ type alias Model =
 
 
 type alias Gallery =
-    List Image
+    List ImageItem
+
+
+type alias ImageItem =
+    { image : Image
+    , hash : Int
+    }
 
 
 
@@ -81,7 +90,7 @@ type Msg
     | BackToEditor
     | DownloadRequested
     | UploadRequested
-    | SelectedGallery File
+    | SelectedGalleryFile File
     | LoadedGallery String
     | TopBarMsg TopBar.Msg
 
@@ -115,21 +124,26 @@ update msg model =
     -- `GalleryUpdated Gallery.Model`. On other msgs the model didn't changed and isn't necessary to update
     -- the main model.
     case msg of
-        RemovedFromGallery index ->
+        RemovedFromGallery hash ->
             let
                 updatedGallery =
-                    Utils.dropIndex index model.gallery
+                    case List.Extra.findIndex (.hash >> (==) hash) model.gallery of
+                        Just index ->
+                            List.Extra.removeAt index model.gallery
+
+                        Nothing ->
+                            model.gallery
             in
             ( { model | gallery = updatedGallery }, Cmd.none, UpdatedGallery )
 
-        CopiedToEditor index ->
+        CopiedToEditor hash ->
             let
-                maybeImage =
-                    List.Extra.getAt index model.gallery
+                maybeImageItem =
+                    List.Extra.find (.hash >> (==) hash) model.gallery
             in
-            case maybeImage of
-                Just image ->
-                    ( model, Cmd.none, OpenedEditor (Just image) )
+            case maybeImageItem of
+                Just imageItem ->
+                    ( model, Cmd.none, OpenedEditor (Just imageItem.image) )
 
                 Nothing ->
                     ( model, Cmd.none, NothingToUpdate )
@@ -145,9 +159,9 @@ update msg model =
             ( model, Download.string "genart-gallery.json" "application/json" galleryAsString, NothingToUpdate )
 
         UploadRequested ->
-            ( model, Select.file [ "application/json" ] SelectedGallery, NothingToUpdate )
+            ( model, Select.file [ "application/json" ] SelectedGalleryFile, NothingToUpdate )
 
-        SelectedGallery file ->
+        SelectedGalleryFile file ->
             ( model, Task.perform LoadedGallery (File.toString file), NothingToUpdate )
 
         LoadedGallery galleryAsString ->
@@ -191,41 +205,48 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "Generative Art"
     , body =
-        [ TopBar.view GalleryPage [] model.topBar |> toUnstyled
-        , div
-            [ css [ width (pct 100), height (pct 100), backgroundColor (toCssColor Colors.darkGray), overflow hidden ] ]
-            [ div
-                [ css
-                    [ width (pct (layout.transformsList + layout.mainImg))
-                    , height (pct 100)
-                    , padding (px 10)
-                    , boxSizing borderBox
-                    , overflow scroll
-                    , display inlineBlock
+        List.map toUnstyled <|
+            [ TopBar.view GalleryPage [] model.topBar
+            , div
+                [ css [ width (pct 100), height (pct 100), backgroundColor (toCssColor Colors.darkGray), overflow hidden ] ]
+                [ Keyed.node "div"
+                    [ css
+                        [ width (pct (layout.transformsList + layout.mainImg))
+                        , height (pct 100)
+                        , padding (px 10)
+                        , boxSizing borderBox
+                        , overflow scroll
+                        , display inlineBlock
+                        ]
                     ]
-                ]
-                (List.indexedMap imageBox model.gallery)
-            , C.fixedDiv
-                [ css
-                    [ width (pct layout.controlPanel)
-                    , height (pct 100)
-                    , display inlineBlock
-                    , padding (px 10)
-                    , boxSizing borderBox
+                    (List.map imageBoxKeyed model.gallery)
+                , C.fixedDiv
+                    [ css
+                        [ width (pct layout.controlPanel)
+                        , height (pct 100)
+                        , display inlineBlock
+                        , padding (px 10)
+                        , boxSizing borderBox
+                        ]
                     ]
-                ]
-                [ C.primaryButton BackToEditor "Back to editor"
-                , C.primaryButton DownloadRequested "Download gallery"
-                , C.primaryButton UploadRequested "Upload gallery"
+                    [ C.primaryButton BackToEditor "Back to editor"
+                    , C.primaryButton DownloadRequested "Download gallery"
+                    , C.primaryButton UploadRequested "Upload gallery"
+                    ]
                 ]
             ]
-            |> toUnstyled
-        ]
     }
 
 
-imageBox : Int -> Image -> Html Msg
-imageBox index image =
+imageBoxKeyed : ImageItem -> ( String, Html Msg )
+imageBoxKeyed imageItem =
+    ( "GalleryImage_hash_" ++ String.fromInt imageItem.hash
+    , Lazy.lazy imageBox imageItem
+    )
+
+
+imageBox : ImageItem -> Html Msg
+imageBox { image, hash } =
     div
         [ css
             [ width (px 300)
@@ -237,9 +258,9 @@ imageBox index image =
             , boxShadow5 zero zero (px 5) (px 1) (toCssColor Colors.black)
             ]
         ]
-        [ LDraw.drawFixedImage (Just (CopiedToEditor index)) image
+        [ div [ onClick (CopiedToEditor hash), css [ width (pct 100), height (pct 100) ] ] [ LDraw.drawFixedImage image ]
         , Icons.trash
-            |> withOnClick (RemovedFromGallery index)
+            |> withOnClick (RemovedFromGallery hash)
             |> withColor Colors.red_
             |> withCss
                 [ cursor pointer
@@ -257,7 +278,7 @@ imageBox index image =
 
 addImage : Image -> Model -> Model
 addImage image model =
-    { model | gallery = image :: model.gallery }
+    { model | gallery = { image = image, hash = Image.hash image } :: model.gallery }
 
 
 
@@ -267,10 +288,12 @@ addImage image model =
 
 encode : Model -> Encode.Value
 encode model =
-    Encode.list Image.encode model.gallery
+    Encode.list Image.encode (List.map .image model.gallery)
 
 
 decoder : Decoder Model
 decoder =
-    Decode.map (\gallery -> { initialModel | gallery = gallery }) <|
-        Decode.list Image.decoder
+    Image.decoder
+        |> Decode.map (\image -> { image = image, hash = Image.hash image })
+        |> Decode.list
+        |> Decode.map (\gallery -> { initialModel | gallery = gallery })

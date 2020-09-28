@@ -19,6 +19,7 @@
             "elm/virtual-dom": "1.0.2",
             "elm-community/json-extra": "4.3.0",
             "elm-community/list-extra": "8.2.4",
+            "robinheghan/murmur3": "1.0.0",
             "rtfeldman/elm-css": "16.1.0",
             "rtfeldman/elm-hex": "1.0.0"
         },

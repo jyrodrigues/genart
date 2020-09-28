@@ -823,7 +823,7 @@ mainImg image =
                 , backgroundColor (toCssColor image.backgroundColor)
                 ]
             ]
-            [ ( "_MainImg", drawImage (Just "MainSVG") Nothing False image ) ]
+            [ ( "_MainImg", drawImage (Just "MainSVG") False image ) ]
         ]
 
 
