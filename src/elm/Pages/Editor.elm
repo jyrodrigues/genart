@@ -46,6 +46,7 @@ import Css
         , color
         , contentBox
         , cursor
+        , default
         , display
         , displayFlex
         , fixed
@@ -57,8 +58,10 @@ import Css
         , hover
         , inset
         , left
+        , margin2
         , margin3
         , marginBottom
+        , marginLeft
         , marginTop
         , none
         , overflow
@@ -84,12 +87,13 @@ import Css
         , zero
         )
 import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
-import Html.Styled exposing (Html, div, input, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (css, id, type_, value)
+import Html.Styled exposing (Html, div, input, label, p, span, text, toUnstyled)
+import Html.Styled.Attributes exposing (checked, css, id, type_, value)
 import Html.Styled.Events
     exposing
         ( on
         , onBlur
+        , onCheck
         , onClick
         , onFocus
         , onInput
@@ -194,7 +198,8 @@ type Msg
       -- Focus
     | SetFocus Focus
       -- Video
-    | ToggleVideo Video
+    | ToggleVideo
+    | ToggleColorVideo
     | VideoTick
     | ToggleSlowMotion
     | SetVideoAngleChangeRate Float
@@ -251,7 +256,8 @@ type alias Model =
     , videoAngleChangeRate : Float
     , slowMotion : SlowMotion
     , videoAngleChangeDirection : Float
-    , playingVideo : Set Video
+    , playingVideo : Bool
+    , colorInVideo : Bool
 
     -- Input controls value
     , turnAngleInputValue : String
@@ -282,6 +288,15 @@ type
     -- TODO Change to `type alias SlowMotion = Maybe Float` ?
     = NotSet
     | Slowly Float
+
+
+slowMotionToBool : SlowMotion -> Bool
+slowMotionToBool slowMotion =
+    if slowMotion == NotSet then
+        False
+
+    else
+        True
 
 
 type ColorTarget
@@ -338,7 +353,8 @@ initialModel =
     , slowMotion = NotSet
 
     --, playingVideo = Set.fromList [ video.changeAngle, video.changeColorLinear ]
-    , playingVideo = Set.empty
+    , playingVideo = False
+    , colorInVideo = False
     , videoAngleChangeDirection = 1
 
     -- Input controls value
@@ -411,7 +427,7 @@ view model =
     in
     { title = "Generative Art"
     , body =
-        [ TopBar.view EditorPage (topBarElements model.colorTarget model.colorWheel model.playingVideo) model.topBar |> toUnstyled
+        [ TopBar.view EditorPage (topBarElements model) model.topBar |> toUnstyled
         , div
             [ css [ width (pct 100), height (pct 100) ] ]
             ([ compositionBlocksList model
@@ -427,15 +443,19 @@ view model =
     }
 
 
-topBarElements : ColorTarget -> ColorWheel.State -> Set Video -> List (TopBar.Element Msg)
-topBarElements colorTarget colorWheel playingVideo =
+topBarElements : Model -> List (TopBar.Element Msg)
+topBarElements model =
     [ TopBar.Dropdown
         { title = "File"
         , body = fileControls
         }
     , TopBar.Dropdown
         { title = "Color"
-        , body = colorControls colorTarget colorWheel
+        , body = colorControls model.colorTarget model.colorWheel
+        }
+    , TopBar.Dropdown
+        { title = "Video"
+        , body = videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion model.colorInVideo
         }
     ]
 
@@ -463,10 +483,7 @@ colorControls colorTarget colorWheel =
     let
         colorTargetElement target title =
             div
-                [ css
-                    (Dropdown.flexListItemStyle (colorTarget == target)
-                        ++ [ width (pct 50), textAlign center ]
-                    )
+                [ css (Dropdown.flexListItemStyle (colorTarget == target) ++ [ textAlign center ])
                 , onClick (SetColorTarget target)
                 ]
                 [ text title ]
@@ -488,6 +505,48 @@ colorControls colorTarget colorWheel =
         ]
 
 
+videoControls : Float -> Bool -> SlowMotion -> Bool -> Html Msg
+videoControls angleChangeRate playingVideo slowMotion colorInVideo =
+    let
+        playPauseText =
+            if playingVideo then
+                "Pause"
+
+            else
+                "Play"
+
+        btnStyle =
+            Dropdown.listItemStyle False ++ [ textAlign center, boxSizing borderBox ]
+
+        checkbox msg isChecked title =
+            label [ css [ display block, padding2 (px 10) zero, marginTop (px 10), cursor pointer ] ]
+                [ input [ type_ "checkbox", checked isChecked, onCheck msg ] []
+                , span [ css [ marginLeft (px 10) ] ] [ text title ]
+                ]
+    in
+    div [ css [ width (px 240) ] ]
+        -- TODO change `video.changeAngle` to `video` i.e. the whole set
+        [ div [ css btnStyle, onClick ToggleVideo ] [ text playPauseText ]
+        , div [ css btnStyle, onClick ReverseAngleChangeDirection ] [ text "Reverse direction" ]
+        , div [ css [ padding (px 10) ] ]
+            [ span [ css [ display block, margin2 (px 10) zero, cursor default ] ]
+                [ text ("Speed: " ++ (truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval)) ++ "° ∕ second")) ]
+
+            -- Magic values:
+            -- min: 0.00005 * 20 = 0.001 degrees/second
+            -- max: 2 * 20 = 40 degrees/second
+            -- center: 1 * 20 degrees/second at 90% of slider
+            , sliderExponentialInput SetVideoAngleChangeRate angleChangeRate videoRateSliderConfig
+            , checkbox (always ToggleSlowMotion) (slowMotionToBool slowMotion) "Slow Motion"
+            , checkbox (always ToggleColorVideo) colorInVideo "Also change colors"
+            ]
+        ]
+
+
+
+-- TODO BUG DAS CORES
+
+
 controlPanel : Model -> Html Msg
 controlPanel model =
     C.fixedDiv
@@ -503,10 +562,7 @@ controlPanel model =
             , color (toCssColor offWhite)
             ]
         ]
-        [ keyboardInputModeControls model.keyboardInput
-        , videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion
-        , colorVideo model.playingVideo
-        , turnAngleControl model.turnAngleInputValue
+        [ turnAngleControl model.turnAngleInputValue
         , strokeWidthControl model.image.strokeWidth
         , curatedSettings
 
@@ -514,74 +570,6 @@ controlPanel model =
         , C.controlBlock "Info"
             [ p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.imageStepsLenthString model.image) ]
             , p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
-            ]
-        ]
-
-
-keyboardInputModeControls : KeyboardInput -> Html Msg
-keyboardInputModeControls inputMode =
-    C.controlBlockFlex
-        [ C.primaryButtonSelectable (inputMode == ShortcutsMode) (SetKeyboardInput ShortcutsMode) "Shortcuts mode"
-        , C.primaryButtonSelectable (inputMode == WritingMode) (SetKeyboardInput WritingMode) "Writing mode"
-        ]
-
-
-videoControls : Float -> Set Video -> SlowMotion -> Html Msg
-videoControls angleChangeRate playingVideo slowMotion =
-    let
-        playPauseText =
-            if Set.member video.changeAngle playingVideo then
-                "Stop"
-
-            else
-                "Play"
-
-        slowMotionText =
-            case slowMotion of
-                NotSet ->
-                    "Off"
-
-                Slowly value ->
-                    String.fromFloat value ++ "x"
-    in
-    C.controlBlock "Video"
-        [ span [ css [ display block, marginBottom (px 10) ] ]
-            [ text (truncateFloatString 5 (String.fromFloat (angleChangeRate * 1000 / framesInterval)) ++ "x")
-            ]
-        , div []
-            [ span [] [ text "Slow Motion: " ]
-            , span [] [ text slowMotionText ]
-            ]
-        , div [ css [ displayFlex, flexWrap wrap ] ]
-            [ C.primaryButton (ToggleVideo video.changeAngle) playPauseText
-            , C.primaryButton ToggleSlowMotion "Slow Motion"
-            , C.primaryButton ReverseAngleChangeDirection "Reverse"
-            ]
-
-        -- Magic values:
-        -- min: 0.00005 * 20 = 0.001 degrees/second
-        -- max: 2 * 20 = 40 degrees/second
-        -- center: 1 * 20 degrees/second at 90% of slider
-        , sliderExponentialInput SetVideoAngleChangeRate angleChangeRate videoRateSliderConfig
-        ]
-
-
-colorVideo : Set Video -> Html Msg
-colorVideo videoSet =
-    let
-        text videoType name =
-            if Set.member videoType videoSet then
-                "Stop " ++ name
-
-            else
-                "Play " ++ name
-    in
-    C.controlBlock "Color"
-        [ div [ css [ width (pct 100) ] ]
-            [ div [ css [ displayFlex, flexWrap wrap ] ]
-                [ C.primaryButton (ToggleVideo video.changeColorLinear) (text video.changeColorLinear "linear")
-                , C.primaryButton (ToggleVideo video.changeColorSinusoidal) (text video.changeColorSinusoidal "sinusoidal")
-                ]
             ]
         ]
 
@@ -1064,7 +1052,7 @@ update msg model =
                                         , turnAngleInputValue = stringValue
                                     }
                             in
-                            if Set.member video.changeAngle model.playingVideo then
+                            if model.playingVideo then
                                 -- Don't update URL and Local Storage on each video step
                                 ( newModel, Cmd.none, NothingToUpdate )
 
@@ -1178,24 +1166,17 @@ update msg model =
                 , NothingToUpdate
                 )
 
-            ToggleVideo videoType ->
-                if Set.member videoType model.playingVideo then
-                    -- When video stopped save model in URL and Local Storage
-                    -- N.B. Copying the URL while a playing video will copy the last image saved
-                    -- i.e. before playing video or the last not-angle edit while playing.
-                    ( { model | playingVideo = Set.remove videoType model.playingVideo }
-                    , Cmd.none
-                    , UpdatedEditor
-                    )
+            ToggleVideo ->
+                ( { model | playingVideo = not model.playingVideo }, Cmd.none, UpdatedEditor )
 
-                else
-                    ( { model | playingVideo = Set.insert videoType model.playingVideo }, Cmd.none, NothingToUpdate )
+            ToggleColorVideo ->
+                ( { model | colorInVideo = not model.colorInVideo }, Cmd.none, UpdatedEditor )
 
             VideoTick ->
                 let
                     -- Angle stuff
                     newAngle =
-                        if Set.member video.changeAngle model.playingVideo then
+                        if model.playingVideo then
                             case model.slowMotion of
                                 NotSet ->
                                     model.image.turnAngle + (model.videoAngleChangeDirection * model.videoAngleChangeRate)
@@ -1225,25 +1206,9 @@ update msg model =
 
                             { h, s, v, a } =
                                 Colors.toHsva color
-
-                            numberOfSectors =
-                                8
-
-                            sectorSize =
-                                2 * pi / numberOfSectors
-
-                            sectorPosition =
-                                floatModBy sectorSize (h + 0.01) / sectorSize
                         in
-                        if Set.member video.changeColorLinear model.playingVideo then
+                        if model.playingVideo && model.colorInVideo then
                             Colors.hsva (h + 0.01) s v a
-
-                        else if Set.member video.changeColorSinusoidal model.playingVideo then
-                            if sectorPosition < 0.5 then
-                                Colors.hsva (h + 0.01) s (1 - sin (sectorPosition / 0.5 * pi) * 0.5) a
-
-                            else
-                                Colors.hsva (h + 0.01) (1 - sin ((sectorPosition - 0.5) / 0.5 * pi) * 0.5) v a
 
                         else
                             color
@@ -1367,14 +1332,7 @@ processMidi value model =
 
             else if command == 153 && noteMap == 36 then
                 -- Play / pause video
-                { model
-                    | playingVideo =
-                        if Set.member video.changeAngle model.playingVideo then
-                            Set.remove video.changeAngle model.playingVideo
-
-                        else
-                            Set.insert video.changeAngle model.playingVideo
-                }
+                { model | playingVideo = not model.playingVideo }
 
             else if command == 176 && noteMap == 18 then
                 -- Stroke Width
@@ -1576,15 +1534,7 @@ processShortcut model keyPressed =
         --
         -- Play / pause
         " " ->
-            Just
-                { model
-                    | playingVideo =
-                        if Set.member video.changeAngle model.playingVideo then
-                            Set.remove video.changeAngle model.playingVideo
-
-                        else
-                            Set.insert video.changeAngle model.playingVideo
-                }
+            Just { model | playingVideo = not model.playingVideo }
 
         -- Slow motion
         "s" ->
@@ -1698,7 +1648,7 @@ strokeWidthSliderConfig =
 
 videoRateSliderConfig : Utils.MinMaxCenterAt
 videoRateSliderConfig =
-    ( ( 0.00005, 2 ), ( 1, 0.9 ) )
+    ( ( 0.00005, 2.000001 ), ( 1, 0.9 ) )
 
 
 duplicateAndAppendBlock : Model -> Int -> Model
@@ -1763,11 +1713,11 @@ subscriptions model isVisible =
                 Sub.none
 
         videoSub =
-            if Set.isEmpty model.playingVideo then
-                Sub.none
+            if model.playingVideo then
+                Time.every framesInterval (always VideoTick)
 
             else
-                Time.every framesInterval (always VideoTick)
+                Sub.none
 
         windowResize =
             Browser.Events.onResize WindowResized
