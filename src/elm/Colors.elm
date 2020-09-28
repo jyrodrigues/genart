@@ -499,7 +499,9 @@ rgba255 r g b a =
 
 theme =
     { backgroundColor = darkGray
-    , color = offWhite
+    , color = white
+    , active = rgb255 22 22 22
+    , hover = rgb255 10 10 10
     }
 
 

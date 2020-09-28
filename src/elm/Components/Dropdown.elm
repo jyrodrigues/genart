@@ -161,17 +161,9 @@ close state =
 listItemStyle : Bool -> List Style
 listItemStyle isActive =
     let
-        { v } =
-            Colors.toHsva Colors.theme.backgroundColor
-
-        darkerThanBackground =
-            Colors.theme.backgroundColor
-                |> Colors.updateValue (v / 2)
-                |> Colors.toCssColor
-
         activeAttrs =
             if isActive then
-                [ backgroundColor darkerThanBackground ]
+                [ backgroundColor (Colors.toCssColor Colors.theme.active) ]
 
             else
                 []
@@ -181,14 +173,13 @@ listItemStyle isActive =
     , padding2 (px 15) (px 20)
     , color (Colors.toCssColor Colors.offWhite)
     , cursor pointer
-    , borderBottom3 (px 1) solid darkerThanBackground
-    , borderTop3 (px 1) solid darkerThanBackground
+    , borderBottom3 (px 1) solid (Colors.toCssColor Colors.theme.active)
     , textAlign start
     , textDecoration none
     , hover
-        [ backgroundColor (Colors.toCssColor Colors.black) ]
+        [ backgroundColor (Colors.toCssColor Colors.theme.hover) ]
     , active
-        [ backgroundColor (Colors.toCssColor Colors.black) ]
+        [ backgroundColor (Colors.toCssColor Colors.theme.active) ]
     ]
         ++ activeAttrs
 

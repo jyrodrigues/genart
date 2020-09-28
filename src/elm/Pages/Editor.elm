@@ -36,6 +36,7 @@ import Css
         , borderLeft3
         , borderRadius
         , borderRight3
+        , borderTop3
         , bottom
         , boxShadow5
         , boxShadow6
@@ -459,27 +460,31 @@ fileControls =
 
 colorControls : ColorTarget -> ColorWheel.State -> Html Msg
 colorControls colorTarget colorWheel =
+    let
+        colorTargetElement target title =
+            div
+                [ css
+                    (Dropdown.flexListItemStyle (colorTarget == target)
+                        ++ [ width (pct 50), textAlign center ]
+                    )
+                , onClick (SetColorTarget target)
+                ]
+                [ text title ]
+
+        exchangeBtnStyle =
+            Dropdown.listItemStyle False
+                ++ [ textAlign center
+                   , boxSizing borderBox
+                   , borderTop3 (px 1) solid (Colors.toCssColor Colors.theme.active)
+                   ]
+    in
     div []
         [ div [ css [ displayFlex, flexDirection row, width (px 270) ] ]
-            [ div
-                [ css
-                    (Dropdown.flexListItemStyle (colorTarget == Stroke)
-                        ++ [ width (pct 50), textAlign center ]
-                    )
-                , onClick (SetColorTarget Stroke)
-                ]
-                [ text "Stroke" ]
-            , div
-                [ css
-                    (Dropdown.flexListItemStyle (colorTarget == Background)
-                        ++ [ width (pct 50), textAlign center ]
-                    )
-                , onClick (SetColorTarget Background)
-                ]
-                [ text "Background" ]
+            [ colorTargetElement Stroke "Stroke"
+            , colorTargetElement Background "Background"
             ]
         , div [ css [ padding (px 12) ] ] [ Html.Styled.map ColorWheelMsg (ColorWheel.view colorWheel) ]
-        , div [ css (Dropdown.listItemStyle False ++ [ textAlign center, boxSizing borderBox ]), onClick ExchangeColors ] [ text "Exchange colors" ]
+        , div [ css exchangeBtnStyle, onClick ExchangeColors ] [ text "Exchange colors" ]
         ]
 
 
