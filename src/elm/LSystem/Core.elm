@@ -72,19 +72,22 @@ length composition =
 stepsLength : Composition -> ( Int, Int )
 stepsLength composition =
     let
-        countStep step ( dSteps, otherSteps ) =
+        countStep step ( steps, otherSteps ) =
             case step of
                 D ->
-                    ( dSteps + 1, otherSteps )
+                    ( steps + 1, otherSteps )
+
+                Glyph _ ->
+                    ( steps + 1, otherSteps )
 
                 _ ->
-                    ( dSteps, otherSteps + 1 )
+                    ( steps, otherSteps + 1 )
 
         countSteps block =
             List.foldl countStep ( 0, 0 ) block
 
-        accumulateLength ( blockCountD, blockCountOthers ) ( accCountD, accCountOthers ) =
-            ( blockCountD * accCountD, accCountOthers + accCountD * blockCountOthers )
+        accumulateLength ( blockCount, blockCountOthers ) ( accCount, accCountOthers ) =
+            ( blockCount * accCount, accCountOthers + accCount * blockCountOthers )
     in
     composition
         |> toList

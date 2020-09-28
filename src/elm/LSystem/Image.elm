@@ -31,6 +31,7 @@ module LSystem.Image exposing
     , updateSvgPathAndBoundaries
     , welcomeImage
     , withBackgroundColor
+    , withComposition
     , withCurve
     , withImage
     , withScale
@@ -323,10 +324,10 @@ length image =
 imageStepsLenthString : Image -> String
 imageStepsLenthString image =
     let
-        ( countD, countOthers ) =
+        ( count, countOthers ) =
             Core.stepsLength image.composition
     in
-    String.fromInt countD ++ ", " ++ String.fromInt countOthers
+    String.fromInt count ++ ", " ++ String.fromInt countOthers
 
 
 blockBlueprintString : Int -> Image -> String

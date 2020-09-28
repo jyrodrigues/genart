@@ -6,17 +6,25 @@
 
 port module Main exposing (decoder, encode, main)
 
+--import Components.TopBar
+
 import Browser
 import Browser.Navigation as Nav
-import Config exposing (routeFor)
+import Components as C
+import Components.TopBar as TopBar
+import Css
+import Css.Global
 import Html
+import Html.Styled exposing (Html)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
+import Pages exposing (Page(..), routeFor)
 import Pages.Editor as Editor
 import Pages.Gallery as Gallery
 import Pages.Welcome as Welcome
-import Routes exposing (Page(..), Route(..), mapRouteToPage, parseUrl)
+import Pages.Writing as Writing
+import Routes exposing (Route(..), mapRouteToPage, parseUrl)
 import Url
 
 
@@ -36,6 +44,7 @@ type alias Model =
     { editor : Editor.Model
     , gallery : Gallery.Model
     , welcome : Welcome.Model
+    , writting : Writing.Model
     , viewingPage : Page
 
     -- Url
@@ -54,6 +63,7 @@ type Msg
     | EditorMsg Editor.Msg
     | GalleryMsg Gallery.Msg
     | WelcomeMsg Welcome.Msg
+    | WritingMsg Writing.Msg
 
 
 
@@ -68,7 +78,8 @@ initialModel : Url.Url -> Nav.Key -> Model
 initialModel url navKey =
     -- Pages
     { editor = Editor.initialModel
-    , gallery = []
+    , gallery = Gallery.initialModel
+    , writting = Writing.initialModel
     , welcome = Welcome.initialModel
 
     -- Current viewing page
@@ -123,24 +134,25 @@ init locallyStoredModel url navKey =
                     -- query parameters!
                     ( Editor.withPartialImage partialImage editorFromStorage
                       -- Replace URL to get rid of Image in query string and have a clean URL
-                    , Nav.replaceUrl navKey routeFor.editor
+                    , Nav.replaceUrl navKey (routeFor EditorPage)
                     )
 
                 _ ->
                     ( editorFromStorage, Cmd.none )
 
         model =
-            { editor = Editor.withUrl url editor
-            , gallery = galleryFromStorage
-            , welcome = Welcome.initialModel
-            , viewingPage = mapRouteToPage route
-            , url = url
-            , navKey = navKey
+            initialModel url navKey
+
+        modelWithUrlAndStorage =
+            { model
+                | editor = Editor.withUrl url editor
+                , gallery = galleryFromStorage
+                , viewingPage = mapRouteToPage route
             }
     in
-    ( model
+    ( modelWithUrlAndStorage
     , Cmd.batch
-        [ saveModelToLocalStorage (encode model)
+        [ saveModelToLocalStorage (encode modelWithUrlAndStorage)
         , updateUrlIfInEditor
         , Cmd.map EditorMsg (Editor.initialCmd editor)
         , Cmd.map WelcomeMsg Welcome.initialCmd
@@ -159,7 +171,12 @@ documentMap msg document =
             document
     in
     { title = title
-    , body = List.map (Html.map msg) body
+    , body =
+        List.map (Html.map msg) body
+            ++ [ Html.Styled.toUnstyled
+                    -- TODO remove all `Css.fontFamily` from codebase; this should suffice.
+                    (Css.Global.global [ Css.Global.selector "body" [ Css.fontFamily Css.sansSerif ] ])
+               ]
     }
 
 
@@ -175,6 +192,9 @@ view model =
         WelcomePage ->
             documentMap WelcomeMsg (Welcome.view model.welcome)
 
+        WritingPage ->
+            documentMap WritingMsg (Writing.view model.writting)
+
 
 
 -- UPDATE
@@ -184,8 +204,12 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UrlChanged url ->
+            let
+                viewingPage =
+                    mapRouteToPage (parseUrl url)
+            in
             -- Called via replaceUrl (and indirectly via click on internal links/href, see LinkClicked above)
-            ( { model | viewingPage = mapRouteToPage (parseUrl url) }, Cmd.none )
+            ( { model | viewingPage = viewingPage }, initializeCmds model viewingPage )
 
         LinkClicked urlRequest ->
             case urlRequest of
@@ -254,7 +278,7 @@ update msg model =
                         [ cmd
 
                         -- This will trigger UrlChanged and then viewingPage will be set to its right value.
-                        , Nav.replaceUrl newModel.navKey routeFor.editor
+                        , Nav.replaceUrl newModel.navKey (routeFor EditorPage)
                         , saveModelToLocalStorage (encode newModel)
                         ]
                     )
@@ -272,10 +296,53 @@ update msg model =
             in
             case externalMsg of
                 Welcome.GoToEditor image ->
-                    ( { model | editor = Editor.withImage image model.editor }, Nav.replaceUrl model.navKey routeFor.editor )
+                    ( { model | editor = Editor.withImage image model.editor }
+                    , Nav.replaceUrl model.navKey (routeFor EditorPage)
+                    )
 
                 Welcome.UpdateWelcome ->
                     ( { model | welcome = welcome }, cmd )
+
+        WritingMsg writtingMsg ->
+            let
+                ( writting, writtingCmd, externalMsg ) =
+                    Writing.update writtingMsg model.writting
+
+                cmd =
+                    Cmd.map WritingMsg writtingCmd
+            in
+            case externalMsg of
+                Writing.OpenedEditor image ->
+                    ( { model | editor = Editor.withImage image model.editor }
+                    , Nav.replaceUrl model.navKey (routeFor EditorPage)
+                    )
+
+                Writing.UpdateWriting ->
+                    ( { model | writting = writting }, cmd )
+
+                Writing.NothingToUpdate ->
+                    ( model, cmd )
+
+
+
+-- TODO Refactor to something like changeViews to be called on UrlChanged
+-- TODO Maybe remove initialCmds from init function?
+
+
+initializeCmds : Model -> Page -> Cmd Msg
+initializeCmds model page =
+    case page of
+        EditorPage ->
+            Cmd.map EditorMsg (Editor.initialCmd model.editor)
+
+        GalleryPage ->
+            Cmd.none
+
+        WelcomePage ->
+            Cmd.map WelcomeMsg Welcome.initialCmd
+
+        WritingPage ->
+            Cmd.map WritingMsg Writing.initialCmd
 
 
 
@@ -287,6 +354,7 @@ subscriptions model =
     Sub.batch
         [ Sub.map EditorMsg <| Editor.subscriptions model.editor (model.viewingPage == EditorPage)
         , Sub.map WelcomeMsg <| Welcome.subscriptions model.welcome (model.viewingPage == WelcomePage)
+        , Sub.map WritingMsg <| Writing.subscriptions model.writting (model.viewingPage == WritingPage)
         ]
 
 
