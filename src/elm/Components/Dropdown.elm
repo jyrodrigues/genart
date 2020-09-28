@@ -1,4 +1,4 @@
-module Components.Dropdown exposing (Config, Msg, State, init, update, view)
+module Components.Dropdown exposing (Config, Msg, State, View, close, customView, init, update, view)
 
 import Colors
 import Css exposing (..)
@@ -35,32 +35,52 @@ init isOpen =
     }
 
 
-view : Config msg -> State -> Html msg
-view { title, elements, toMsg } state =
+type alias View msg =
+    Config msg -> State -> Html msg
+
+
+view : View msg
+view =
+    customView []
+
+
+customView : List Style -> View msg
+customView styles { title, elements, toMsg } state =
     div
-        [ css
-            [ position relative
-            , maxHeight (pct 100)
-            ]
+        [ css (wrapperCss state.isOpen ++ styles)
         , onMouseEnter (toMsg MouseEnter)
         , onMouseLeave (toMsg MouseLeave)
         ]
         (div
             [ css
-                [ color (Colors.toCssColor Colors.offWhite)
-                , backgroundColor <|
-                    if state.isOpen then
-                        Colors.toCssColor Colors.black
-
-                    else
-                        Colors.toCssColor Colors.darkGray
+                [ color (Colors.toCssColor Colors.white)
                 , cursor pointer
-                , padding (px 10)
                 ]
             ]
             [ text title ]
             :: body toMsg elements state.isOpen
         )
+
+
+wrapperCss : Bool -> List Style
+wrapperCss isOpen =
+    let
+        activeStyle =
+            if isOpen then
+                [ backgroundColor (Colors.toCssColor Colors.black)
+                ]
+
+            else
+                []
+    in
+    [ position relative
+    , height (pct 100)
+    , padding2 zero (px 15)
+    , displayFlex
+    , alignItems center
+    , justifyContent center
+    ]
+        ++ activeStyle
 
 
 body : (Msg -> msg) -> List (Html msg) -> Bool -> List (Html msg)
@@ -94,16 +114,22 @@ update toMsg msg state =
             ( { isOpen = True, mouseIsInside = True }, Cmd.none )
 
         MouseLeave ->
-            ( { state | mouseIsInside = False }, Utils.delay 300 (toMsg Close) )
+            ( { state | mouseIsInside = False }, Utils.delay 200 (toMsg Close) )
 
         Close ->
             ( { state
                 | isOpen =
                     if not state.mouseIsInside then
                         False
+                        --True
 
                     else
                         state.isOpen
               }
             , Cmd.none
             )
+
+
+close : State -> State
+close state =
+    { state | isOpen = False }

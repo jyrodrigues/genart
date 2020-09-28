@@ -429,7 +429,19 @@ view model =
 topBarElements : ColorTarget -> ColorWheel.State -> Set Video -> List (TopBar.Element Msg)
 topBarElements colorTarget colorWheel playingVideo =
     [ TopBar.Dropdown
-        { title = "Title 2"
+        { title = "File"
+        , elements = colorControlsTopBar colorTarget colorWheel playingVideo
+        }
+    , TopBar.Dropdown
+        { title = "Video"
+        , elements = colorControlsTopBar colorTarget colorWheel playingVideo
+        }
+    , TopBar.Dropdown
+        { title = "Color"
+        , elements = colorControlsTopBar colorTarget colorWheel playingVideo
+        }
+    , TopBar.Dropdown
+        { title = "Stroke"
         , elements = colorControlsTopBar colorTarget colorWheel playingVideo
         }
     ]

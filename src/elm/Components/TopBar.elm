@@ -10,10 +10,16 @@ import List.Extra
 import Pages exposing (Page(..))
 
 
+
+-- MODEL
+-- STATE
+
+
 type State msg
     = State
         { dropdownStates : List Dropdown.State
         , toMsg : Msg -> msg
+        , openDropdownIndex : Maybe Int
         }
 
 
@@ -24,6 +30,7 @@ init toMsg numberOfElements =
     State
         { dropdownStates = List.repeat (numberOfElements + 1) (Dropdown.init False)
         , toMsg = toMsg
+        , openDropdownIndex = Nothing
         }
 
 
@@ -34,40 +41,50 @@ type Element msg
     | Any (Html msg)
 
 
+
+-- MSG
+
+
 type Msg
     = DropdownMsg Int Dropdown.Msg
 
 
+
+-- VIEW
+
+
 view : Page -> List (Element msg) -> State msg -> Html msg
-view page pageElements (State { dropdownStates, toMsg }) =
+view page elements (State { dropdownStates, toMsg }) =
     let
-        wrapper =
-            div
-                [ css
-                    [ displayFlex
-                    , flexDirection row
-                    ]
-                ]
+        indexedElements =
+            (pagesDropdown page :: elements)
+                -- (state, elem)
+                |> List.Extra.zip dropdownStates
+                -- (index, (state, elem))
+                |> List.indexedMap Tuple.pair
 
-        elements =
-            pagesDropdown page :: pageElements
+        pagesToHtml =
+            elementToHtml toMsg (Dropdown.customView [ position absolute, left (px 10) ])
 
-        length =
-            Debug.log "elements length" <| List.length (List.Extra.zip elements dropdownStates)
+        elementsToHtml =
+            List.map (elementToHtml toMsg Dropdown.view) >> List.intersperse separator
     in
-    List.Extra.zip elements dropdownStates
-        |> List.indexedMap (elementToHtml toMsg)
-        |> wrapper
+    case indexedElements of
+        pagesDropdownTuple :: elementsTuples ->
+            div wrapperAttrs (pagesToHtml pagesDropdownTuple :: elementsToHtml elementsTuples)
+
+        [] ->
+            div wrapperAttrs []
 
 
-elementToHtml : (Msg -> msg) -> Int -> ( Element msg, Dropdown.State ) -> Html msg
-elementToHtml toMsg index ( element, state ) =
+elementToHtml : (Msg -> msg) -> Dropdown.View msg -> ( Int, ( Dropdown.State, Element msg ) ) -> Html msg
+elementToHtml toMsg view_ ( index, ( state, element ) ) =
     case element of
         Any html ->
             html
 
         Dropdown { title, elements } ->
-            Dropdown.view
+            view_
                 { toMsg = DropdownMsg index >> toMsg
                 , title = title
                 , elements = elements
@@ -75,24 +92,89 @@ elementToHtml toMsg index ( element, state ) =
                 state
 
 
+separator : Html msg
+separator =
+    div
+        [ css
+            [ width (px 2)
+            , height (pct 80)
+            , position relative
+            , top (pct 10)
+            , backgroundColor
+                (Colors.black
+                    |> Colors.updateAlpha 0.3
+                    |> Colors.toCssColor
+                )
+            ]
+        ]
+        []
+
+
+
+-- ATTRIBUTES
+
+
+wrapperAttrs : List (Html.Styled.Attribute msg)
+wrapperAttrs =
+    [ css
+        [ displayFlex
+        , flexDirection row
+        , justifyContent center
+        , backgroundColor (Colors.toCssColor Colors.theme.backgroundColor)
+        , height (px 40)
+        , position relative
+        ]
+    ]
+
+
+
+-- UPDATE
+
+
 update : Msg -> State msg -> ( State msg, Cmd msg )
-update msg (State data) =
+update (DropdownMsg index dropdownMsg) (State data) =
     let
-        { dropdownStates, toMsg } =
+        { dropdownStates, toMsg, openDropdownIndex } =
             data
     in
-    case msg of
-        DropdownMsg index dropdownMsg ->
-            case List.Extra.getAt index dropdownStates of
-                Just dropdownState ->
-                    let
-                        ( updatedDropdown, cmd ) =
-                            Dropdown.update (DropdownMsg index >> toMsg) dropdownMsg dropdownState
-                    in
-                    ( State { data | dropdownStates = List.Extra.updateAt index (always updatedDropdown) dropdownStates }, cmd )
+    case List.Extra.getAt index dropdownStates of
+        Just dropdownState ->
+            let
+                ( updatedDropdown, cmd ) =
+                    Dropdown.update (DropdownMsg index >> toMsg) dropdownMsg dropdownState
 
-                Nothing ->
-                    ( State data, Cmd.none )
+                updatedDropdownStates =
+                    dropdownStates
+                        |> List.Extra.setAt index updatedDropdown
+
+                -- Close last open dropdown if it exists, is different from current updated and current one became open.
+                closeLastOpenIfNeeded =
+                    openDropdownIndex
+                        |> Maybe.map
+                            (\lastOpenIndex ->
+                                if lastOpenIndex /= index && updatedDropdown.isOpen then
+                                    List.Extra.updateAt lastOpenIndex Dropdown.close
+
+                                else
+                                    identity
+                            )
+                        |> Maybe.withDefault identity
+            in
+            ( State
+                { data
+                    | dropdownStates = closeLastOpenIfNeeded updatedDropdownStates
+                    , openDropdownIndex =
+                        if updatedDropdown.isOpen then
+                            Just index
+
+                        else
+                            Nothing
+                }
+            , cmd
+            )
+
+        Nothing ->
+            ( State data, Cmd.none )
 
 
 
@@ -102,7 +184,7 @@ update msg (State data) =
 pagesDropdown : Page -> Element msg
 pagesDropdown currentPage =
     Dropdown
-        { title = Pages.toString currentPage
+        { title = "Genart " ++ Pages.toString currentPage ++ " ▾"
         , elements =
             List.map (pageToAnchor currentPage)
                 [ EditorPage

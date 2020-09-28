@@ -99,8 +99,6 @@ document.onkeydown = (e) => {
         turnAngleInput = document.getElementById("WrittingInput");
     }
 
-    console.log("activeElement", document.activeElement);
-
     if (e.key === "Backspace" &&
        document.activeElement !== turnAngleInput &&
        document.activeElement !== writtingInput) {
