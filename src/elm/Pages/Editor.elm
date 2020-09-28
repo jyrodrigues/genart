@@ -43,6 +43,7 @@ import Css
         , boxShadow6
         , boxSizing
         , breakWord
+        , calc
         , center
         , color
         , contentBox
@@ -64,6 +65,7 @@ import Css
         , marginBottom
         , marginLeft
         , marginTop
+        , minus
         , none
         , overflow
         , overflowWrap
@@ -431,7 +433,7 @@ view model =
     , body =
         [ TopBar.view EditorPage (topBarElements model) model.topBar |> toUnstyled
         , div
-            [ css [ width (pct 100), height (pct 100) ] ]
+            [ css [ width (pct 100), height (calc (pct 100) minus (px 41)) ] ]
             ([ compositionBlocksList model
              , lazy mainImg model.image
              , turnAngleControl model.turnAngleInputValue
@@ -1029,12 +1031,15 @@ update msg model =
                 )
 
             ExchangeColors ->
-                ( { model
-                    | image =
+                let
+                    updatedImage =
                         model.image
                             |> Image.withStrokeColor model.image.backgroundColor
                             |> Image.withBackgroundColor model.image.strokeColor
-                    , colorWheel = updateColorWheel model.image model.colorTarget model.colorWheel
+                in
+                ( { model
+                    | image = updatedImage
+                    , colorWheel = updateColorWheel updatedImage model.colorTarget model.colorWheel
                   }
                 , Cmd.none
                 , UpdatedEditor
