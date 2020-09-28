@@ -130,58 +130,58 @@ type Msg
 update : Msg -> State -> ( State, Maybe Color, Cmd Msg )
 update msg model =
     let
-        getDimensionsIfNotSet ( updatedModel, maybeColor ) =
+        getDimensionsIfNotSet =
             if model.elementDimensions == Nothing then
-                ( updatedModel, maybeColor, getElementDimensions updatedModel )
+                getElementDimensions model
 
             else
-                ( updatedModel, maybeColor, Cmd.none )
+                Cmd.none
     in
-    getDimensionsIfNotSet <|
-        case msg of
-            SetOpacity opacity ->
-                let
-                    { h, s } =
-                        Colors.toHsva model.color
+    case msg of
+        SetOpacity opacity ->
+            let
+                { h, s } =
+                    Colors.toHsva model.color
 
-                    color =
-                        Colors.hsv h s opacity
-                in
-                ( { model | color = color }, Just color )
+                color =
+                    Colors.hsv h s opacity
+            in
+            ( { model | color = color }, Just color, Cmd.none )
 
-            GotMousePosition relativePosition ->
-                let
-                    color =
-                        computeColor model relativePosition
-                in
-                ( { model
-                    | mousePosition = relativePosition
-                    , color = color
-                  }
-                , Just color
-                )
+        GotMousePosition relativePosition ->
+            let
+                color =
+                    computeColor model relativePosition
+            in
+            ( { model
+                | mousePosition = relativePosition
+                , color = color
+              }
+            , Just color
+            , getDimensionsIfNotSet
+            )
 
-            GotElementDimensions result ->
-                ( { model | elementDimensions = Result.toMaybe result }, Nothing )
+        GotElementDimensions result ->
+            ( { model | elementDimensions = Result.toMaybe result }, Nothing, Cmd.none )
 
-            StartedMouseTracking ->
-                ( { model | mouseTracking = True }, Nothing )
+        StartedMouseTracking ->
+            ( { model | mouseTracking = True }, Nothing, Cmd.none )
 
-            StoppedMouseTracking ->
-                ( { model | mouseTracking = False }, Nothing )
+        StoppedMouseTracking ->
+            ( { model | mouseTracking = False }, Nothing, Cmd.none )
 
-            --
-            --
-            --
-            {--| For Development --}
-            SetNumberOfSlices n ->
-                ( { model | numberOfSlices = n }, Nothing )
+        --
+        --
+        --
+        {--| For Development --}
+        SetNumberOfSlices n ->
+            ( { model | numberOfSlices = n }, Nothing, Cmd.none )
 
-            SetBlur b ->
-                ( { model | blur = b }, Nothing )
+        SetBlur b ->
+            ( { model | blur = b }, Nothing, Cmd.none )
 
-            ToggledDynamic ->
-                ( { model | dynamic = not model.dynamic }, Nothing )
+        ToggledDynamic ->
+            ( { model | dynamic = not model.dynamic }, Nothing, Cmd.none )
 
 
 subscriptions : State -> Sub Msg

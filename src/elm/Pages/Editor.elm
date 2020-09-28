@@ -73,6 +73,7 @@ import Css
         , overflowY
         , padding
         , padding2
+        , paddingRight
         , pct
         , pointer
         , position
@@ -362,7 +363,7 @@ initialModel =
     , videoAngleChangeDirection = 1
 
     -- Input controls value
-    , turnAngleInputValue = String.fromFloat defaultImage.turnAngle
+    , turnAngleInputValue = String.fromFloat welcomeImage.turnAngle
     , keyboardInput = ShortcutsMode
 
     -- Top Bar
@@ -392,6 +393,7 @@ withImage image model =
     { model
         | image = image
         , colorWheel = updateColorWheel image model.colorTarget model.colorWheel
+        , turnAngleInputValue = String.fromFloat image.turnAngle
     }
 
 
@@ -618,7 +620,7 @@ turnAngleControl turnAngleInputValue =
             , fontSize (px 14)
             , position absolute
             , bottom (px 50)
-            , left (pct 20)
+            , left (px (layout.transformsList + 100))
             ]
         , onInput SetTurnAngleInputValue
         , onKeyDown InputKeyPress
@@ -719,11 +721,12 @@ compositionBlocksList model =
         [ css
             [ backgroundColor (toCssColor Colors.darkGray)
             , height (pct 100)
-            , width (pct layout.transformsList)
+            , width (px (layout.transformsList + layout.paddingToHideScrollbars))
             , overflow scroll
             , boxSizing borderBox
             , borderRight3 (px 1) solid (toCssColor Colors.black)
-            , padding (px 10)
+            , padding (px 15)
+            , paddingRight (px layout.paddingToHideScrollbars)
             ]
         ]
         (C.primaryButtonStyled [ marginBottom (px 20) ] AddSimpleBlock "Add new block" :: compositionBlocks)
@@ -736,7 +739,7 @@ blockBox editingIndex strokeColor index blockSvg =
             ( 20, 3, 5 )
 
         style =
-            [ height (vw 8)
+            [ height (px 150)
             , width (pct 100)
             , margin3 zero auto (px 20)
             , cursor pointer
@@ -804,8 +807,8 @@ mainImg image =
             [ backgroundColor (toCssColor image.backgroundColor)
             , position fixed
             , height (pct 100)
-            , width (pct layout.mainImg)
-            , left (pct layout.transformsList)
+            , width (calc (pct 100) minus (px layout.transformsList))
+            , left (px layout.transformsList)
             , overflow hidden
             ]
         , id "mainImg"
@@ -826,11 +829,11 @@ mainImg image =
 
 layout :
     { transformsList : Float
-    , mainImg : Float
+    , paddingToHideScrollbars : Float
     }
 layout =
-    { transformsList = 15
-    , mainImg = 85
+    { transformsList = 300
+    , paddingToHideScrollbars = 40
     }
 
 
