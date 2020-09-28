@@ -28,6 +28,7 @@ import LSystem.Image as Image
 import Main
 import Pages exposing (Page(..), routeFor)
 import Pages.Editor as Editor
+import Pages.Gallery as Gallery
 import Routes exposing (Route(..), parseUrl)
 import Test exposing (Test, describe, fuzz, fuzz2, test)
 import Url exposing (Protocol(..), Url)
@@ -140,8 +141,17 @@ suite =
                             initialEditor =
                                 Editor.initialModel
 
+                            initialGallery =
+                                Gallery.initialModel
+
                             fuzzyModel =
-                                { editor = { initialEditor | image = fuzzyImage }, gallery = fuzzyGallery }
+                                { editor = { initialEditor | image = fuzzyImage }
+                                , gallery =
+                                    { initialGallery
+                                        | gallery =
+                                            fuzzyGallery
+                                    }
+                                }
                         in
                         fuzzyModel
                             |> Main.encode
@@ -208,4 +218,4 @@ suite =
 
 imageV3 : String
 imageV3 =
-    "{\"composition\":[\"DLDLDLD\",\"D\"],\"turnAngle\":90,\"backgroundColor\":\"#333333\",\"strokeColor\":\"#00b46e\",\"translateX\":0,\"translateY\":0,\"scale\":1}"
+    "{\"composition\":[\"DLDLDLD\",\"D\"],\"turnAngle\":90,\"backgroundColor\":\"#2c2c2c\",\"strokeColor\":\"#00b46e\",\"translateX\":0,\"translateY\":0,\"scale\":1}"
