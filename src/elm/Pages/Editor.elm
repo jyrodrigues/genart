@@ -32,6 +32,7 @@ import Css
         , block
         , border
         , border3
+        , borderBottom
         , borderBox
         , borderLeft3
         , borderRadius
@@ -187,8 +188,9 @@ type Msg
     | ExchangeColors
       -- Angle
     | SetTurnAngleInputValue String
-      -- Stroke width
+      -- Stroke
     | SetStrokeWidth Float
+    | ToggleCurveType
       -- Share
     | CopyUrlToClipboard
     | CopyUrlToClipboardResult Bool
@@ -432,9 +434,7 @@ view model =
             [ css [ width (pct 100), height (pct 100) ] ]
             ([ compositionBlocksList model
              , lazy mainImg model.image
-             , controlPanel model
-
-             --, fixedControlsButtons
+             , turnAngleControl model.turnAngleInputValue
              ]
                 ++ alert
             )
@@ -456,6 +456,14 @@ topBarElements model =
     , TopBar.Dropdown
         { title = "Video"
         , body = videoControls model.videoAngleChangeRate model.playingVideo model.slowMotion model.colorInVideo
+        }
+    , TopBar.Dropdown
+        { title = "Stroke"
+        , body = strokeControl model.image.strokeWidth model.image.curve
+        }
+    , TopBar.Dropdown
+        { title = "Info"
+        , body = info model
         }
     ]
 
@@ -543,77 +551,79 @@ videoControls angleChangeRate playingVideo slowMotion colorInVideo =
         ]
 
 
+strokeControl : Float -> Image.PathCurve -> Html Msg
+strokeControl strokeWidth curve =
+    let
+        btnStyle =
+            -- TODO This is duplicated, move to Components
+            Dropdown.listItemStyle False
+                ++ [ textAlign center
+                   , boxSizing borderBox
+                   , borderTop3 (px 1) solid (Colors.toCssColor Colors.theme.active)
+                   , borderBottom zero
+                   ]
 
--- TODO BUG DAS CORES
+        curveText =
+            "Change to "
+                ++ (if curve == Image.Line then
+                        "organic"
 
+                    else
+                        "sharp"
+                   )
+    in
+    div [ css [ width (px 240) ] ]
+        [ div [ css [ padding (px 10) ] ]
+            [ span [ css [ display block, margin2 (px 10) zero, cursor default ] ]
+                [ text <| "Line Width: " ++ truncateFloatString 6 (String.fromFloat strokeWidth) ]
 
-controlPanel : Model -> Html Msg
-controlPanel model =
-    C.fixedDiv
-        [ css
-            [ height (pct 100)
-            , width (pct layout.controlPanel)
-            , right zero
-            , boxSizing borderBox
-            , borderLeft3 (px 1) solid (toCssColor Colors.black)
-            , overflowY scroll
-            , overflowX hidden
-            , backgroundColor (toCssColor Colors.darkGray)
-            , color (toCssColor offWhite)
+            -- Magic values:
+            -- min: 0.0001px
+            -- max: 4px
+            -- center: 1px at 90% of slider
+            , sliderExponentialInput SetStrokeWidth strokeWidth strokeWidthSliderConfig
             ]
+        , div [ css btnStyle, onClick (SetStrokeWidth 1) ] [ text "Reset" ]
+        , div [ css btnStyle, onClick ToggleCurveType ] [ text curveText ]
         ]
-        [ turnAngleControl model.turnAngleInputValue
-        , strokeWidthControl model.image.strokeWidth
-        , curatedSettings
 
-        --, controlsList
-        , C.controlBlock "Info"
-            [ p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.imageStepsLenthString model.image) ]
-            , p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
-            ]
+
+info : Model -> Html Msg
+info model =
+    div [ css [ width (px 180), padding (px 10) ] ]
+        [ p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.imageStepsLenthString model.image) ]
+        , p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
         ]
 
 
 turnAngleControl : String -> Html Msg
 turnAngleControl turnAngleInputValue =
-    C.controlBlock "Angle"
-        [ input
-            [ id "TurnAngle" -- See index.js, `id` only exists for use in there.
-            , type_ "text"
-            , value (truncateFloatString 5 turnAngleInputValue)
-            , css
-                [ display block
-                , width (pct 90)
-                , marginTop (px 10)
-                , backgroundColor (Colors.toCssColor Colors.lightGray)
-                , color (Colors.toCssColor Colors.darkGray)
+    input
+        [ id "TurnAngle" -- See index.js, `id` only exists for use in there.
+        , type_ "text"
+        , value (truncateFloatString 5 turnAngleInputValue)
+        , css
+            [ display block
+            , width (px 100)
+            , marginTop (px 10)
+            , backgroundColor (Colors.toCssColor Colors.lightGray)
+            , color (Colors.toCssColor Colors.darkGray)
 
-                --, border3 (px 1) solid (Colors.toCssColor Colors.lightGray)
-                , border unset
-                , boxShadow6 inset zero zero (px 1) (px 1) (toCssColor Colors.darkGray)
-                , padding (px 6)
-                , fontSize (px 14)
-                ]
-            , onInput SetTurnAngleInputValue
-            , onKeyDown InputKeyPress
-            , onFocus (SetFocus TurnAngleInputFocus)
-            , onBlur (SetFocus EditorFocus)
+            --, border3 (px 1) solid (Colors.toCssColor Colors.lightGray)
+            , border unset
+            , boxShadow6 inset zero zero (px 1) (px 1) (toCssColor Colors.darkGray)
+            , padding (px 6)
+            , fontSize (px 14)
+            , position absolute
+            , bottom (px 50)
+            , left (pct 20)
             ]
-            []
+        , onInput SetTurnAngleInputValue
+        , onKeyDown InputKeyPress
+        , onFocus (SetFocus TurnAngleInputFocus)
+        , onBlur (SetFocus EditorFocus)
         ]
-
-
-strokeWidthControl : Float -> Html Msg
-strokeWidthControl width =
-    C.controlBlock "Line width"
-        -- Magic values:
-        -- min: 0.0001px
-        -- max: 4px
-        -- center: 1px at 90% of slider
-        [ span [ css [ display block ] ] [ text <| truncateFloatString 6 (String.fromFloat width) ]
-        , sliderExponentialInput SetStrokeWidth width strokeWidthSliderConfig
-        , C.primaryButton (SetStrokeWidth 1) "Reset"
-        ]
+        []
 
 
 {-|
@@ -813,14 +823,12 @@ mainImg image =
 
 
 layout :
-    { controlPanel : Float
-    , transformsList : Float
+    { transformsList : Float
     , mainImg : Float
     }
 layout =
-    { controlPanel = 15
-    , transformsList = 15
-    , mainImg = 70
+    { transformsList = 15
+    , mainImg = 85
     }
 
 
@@ -1108,6 +1116,21 @@ update msg model =
 
             SetStrokeWidth width ->
                 ( { model | image = Image.withStrokeWidth width model.image }
+                , Cmd.none
+                , UpdatedEditor
+                )
+
+            ToggleCurveType ->
+                let
+                    curve =
+                        case model.image.curve of
+                            Image.Curve ->
+                                Image.Line
+
+                            Image.Line ->
+                                Image.Curve
+                in
+                ( { model | image = Image.withCurve curve model.image }
                 , Cmd.none
                 , UpdatedEditor
                 )
