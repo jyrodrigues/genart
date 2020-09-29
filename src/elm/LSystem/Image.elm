@@ -17,6 +17,7 @@ module LSystem.Image exposing
     , dropLastStepAtIndex
     , duplicateBlock
     , encode
+    , hash
     , imageStepsLenthString
     , imageToSvgPathString
     , length
@@ -49,6 +50,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Extra as DecodeExtra
 import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
+import Murmur3
 import Random
 import Svg.Core exposing (PathSegment(..), rotateSegmentTo, segmentToString)
 import Svg.FontMajorMono as FontToSVG
@@ -468,6 +470,15 @@ polygonAngle polygon =
 
         Hexagon ->
             60
+
+
+
+-- HASH
+
+
+hash : Image -> Int
+hash image =
+    Murmur3.hashString 8871 (Encode.encode 0 (encode image))
 
 
 

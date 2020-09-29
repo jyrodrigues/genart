@@ -148,8 +148,7 @@ suite =
                                 { editor = { initialEditor | image = fuzzyImage }
                                 , gallery =
                                     { initialGallery
-                                        | gallery =
-                                            fuzzyGallery
+                                        | gallery = List.map (\image -> { hash = Image.hash image, image = image }) fuzzyGallery
                                     }
                                 }
                         in

@@ -20,7 +20,7 @@ import Svg.Styled.Attributes
         , style
         , viewBox
         )
-import Svg.Styled.Events exposing (onClick)
+import Svg.Styled.Lazy as Lazy
 import Utils exposing (Position, floatsToSpacedString, pairExec, pairMap)
 
 
@@ -35,21 +35,26 @@ type alias Id =
 drawBlocks : Image -> List (Svg msg)
 drawBlocks image =
     Image.blocksToImages image
-        |> List.map (drawImage Nothing Nothing True)
+        |> List.map (drawImage Nothing True)
 
 
-drawFixedImage : Maybe msg -> Image -> Svg msg
-drawFixedImage maybeMsg image =
+drawFixedImage : Image -> Svg msg
+drawFixedImage image =
     image
         |> Image.withTranslate ( 0, 0 )
         |> Image.withScale 1
-        |> drawImage Nothing maybeMsg False
+        |> drawImage Nothing False
+
+
+drawImage : Maybe Id -> Bool -> Image -> Svg msg
+drawImage =
+    Lazy.lazy3 drawImageEager
 
 
 {-| TODO remove this last Bool (at least use a custom type).
 -}
-drawImage : Maybe Id -> Maybe msg -> Bool -> Image -> Svg msg
-drawImage maybeId maybeMsg drawOriginAndNextStep image =
+drawImageEager : Maybe Id -> Bool -> Image -> Svg msg
+drawImageEager maybeId drawOriginAndNextStep image =
     let
         { backgroundColor, strokeColor, translate, scale } =
             image
@@ -72,7 +77,6 @@ drawImage maybeId maybeMsg drawOriginAndNextStep image =
         optionalAttrs =
             List.filterMap identity
                 [ Maybe.map id maybeId
-                , Maybe.map onClick maybeMsg
                 ]
 
         {--Used to draw a circle in the `centerOfMass`--
