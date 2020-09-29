@@ -5,6 +5,7 @@ module Pages.Gallery exposing
     , addImage
     , decoder
     , encode
+    , initialCmd
     , initialModel
     , update
     , view
@@ -93,6 +94,7 @@ type Msg
     | SelectedGalleryFile File
     | LoadedGallery String
     | TopBarMsg TopBar.Msg
+    | ComputeSvgPathForEveryImage
 
 
 type
@@ -112,6 +114,11 @@ initialModel =
     { gallery = []
     , topBar = TopBar.init TopBarMsg
     }
+
+
+initialCmd : Cmd Msg
+initialCmd =
+    Task.perform (always ComputeSvgPathForEveryImage) (Task.succeed ())
 
 
 
@@ -171,7 +178,7 @@ update msg model =
             in
             case decodedString of
                 Ok uploadedGallery ->
-                    ( { model | gallery = uploadedGallery.gallery ++ model.gallery }, Cmd.none, UpdatedGallery )
+                    ( { model | gallery = List.map computeSvgPath uploadedGallery.gallery ++ model.gallery }, Cmd.none, UpdatedGallery )
 
                 Err _ ->
                     ( model, Cmd.none, NothingToUpdate )
@@ -182,6 +189,16 @@ update msg model =
                     TopBar.update subMsg model.topBar
             in
             ( { model | topBar = updatedTopBar }, cmd, UpdatedGallery )
+
+        ComputeSvgPathForEveryImage ->
+            ( { model | gallery = List.map computeSvgPath model.gallery }, Cmd.none, UpdatedGallery )
+
+
+computeSvgPath : ImageItem -> ImageItem
+computeSvgPath { image, hash } =
+    { hash = hash
+    , image = Image.updateSvgPathAndBoundaries image
+    }
 
 
 
@@ -206,7 +223,7 @@ view model =
     { title = "Generative Art"
     , body =
         List.map toUnstyled <|
-            [ TopBar.view GalleryPage [] model.topBar
+            [ Lazy.lazy3 TopBar.view GalleryPage [] model.topBar
             , div
                 [ css [ width (pct 100), height (pct 100), backgroundColor (toCssColor Colors.darkGray), overflow hidden ] ]
                 [ Keyed.node "div"
@@ -278,7 +295,7 @@ imageBox { image, hash } =
 
 addImage : Image -> Model -> Model
 addImage image model =
-    { model | gallery = { image = image, hash = Image.hash image } :: model.gallery }
+    { model | gallery = computeSvgPath { image = image, hash = Image.hash image } :: model.gallery }
 
 
 

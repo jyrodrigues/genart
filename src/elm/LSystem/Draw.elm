@@ -58,7 +58,6 @@ drawImageEager maybeId drawOriginAndNextStep image =
     let
         { backgroundColor, strokeColor, translate, scale } =
             image
-                |> Debug.log "drawImageEager"
 
         ( x, y ) =
             translate

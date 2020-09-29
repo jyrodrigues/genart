@@ -84,6 +84,7 @@ import Css
         , scroll
         , solid
         , textAlign
+        , top
         , unset
         , vw
         , width
@@ -104,7 +105,7 @@ import Html.Styled.Events
         , onMouseUp
         )
 import Html.Styled.Keyed as Keyed
-import Html.Styled.Lazy exposing (lazy)
+import Html.Styled.Lazy as Lazy
 import Icons exposing (withColor, withCss, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -433,12 +434,12 @@ view model =
     in
     { title = "Generative Art"
     , body =
-        [ TopBar.view EditorPage (topBarElements model) model.topBar |> toUnstyled
+        [ Lazy.lazy3 TopBar.view EditorPage (topBarElements model) model.topBar |> toUnstyled
         , div
             [ css [ width (pct 100), height (calc (pct 100) minus (px 41)) ] ]
-            ([ compositionBlocksList model
-             , lazy mainImg model.image
-             , turnAngleControl model.turnAngleInputValue
+            ([ Lazy.lazy2 compositionBlocksList model.image model.editingIndex
+             , Lazy.lazy mainImg model.image
+             , Lazy.lazy turnAngleControl model.turnAngleInputValue
              ]
                 ++ alert
             )
@@ -708,13 +709,13 @@ truncateFloatString precision floatString =
             floatString
 
 
-compositionBlocksList : Model -> Html Msg
-compositionBlocksList model =
+compositionBlocksList : Image -> Int -> Html Msg
+compositionBlocksList image editingIndex =
     let
         compositionBlocks =
-            model.image
+            image
                 |> drawBlocks
-                |> List.indexedMap (blockBox model.editingIndex model.image.strokeColor)
+                |> List.indexedMap (blockBox editingIndex image.strokeColor)
                 |> List.reverse
     in
     C.fixedDiv
@@ -806,7 +807,8 @@ mainImg image =
         [ css
             [ backgroundColor (toCssColor image.backgroundColor)
             , position fixed
-            , height (pct 100)
+            , height (calc (pct 100) minus (px 40))
+            , top (px 40)
             , width (calc (pct 100) minus (px (layout.transformsList - 10)))
             , left (px (layout.transformsList + 10))
             , overflow hidden

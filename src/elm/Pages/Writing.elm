@@ -32,6 +32,7 @@ import Css
 import Html.Styled exposing (Html, button, div, text, textarea, toUnstyled)
 import Html.Styled.Attributes exposing (css, id)
 import Html.Styled.Events exposing (onClick, onInput)
+import Html.Styled.Lazy as Lazy
 import LSystem.Core as LCore exposing (Block, Composition, Step(..))
 import LSystem.Draw exposing (drawImage)
 import LSystem.Image as Image exposing (Image)
@@ -134,7 +135,7 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "Writing to Genart"
     , body =
-        [ TopBar.view WritingPage topBarElements model.topBar |> toUnstyled
+        [ Lazy.lazy3 TopBar.view WritingPage topBarElements model.topBar |> toUnstyled
         , div
             [ css
                 [ width (pct 100)
@@ -142,16 +143,16 @@ view model =
                 , overflow hidden
                 ]
             ]
-            [ drawImage (Just "WritingVideo") False model.image
-            , controls model
+            [ Lazy.lazy3 drawImage (Just "WritingVideo") False model.image
+            , Lazy.lazy2 controls model.writing model.image.backgroundColor
             ]
             |> toUnstyled
         ]
     }
 
 
-controls : Model -> Html Msg
-controls model =
+controls : String -> Color -> Html Msg
+controls writing backgroundColor =
     div
         [ css
             [ position fixed
@@ -165,7 +166,7 @@ controls model =
             , Css.flexDirection Css.row
             ]
         ]
-        [ inputWriting model
+        [ inputWriting writing backgroundColor
         , div [ css [] ]
             [ controlButton ToggleVideo "Play/Pause"
             , controlButton ResetAngle "Reset Video"
@@ -178,14 +179,14 @@ controls model =
         ]
 
 
-inputWriting : Model -> Html Msg
-inputWriting model =
+inputWriting : String -> Color -> Html Msg
+inputWriting writing backgroundColor_ =
     textarea
         [ id "WritingInput"
         , css
             [ width (px 200)
             , height (px 100)
-            , backgroundColor (Colors.toCssColor model.image.backgroundColor)
+            , backgroundColor (Colors.toCssColor backgroundColor_)
             , color (Colors.toCssColor Colors.offWhite)
             , Css.fontSize (px 20)
             , Css.flexShrink zero
@@ -193,7 +194,7 @@ inputWriting model =
             ]
         , onInput InputWriting
         ]
-        [ text model.writing ]
+        [ text writing ]
 
 
 controlButton : Msg -> String -> Html Msg
