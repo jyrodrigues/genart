@@ -478,33 +478,10 @@ polygonAngle polygon =
 
 hash : Image -> Int
 hash image =
-    let
-        composition =
-            image.composition
-                |> Core.toList
-                |> List.map Core.blockToString
-                |> String.join ""
-    in
-    Murmur3.hashString 8871 composition
+    Murmur3.hashString 8871 (Encode.encode 0 (encode image))
 
 
 
-{--
-type alias Image =
-    { composition : Composition
-    , turnAngle : Angle
-
-    -- Refactor to make impossible states impossible: composition + turnAngle + svgPathAndBoundaries
-    , svgPathAndBoundaries : Maybe SvgPathAndBoundaries
-    , backgroundColor : Color
-    , strokeColor : Color
-    , strokeWidth : Width
-    , translate : Position
-    , scale : Scale
-    , curve : PathCurve
-    }
-
---}
 -- ENCODER
 -- DECODER
 
