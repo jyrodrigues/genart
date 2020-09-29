@@ -135,6 +135,7 @@ import LSystem.Image as Image
         , welcomeImage
         , withImage
         )
+import List.Extra
 import Midi exposing (adjustInputForStrokeWidth)
 import Pages exposing (Page(..), routeFor)
 import Random
@@ -664,9 +665,16 @@ turnAngleControl turnAngleInputValue =
                     , left (px (-angleNumberWidth / 2 + 3 + 3))
                     ]
                 ]
-                ([ 0, 90, 180, 270, 360 ] |> List.map (String.fromInt >> (\deg -> deg ++ "°") >> angleNumberSpan))
+                (List.Extra.initialize 5 (\index -> index * turnAngleSliderMaxValue // 4 |> String.fromInt)
+                    |> List.map ((\deg -> deg ++ "°") >> angleNumberSpan)
+                )
             ]
         ]
+
+
+turnAngleSliderMaxValue : Int
+turnAngleSliderMaxValue =
+    180
 
 
 turnAngleInput : String -> Html Msg
@@ -706,7 +714,7 @@ turnAngleSlider turnAngleInputValue =
     input
         [ type_ "range"
         , Html.Styled.Attributes.min "0.0001"
-        , Html.Styled.Attributes.max "360"
+        , Html.Styled.Attributes.max (String.fromInt turnAngleSliderMaxValue)
         , Html.Styled.Attributes.step "0.0001"
         , value turnAngleInputValue
         , onInput SetTurnAngleInputValue
