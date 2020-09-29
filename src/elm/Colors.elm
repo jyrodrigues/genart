@@ -150,8 +150,14 @@ hsv h s v =
 
 -}
 hsva : Float -> Float -> Float -> Float -> Color
-hsva hue_ s v a =
+hsva hue_ s v_ a =
     let
+        v =
+            -- Hack to prevent HSV with value = 0 always returning RGB (0,0,0)
+            -- Used to prevent a bug where given `black` as initial color, the color wheel would never left the center
+            -- when dragged (the user would have to move the `value` slider first).
+            clamp 0.000001 1 v_
+
         hue =
             inDegrees (floatModBy (2 * pi) hue_)
 

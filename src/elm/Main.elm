@@ -336,7 +336,7 @@ initializeCmds model page =
             Cmd.map EditorMsg (Editor.initialCmd model.editor)
 
         GalleryPage ->
-            Cmd.none
+            Cmd.map GalleryMsg Gallery.initialCmd
 
         WelcomePage ->
             Cmd.map WelcomeMsg Welcome.initialCmd
