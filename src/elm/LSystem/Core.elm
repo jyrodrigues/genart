@@ -312,7 +312,7 @@ randomComposition =
 
 randomStep : Random.Generator Step
 randomStep =
-    Random.weighted ( 5, D ) [ ( 3, L ), ( 3, R ), ( 1, S ) ]
+    Random.weighted ( 20, D ) [ ( 15, L ), ( 5, R ), ( 1, S ) ]
 
 
 

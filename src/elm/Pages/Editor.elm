@@ -27,8 +27,11 @@ import Components.TopBar as TopBar
 import Css
     exposing
         ( absolute
+        , after
+        , alignItems
         , auto
         , backgroundColor
+        , before
         , block
         , border
         , border3
@@ -46,6 +49,7 @@ import Css
         , calc
         , center
         , color
+        , content
         , contentBox
         , cursor
         , default
@@ -53,18 +57,25 @@ import Css
         , displayFlex
         , fixed
         , flexDirection
+        , flexGrow
         , flexWrap
         , fontSize
         , height
         , hidden
         , hover
         , inset
+        , int
+        , justifyContent
         , left
+        , margin
         , margin2
         , margin3
         , marginBottom
         , marginLeft
+        , marginRight
         , marginTop
+        , maxWidth
+        , middle
         , minus
         , none
         , overflow
@@ -73,8 +84,10 @@ import Css
         , overflowY
         , padding
         , padding2
+        , paddingBottom
         , paddingRight
         , pct
+        , plus
         , pointer
         , position
         , px
@@ -83,6 +96,8 @@ import Css
         , row
         , scroll
         , solid
+        , spaceAround
+        , spaceBetween
         , textAlign
         , top
         , unset
@@ -603,30 +618,103 @@ info model =
 
 turnAngleControl : String -> Html Msg
 turnAngleControl turnAngleInputValue =
+    let
+        angleNumberSpan value =
+            span
+                [ css
+                    [ width (px angleNumberWidth)
+                    , textAlign center
+                    , color (Colors.toCssColor Colors.offWhite)
+                    ]
+                ]
+                [ text value ]
+
+        angleNumberWidth =
+            40
+    in
+    div
+        [ css
+            [ displayFlex
+            , flexDirection row
+            , Css.property "justify-content" "space-evenly"
+            , alignItems center
+            , position fixed
+            , bottom zero
+            , right zero
+            , height (px layout.turnAngleControlHeight)
+            , width (calc (pct 100) minus (px layout.transformsList))
+            , backgroundColor (Colors.toCssColor Colors.theme.backgroundColor)
+            , borderLeft3 (px 1) solid (Colors.toCssColor Colors.black)
+            , borderTop3 (px 1) solid (Colors.toCssColor Colors.black)
+            , boxSizing borderBox
+            ]
+        ]
+        [ turnAngleInput turnAngleInputValue
+        , div [ css [ width (calc (pct 80) minus (px layout.turnAngleInputWidth)), flexGrow (int 2), marginRight (px 40) ] ]
+            [ turnAngleSlider turnAngleInputValue
+            , div
+                [ css
+                    [ width (calc (pct 100) plus (px (angleNumberWidth - 6)))
+                    , displayFlex
+                    , flexDirection row
+                    , justifyContent spaceBetween
+                    , position relative
+
+                    -- `+ 3` = `6 / 2` (see width above), `+ 3` to ignore `•` on centering numbers.
+                    , left (px (-angleNumberWidth / 2 + 3 + 3))
+                    ]
+                ]
+                ([ 0, 90, 180, 270, 360 ] |> List.map (String.fromInt >> (\deg -> deg ++ "°") >> angleNumberSpan))
+            ]
+        ]
+
+
+turnAngleInput : String -> Html Msg
+turnAngleInput turnAngleInputValue =
     input
         [ id "TurnAngle" -- See index.js, `id` only exists for use in there.
         , type_ "text"
         , value (truncateFloatString 5 turnAngleInputValue)
         , css
             [ display block
-            , width (px 100)
-            , marginTop (px 10)
+            , width (px layout.turnAngleInputWidth)
+            , height (px 18)
             , backgroundColor (Colors.toCssColor Colors.lightGray)
             , color (Colors.toCssColor Colors.darkGray)
 
             --, border3 (px 1) solid (Colors.toCssColor Colors.lightGray)
             , border unset
             , boxShadow6 inset zero zero (px 1) (px 1) (toCssColor Colors.darkGray)
-            , padding (px 6)
+            , padding (px 8)
             , fontSize (px 14)
-            , position absolute
-            , bottom (px 50)
-            , left (px (layout.transformsList + 100))
+            , textAlign center
+            , flexGrow (int 1)
+            , marginLeft (px 30)
+            , marginRight (px 30)
+            , maxWidth (px 160)
             ]
         , onInput SetTurnAngleInputValue
         , onKeyDown InputKeyPress
         , onFocus (SetFocus TurnAngleInputFocus)
         , onBlur (SetFocus EditorFocus)
+        ]
+        []
+
+
+turnAngleSlider : String -> Html Msg
+turnAngleSlider turnAngleInputValue =
+    input
+        [ type_ "range"
+        , Html.Styled.Attributes.min "0.0001"
+        , Html.Styled.Attributes.max "360"
+        , Html.Styled.Attributes.step "0.0001"
+        , value turnAngleInputValue
+        , onInput SetTurnAngleInputValue
+        , css
+            [ display block
+            , height (px 27)
+            , cursor pointer
+            ]
         ]
         []
 
@@ -723,7 +811,7 @@ compositionBlocksList image editingIndex =
             [ backgroundColor (toCssColor Colors.darkGray)
             , height (pct 100)
             , width (px (layout.transformsList + layout.paddingToHideScrollbars))
-            , overflow scroll
+            , overflowY scroll
             , boxSizing borderBox
             , borderRight3 (px 1) solid (toCssColor Colors.black)
             , padding (px 15)
@@ -809,8 +897,8 @@ mainImg image =
             , position fixed
             , height (calc (pct 100) minus (px 40))
             , top (px 40)
-            , width (calc (pct 100) minus (px (layout.transformsList - 10)))
-            , left (px (layout.transformsList + 10))
+            , width (calc (pct 100) minus (px layout.transformsList))
+            , right zero
             , overflow hidden
             ]
         , id "mainImg"
@@ -832,10 +920,14 @@ mainImg image =
 layout :
     { transformsList : Float
     , paddingToHideScrollbars : Float
+    , turnAngleControlHeight : Float
+    , turnAngleInputWidth : Float
     }
 layout =
     { transformsList = 240
     , paddingToHideScrollbars = 40
+    , turnAngleControlHeight = 60
+    , turnAngleInputWidth = 110
     }
 
 
@@ -1054,7 +1146,7 @@ update msg model =
                 if stringValue == "" then
                     ( { model
                         | image = Image.withTurnAngle 0 model.image
-                        , turnAngleInputValue = stringValue
+                        , turnAngleInputValue = "0"
                       }
                     , Cmd.none
                     , UpdatedEditor
