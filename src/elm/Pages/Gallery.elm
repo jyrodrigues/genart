@@ -14,40 +14,66 @@ module Pages.Gallery exposing
 import Browser
 import Colors exposing (toCssColor)
 import Components as C
+import Components.Dropdown as Dropdown
 import Components.TopBar as TopBar
 import Css
     exposing
         ( absolute
+        , after
         , backgroundColor
+        , before
         , borderBox
         , bottom
         , boxShadow5
         , boxSizing
+        , calc
+        , center
+        , color
         , cursor
         , display
+        , displayFlex
+        , flexDirection
+        , flexWrap
+        , fontFamily
         , height
         , hidden
+        , hover
         , inlineBlock
+        , int
+        , justifyContent
         , left
+        , lineHeight
         , margin
+        , minus
         , none
         , overflow
+        , overflowY
         , padding
         , pct
         , pointer
         , position
+        , property
         , px
         , relative
+        , right
+        , row
         , scroll
+        , spaceAround
+        , textAlign
+        , top
+        , visibility
+        , visible
         , width
+        , wrap
+        , zIndex
         , zero
         )
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
-import Html.Styled exposing (Html, div, toUnstyled)
-import Html.Styled.Attributes exposing (css)
-import Html.Styled.Events exposing (onClick)
+import Html.Styled exposing (Html, div, text, toUnstyled)
+import Html.Styled.Attributes exposing (css, title)
+import Html.Styled.Events exposing (onClick, onMouseEnter, onMouseLeave)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy as Lazy
 import Icons exposing (withColor, withCss, withOnClick)
@@ -68,6 +94,7 @@ import Utils
 type alias Model =
     { gallery : Gallery
     , topBar : TopBar.State Msg
+    , imageBoxHover : Maybe Int
     }
 
 
@@ -95,6 +122,8 @@ type Msg
     | LoadedGallery String
     | TopBarMsg TopBar.Msg
     | ComputeSvgPathForEveryImage
+    | MouseEnter Int
+    | MouseLeave
 
 
 type
@@ -113,12 +142,19 @@ initialModel : Model
 initialModel =
     { gallery = []
     , topBar = TopBar.init TopBarMsg
+    , imageBoxHover = Nothing
     }
 
 
 initialCmd : Cmd Msg
 initialCmd =
-    Task.perform (always ComputeSvgPathForEveryImage) (Task.succeed ())
+    Cmd.batch
+        [ Task.perform (always ComputeSvgPathForEveryImage) (Task.succeed ())
+
+        -- TODO remove this line and refactor TopBar to have an option "close on click"
+        -- Also this could be done as a last step, but I think it's better to do it whenever a page initializes
+        , TopBar.closeAllDropdowns TopBarMsg
+        ]
 
 
 
@@ -193,6 +229,12 @@ update msg model =
         ComputeSvgPathForEveryImage ->
             ( { model | gallery = List.map computeSvgPath model.gallery }, Cmd.none, UpdatedGallery )
 
+        MouseEnter hash ->
+            ( { model | imageBoxHover = Just hash }, Cmd.none, UpdatedGallery )
+
+        MouseLeave ->
+            ( { model | imageBoxHover = Nothing }, Cmd.none, UpdatedGallery )
+
 
 computeSvgPath : ImageItem -> ImageItem
 computeSvgPath { image, hash } =
@@ -223,59 +265,107 @@ view model =
     { title = "Generative Art"
     , body =
         List.map toUnstyled <|
-            [ Lazy.lazy3 TopBar.view GalleryPage [] model.topBar
-            , div
-                [ css [ width (pct 100), height (pct 100), backgroundColor (toCssColor Colors.darkGray), overflow hidden ] ]
-                [ Keyed.node "div"
-                    [ css
-                        [ width (pct (layout.transformsList + layout.mainImg))
-                        , height (pct 100)
-                        , padding (px 10)
-                        , boxSizing borderBox
-                        , overflow scroll
-                        , display inlineBlock
-                        ]
-                    ]
-                    (List.map imageBoxKeyed model.gallery)
-                , C.fixedDiv
-                    [ css
-                        [ width (pct layout.controlPanel)
-                        , height (pct 100)
-                        , display inlineBlock
-                        , padding (px 10)
-                        , boxSizing borderBox
-                        ]
-                    ]
-                    [ C.primaryButton BackToEditor "Back to editor"
-                    , C.primaryButton DownloadRequested "Download gallery"
-                    , C.primaryButton UploadRequested "Upload gallery"
+            [ Lazy.lazy3 TopBar.view GalleryPage topBarElements model.topBar
+            , Keyed.node "div"
+                [ css
+                    [ width (pct 100)
+                    , height (calc (pct 100) minus (px 41))
+                    , padding (px 10)
+                    , boxSizing borderBox
+                    , backgroundColor (toCssColor Colors.darkGray)
+                    , overflowY scroll
+                    , displayFlex
+                    , flexDirection row
+                    , flexWrap wrap
+                    , justifyContent spaceAround
                     ]
                 ]
+                (List.map (imageBoxKeyed model.imageBoxHover) model.gallery)
             ]
     }
 
 
-imageBoxKeyed : ImageItem -> ( String, Html Msg )
-imageBoxKeyed imageItem =
+topBarElements : List (TopBar.Element Msg)
+topBarElements =
+    [ TopBar.Dropdown
+        { title = "Backup"
+        , body =
+            div [ css [ width (px 200) ] ]
+                [ div [ css (Dropdown.listItemStyle False), onClick DownloadRequested ] [ text "Download backup file" ]
+                , div [ css (Dropdown.listItemStyle False), onClick UploadRequested ] [ text "Import file" ]
+                ]
+        }
+    ]
+
+
+imageBoxKeyed : Maybe Int -> ImageItem -> ( String, Html Msg )
+imageBoxKeyed imageBoxHover imageItem =
     ( "GalleryImage_hash_" ++ String.fromInt imageItem.hash
-    , Lazy.lazy imageBox imageItem
+    , Lazy.lazy2 imageBox (Just imageItem.hash == imageBoxHover) imageItem
     )
 
 
-imageBox : ImageItem -> Html Msg
-imageBox { image, hash } =
+imageBox : Bool -> ImageItem -> Html Msg
+imageBox hasHover { image, hash } =
+    let
+        deleteVisibility =
+            if hasHover then
+                visibility visible
+
+            else
+                visibility hidden
+
+        deleteIcon =
+            Icons.delete
+    in
     div
         [ css
             [ width (px 300)
             , height (px 300)
-            , display inlineBlock
-            , margin (px 10)
+            , margin (px 30)
             , position relative
-            , overflow hidden
             , boxShadow5 zero zero (px 5) (px 1) (toCssColor Colors.black)
+            , hover
+                [ after
+                    [ property "content" "\"Copy to editor\""
+                    , width (pct 100)
+                    , height (px 40)
+                    , position absolute
+                    , bottom zero
+                    , textAlign center
+                    , lineHeight (px 40)
+                    , backgroundColor (toCssColor Colors.theme.active)
+                    , color (toCssColor Colors.theme.color)
+                    ]
+                , cursor pointer
+                ]
             ]
+        , onMouseEnter (MouseEnter hash)
+        , onMouseLeave MouseLeave
         ]
-        [ div [ onClick (CopiedToEditor hash), css [ width (pct 100), height (pct 100) ] ] [ LDraw.drawFixedImage image ]
+        [ div [ onClick (CopiedToEditor hash), css [ width (pct 100), height (pct 100) ] ] [ Lazy.lazy LDraw.drawFixedImage image ]
+        , div
+            [ onClick (RemovedFromGallery hash)
+            , css
+                [ backgroundColor (Colors.toCssColor Colors.blackShadow)
+                , width (px 30)
+                , height (px 30)
+                , position absolute
+                , top (px 8)
+                , right (px 8)
+                , deleteVisibility
+                , hover [ backgroundColor (Colors.toCssColor Colors.theme.active) ]
+                ]
+            , title "Delete"
+            ]
+            [ Icons.toSvg
+                { deleteIcon
+                    | size = Icons.Square 30
+                    , color = Colors.white
+                }
+            ]
+
+        {--
         , Icons.trash
             |> withOnClick (RemovedFromGallery hash)
             |> withColor Colors.red_
@@ -286,6 +376,7 @@ imageBox { image, hash } =
                 , left (px 5)
                 ]
             |> Icons.toSvg
+        --}
         ]
 
 

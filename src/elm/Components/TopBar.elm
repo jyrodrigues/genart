@@ -1,4 +1,4 @@
-module Components.TopBar exposing (Element(..), Msg, State, init, update, view)
+module Components.TopBar exposing (Element(..), Msg, State, closeAllDropdowns, init, update, view)
 
 import Colors
 import Components as C
@@ -8,6 +8,7 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (css, href)
 import List.Extra
 import Pages exposing (Page(..))
+import Task
 
 
 
@@ -51,6 +52,7 @@ type Element msg
 
 type Msg
     = DropdownMsg Int Dropdown.Msg
+    | CloseAllDropdowns
 
 
 
@@ -121,49 +123,66 @@ wrapperAttrs =
 
 
 update : Msg -> State msg -> ( State msg, Cmd msg )
-update (DropdownMsg index dropdownMsg) (State data) =
-    let
-        { dropdownStates, toMsg, openDropdownIndex } =
-            data
-    in
-    case List.Extra.getAt index dropdownStates of
-        Just dropdownState ->
-            let
-                ( updatedDropdown, cmd ) =
-                    Dropdown.update (DropdownMsg index >> toMsg) dropdownMsg dropdownState
-
-                updatedDropdownStates =
-                    dropdownStates
-                        |> List.Extra.setAt index updatedDropdown
-
-                -- Close last open dropdown if it exists, is different from current updated and current one became open.
-                closeLastOpenIfNeeded =
-                    openDropdownIndex
-                        |> Maybe.map
-                            (\lastOpenIndex ->
-                                if lastOpenIndex /= index && updatedDropdown.isOpen then
-                                    List.Extra.updateAt lastOpenIndex Dropdown.close
-
-                                else
-                                    identity
-                            )
-                        |> Maybe.withDefault identity
-            in
+update msg (State data) =
+    case msg of
+        CloseAllDropdowns ->
             ( State
                 { data
-                    | dropdownStates = closeLastOpenIfNeeded updatedDropdownStates
-                    , openDropdownIndex =
-                        if updatedDropdown.isOpen then
-                            Just index
-
-                        else
-                            Nothing
+                    | openDropdownIndex = Nothing
+                    , dropdownStates = List.map Dropdown.close data.dropdownStates
                 }
-            , cmd
+            , Cmd.none
             )
 
-        Nothing ->
-            ( State data, Cmd.none )
+        DropdownMsg index dropdownMsg ->
+            let
+                { dropdownStates, toMsg, openDropdownIndex } =
+                    data
+            in
+            case List.Extra.getAt index dropdownStates of
+                Just dropdownState ->
+                    let
+                        ( updatedDropdown, cmd ) =
+                            Dropdown.update (DropdownMsg index >> toMsg) dropdownMsg dropdownState
+
+                        updatedDropdownStates =
+                            dropdownStates
+                                |> List.Extra.setAt index updatedDropdown
+
+                        -- Close last open dropdown if it exists, is different from current updated and current one became open.
+                        closeLastOpenIfNeeded =
+                            openDropdownIndex
+                                |> Maybe.map
+                                    (\lastOpenIndex ->
+                                        if lastOpenIndex /= index && updatedDropdown.isOpen then
+                                            List.Extra.updateAt lastOpenIndex Dropdown.close
+
+                                        else
+                                            identity
+                                    )
+                                |> Maybe.withDefault identity
+                    in
+                    ( State
+                        { data
+                            | dropdownStates = closeLastOpenIfNeeded updatedDropdownStates
+                            , openDropdownIndex =
+                                if updatedDropdown.isOpen then
+                                    Just index
+
+                                else
+                                    Nothing
+                        }
+                    , cmd
+                    )
+
+                Nothing ->
+                    ( State data, Cmd.none )
+
+
+closeAllDropdowns : (Msg -> msg) -> Cmd msg
+closeAllDropdowns toMsg =
+    -- TODO remove this line and refactor TopBar to have an option "close on click"
+    Task.perform (always (toMsg CloseAllDropdowns)) (Task.succeed ())
 
 
 
