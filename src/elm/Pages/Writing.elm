@@ -400,4 +400,9 @@ subscriptions model isVisible =
 
 initialCmd : Cmd Msg
 initialCmd =
-    Task.attempt (always NoOp) (Browser.Dom.focus "WritingInput")
+    Cmd.batch
+        [ Task.attempt (always NoOp) (Browser.Dom.focus "WritingInput")
+
+        -- TODO remove this line and refactor TopBar to have an option "close on click"
+        , TopBar.closeAllDropdowns TopBarMsg
+        ]
