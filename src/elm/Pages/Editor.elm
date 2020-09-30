@@ -884,7 +884,7 @@ blockBox editingIndex strokeColor index blockSvg =
         , Icons.trash
             |> withColor Colors.red_
             |> withOnClick (DropBlock index)
-            |> Icons.toSvg
+            |> Icons.toSvgOldAPI
         , Icons.duplicate
             |> withColor strokeColor
             |> withOnClick (DuplicateAndAppendBlock index)
@@ -893,7 +893,7 @@ blockBox editingIndex strokeColor index blockSvg =
                 , right (px 5)
                 , bottom (px 2)
                 ]
-            |> Icons.toSvg
+            |> Icons.toSvgOldAPI
         ]
 
 
