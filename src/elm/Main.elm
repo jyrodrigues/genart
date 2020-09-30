@@ -351,11 +351,18 @@ initializeCmds model page =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ Sub.map EditorMsg <| Editor.subscriptions model.editor (model.viewingPage == EditorPage)
-        , Sub.map WelcomeMsg <| Welcome.subscriptions model.welcome (model.viewingPage == WelcomePage)
-        , Sub.map WritingMsg <| Writing.subscriptions model.writting (model.viewingPage == WritingPage)
-        ]
+    case model.viewingPage of
+        EditorPage ->
+            Sub.map EditorMsg <| Editor.subscriptions model.editor
+
+        GalleryPage ->
+            Sub.map GalleryMsg <| Gallery.subscriptions model.gallery
+
+        WelcomePage ->
+            Sub.map WelcomeMsg <| Welcome.subscriptions model.welcome
+
+        WritingPage ->
+            Sub.map WritingMsg <| Writing.subscriptions model.writting
 
 
 

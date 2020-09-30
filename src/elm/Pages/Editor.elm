@@ -1846,8 +1846,8 @@ getImgDivPosition =
 -- SUBSCRIPTIONS
 
 
-subscriptions : Model -> Bool -> Sub Msg
-subscriptions model isVisible =
+subscriptions : Model -> Sub Msg
+subscriptions model =
     let
         panSubs =
             if model.panStarted then
@@ -1876,19 +1876,15 @@ subscriptions model isVisible =
         windowResize =
             Browser.Events.onResize WindowResized
     in
-    if isVisible then
-        Sub.batch
-            [ keyPressSub
-            , panSubs
-            , videoSub
-            , midiEvent GotMidiEvent
-            , copyToClipboardResult CopyUrlToClipboardResult
-            , windowResize
-            , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
-            ]
-
-    else
-        windowResize
+    Sub.batch
+        [ keyPressSub
+        , panSubs
+        , videoSub
+        , midiEvent GotMidiEvent
+        , copyToClipboardResult CopyUrlToClipboardResult
+        , windowResize
+        , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
+        ]
 
 
 framesInterval : Float
