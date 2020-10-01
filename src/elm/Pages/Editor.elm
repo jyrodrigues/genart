@@ -26,7 +26,8 @@ import Components.Dropdown as Dropdown
 import Components.TopBar as TopBar
 import Css
     exposing
-        ( absolute
+        ( Style
+        , absolute
         , after
         , alignItems
         , auto
@@ -53,6 +54,7 @@ import Css
         , contentBox
         , cursor
         , default
+        , deg
         , display
         , displayFlex
         , fixed
@@ -78,6 +80,8 @@ import Css
         , middle
         , minus
         , none
+        , num
+        , opacity
         , overflow
         , overflowWrap
         , overflowX
@@ -93,6 +97,7 @@ import Css
         , px
         , relative
         , right
+        , rotate
         , row
         , scroll
         , solid
@@ -100,15 +105,17 @@ import Css
         , spaceBetween
         , textAlign
         , top
+        , transform
         , unset
         , vw
         , width
         , wrap
         , zero
         )
+import DnDList
 import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
 import Html.Styled exposing (Html, div, input, label, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (checked, class, css, id, type_, value)
+import Html.Styled.Attributes exposing (checked, class, css, fromUnstyled, id, type_, value)
 import Html.Styled.Events
     exposing
         ( on
@@ -125,7 +132,7 @@ import Icons exposing (withColor, withCss, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
-import LSystem.Draw exposing (drawBlocks, drawImage)
+import LSystem.Draw exposing (drawBlock, drawImage)
 import LSystem.Image as Image
     exposing
         ( Image
@@ -235,6 +242,8 @@ type Msg
     | GotMidiEvent Encode.Value
       -- Alert popup
     | HideAlert
+      -- Drag and Drop
+    | DnDListMsg DnDList.Msg
       -- Sometimes there is nothing to do
     | NoOp
 
@@ -287,6 +296,9 @@ type alias Model =
 
     -- Top Bar
     , topBar : TopBar.State Msg
+
+    -- Drag and Drop
+    , dnd : DnDList.Model
 
     -- Alert Popup
     , alert : Maybe String
@@ -389,6 +401,9 @@ initialModel =
     -- Alert Popup
     , alert = Nothing
 
+    -- Drag and Drop
+    , dnd = dndSystem.model
+
     -- URL
     , url = Nothing
     }
@@ -402,6 +417,17 @@ initialCmd model =
         -- TODO remove this line and refactor TopBar to have an option "close on click"
         , TopBar.closeAllDropdowns TopBarMsg
         ]
+
+
+dndSystem : DnDList.System LSystem.Core.Block Msg
+dndSystem =
+    DnDList.create
+        { beforeUpdate = \_ _ list -> list
+        , movement = DnDList.Free
+        , listen = DnDList.OnDrag
+        , operation = DnDList.Rotate
+        }
+        DnDListMsg
 
 
 
@@ -456,7 +482,7 @@ view model =
         [ Lazy.lazy3 TopBar.view EditorPage (topBarElements model) model.topBar |> toUnstyled
         , div
             [ css [ width (pct 100), height (calc (pct 100) minus (px 41)) ] ]
-            ([ Lazy.lazy2 compositionBlocksList model.image model.editingIndex
+            ([ Lazy.lazy3 compositionBlocksList model.dnd model.image model.editingIndex
              , Lazy.lazy mainImg model.image
              , Lazy.lazy2 turnAngleControl model.turnAngleInputValue model.image.backgroundColor
              ]
@@ -557,7 +583,6 @@ videoControls angleChangeRate playingVideo slowMotion colorInVideo =
                 ]
     in
     div [ css [ width (px 240) ] ]
-        -- TODO change `video.changeAngle` to `video` i.e. the whole set
         [ div [ css btnStyle, onClick ToggleVideo ] [ text playPauseText ]
         , div [ css btnStyle, onClick ReverseAngleChangeDirection ] [ text "Reverse direction" ]
         , div [ css [ padding (px 10) ] ]
@@ -615,7 +640,7 @@ strokeControl strokeWidth curve =
 info : Model -> Html Msg
 info model =
     div [ css [ width (px 180), padding (px 10) ] ]
-        [ p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.imageStepsLenthString model.image) ]
+        [ p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.imageStepsLengthString model.image) ]
         , p [ css [ overflowWrap breakWord, fontSize (px 14) ] ] [ text (Image.blockBlueprintString model.editingIndex model.image) ]
         ]
 
@@ -825,13 +850,14 @@ truncateFloatString precision floatString =
             floatString
 
 
-compositionBlocksList : Image -> Int -> Html Msg
-compositionBlocksList image editingIndex =
+compositionBlocksList : DnDList.Model -> Image -> Int -> Html Msg
+compositionBlocksList dnd image editingIndex =
     let
         compositionBlocks =
             image
-                |> drawBlocks
-                |> List.indexedMap (blockBox editingIndex image.strokeColor)
+                |> Image.toBlocks
+                |> List.map (Lazy.lazy5 drawBlock image.backgroundColor image.strokeColor image.turnAngle image.curve)
+                |> List.indexedMap (blockBox dnd editingIndex image.strokeColor)
                 |> List.reverse
     in
     C.fixedDiv
@@ -847,75 +873,140 @@ compositionBlocksList image editingIndex =
             , boxShadow6 inset (px -44) zero (px 20) (px -10) (toCssColor Colors.black)
             ]
         ]
-        (C.primaryButtonStyled [ marginBottom (px 20) ] AddSimpleBlock "Add new block" :: compositionBlocks)
+        (C.primaryButtonStyled [ marginBottom (px 20) ] AddSimpleBlock "Add new block"
+            :: compositionBlocks
+            ++ ghostBlockBox dnd image
+        )
 
 
-blockBox : Int -> Color -> Int -> Svg Msg -> Html Msg
-blockBox editingIndex strokeColor index blockSvg =
+blockBox : DnDList.Model -> Int -> Color -> Int -> Svg Msg -> Html Msg
+blockBox dnd editingIndex strokeColor index blockSvg =
     let
-        ( borderBottomWidth, borderWidthSelected, borderWidthHover ) =
-            ( 20, 3, 5 )
+        blockId =
+            "editor-block-id-" ++ String.fromInt index
 
-        style =
-            [ height (px 150)
-            , width (pct 100)
-            , margin3 zero auto (px 20)
-            , cursor pointer
-            , borderRadius (px 3)
-            , hover
-                [ border3 (px 5) solid (toCssColor strokeColor)
-
-                -- Changing the border style for aesthetic reasons.
-                -- This rule is more specific so it overrides `borderOnSelected`.
-                , boxSizing contentBox
-
-                -- Compensate top and bottom borders.
-                , margin3
-                    (px -borderWidthHover)
-                    (px -borderWidthHover)
-                    (px (borderBottomWidth - borderWidthHover))
-                ]
-
-            -- Making position relative to allow for Icon placement to the right.
-            , position relative
-            , boxShadow5 (px 1) (px 1) (px 2) (px 2) (Colors.toCssColor Colors.blackShadow)
+        clickAndId =
+            [ onClick (SetEditingIndex index)
+            , id blockId
             ]
 
-        borderOnSelected =
-            [ border3 (px borderWidthSelected) solid (toCssColor strokeColor)
-            , margin3
-                (px -borderWidthSelected)
-                (px -borderWidthSelected)
-                (px (borderBottomWidth - borderWidthSelected))
+        attrsWithoutSelect =
+            css (blockBoxStyle strokeColor) :: clickAndId
+
+        attrs =
+            -- `blockBoxBorderSelectedStyle` *must* be in the same class and come after for its css to take effect (i.e. to overwrite margins)
+            css (blockBoxStyle strokeColor ++ blockBoxBorderSelectedStyle strokeColor (index == editingIndex)) :: clickAndId
+
+        html =
+            [ blockSvg
+            , trash index
+            , duplicate index strokeColor
             ]
     in
-    div
-        [ css
-            (style
-                ++ (if editingIndex == index then
-                        borderOnSelected
+    case dndSystem.info dnd of
+        Just { dragIndex } ->
+            if dragIndex /= index then
+                div (attrs ++ List.map fromUnstyled (dndSystem.dropEvents index blockId)) html
 
-                    else
-                        []
-                   )
-            )
-        , onClick (SetEditingIndex index)
-        ]
-        [ blockSvg
-        , Icons.trash
-            |> withColor Colors.red_
-            |> withOnClick (DropBlock index)
-            |> Icons.toSvgOldAPI
-        , Icons.duplicate
-            |> withColor strokeColor
-            |> withOnClick (DuplicateAndAppendBlock index)
-            |> withCss
-                [ position absolute
-                , right (px 5)
-                , bottom (px 2)
+            else
+                div (css [ opacity (num 0.3) ] :: attrsWithoutSelect) html
+
+        Nothing ->
+            div (attrs ++ List.map fromUnstyled (dndSystem.dragEvents index blockId)) html
+
+
+ghostBlockBox : DnDList.Model -> Image -> List (Html Msg)
+ghostBlockBox dnd image =
+    let
+        maybeDragItem =
+            dndSystem.info dnd
+                |> Maybe.andThen (\{ dragIndex } -> List.Extra.getAt dragIndex (Image.toBlocks image))
+    in
+    case maybeDragItem of
+        Just block ->
+            [ div (List.map fromUnstyled (dndSystem.ghostStyles dnd))
+                [ div [ css (transform (rotate (deg 4)) :: blockBoxStyle image.strokeColor) ]
+                    [ Lazy.lazy5 drawBlock image.backgroundColor image.strokeColor image.turnAngle image.curve block ]
                 ]
-            |> Icons.toSvgOldAPI
+            ]
+
+        Nothing ->
+            []
+
+
+trash index =
+    Icons.trash
+        |> withColor Colors.red_
+        |> withOnClick (DropBlock index)
+        |> Icons.toSvgOldAPI
+
+
+duplicate index strokeColor =
+    Icons.duplicate
+        |> withColor strokeColor
+        |> withOnClick (DuplicateAndAppendBlock index)
+        |> withCss
+            [ position absolute
+            , right (px 5)
+            , bottom (px 2)
+            ]
+        |> Icons.toSvgOldAPI
+
+
+borderBottomWidth : Float
+borderBottomWidth =
+    20
+
+
+borderWidthSelected : Float
+borderWidthSelected =
+    3
+
+
+borderWidthHover : Float
+borderWidthHover =
+    5
+
+
+blockBoxStyle : Color -> List Style
+blockBoxStyle strokeColor =
+    [ height (px 150)
+    , width (pct 100)
+    , margin3 zero auto (px 20)
+    , cursor pointer
+    , borderRadius (px 3)
+    , hover
+        [ border3 (px 5) solid (toCssColor strokeColor)
+
+        -- Changing the border style for aesthetic reasons.
+        -- This rule is more specific so it overrides `borderOnSelected`.
+        , boxSizing contentBox
+
+        -- Compensate top and bottom borders.
+        , margin3
+            (px -borderWidthHover)
+            (px -borderWidthHover)
+            (px (borderBottomWidth - borderWidthHover))
         ]
+
+    -- Making position relative to allow for Icon placement to the right.
+    , position relative
+    , boxShadow5 (px 1) (px 1) (px 2) (px 2) (Colors.toCssColor Colors.blackShadow)
+    ]
+
+
+blockBoxBorderSelectedStyle : Color -> Bool -> List Style
+blockBoxBorderSelectedStyle strokeColor isSelected =
+    if isSelected then
+        [ border3 (px borderWidthSelected) solid (toCssColor strokeColor)
+        , margin3
+            (px -borderWidthSelected)
+            (px -borderWidthSelected)
+            (px (borderBottomWidth - borderWidthSelected))
+        ]
+
+    else
+        []
 
 
 mainImg : Image -> Html Msg
@@ -979,6 +1070,32 @@ update msg model =
                         TopBar.update subMsg model.topBar
                 in
                 ( { model | topBar = updatedTopBar }, cmd, UpdatedEditor )
+
+            DnDListMsg subMsg ->
+                let
+                    ( dnd, blocks ) =
+                        dndSystem.update subMsg model.dnd (Image.toBlocks model.image)
+
+                    ( before, after ) =
+                        ( dndSystem.info model.dnd, dndSystem.info dnd )
+
+                    editingIndex =
+                        case ( before, after ) of
+                            ( Just { dropIndex }, Nothing ) ->
+                                -- Drop detected! https://github.com/annaghi/dnd-list/issues/64
+                                dropIndex
+
+                            _ ->
+                                model.editingIndex
+                in
+                ( { model
+                    | dnd = dnd
+                    , image = Image.withBlocks blocks model.image
+                    , editingIndex = editingIndex
+                  }
+                , dndSystem.commands dnd
+                , UpdatedEditor
+                )
 
             RandomRequested ->
                 ( model, Random.generate GotRandomImage Image.random, NothingToUpdate )
@@ -1884,6 +2001,7 @@ subscriptions model =
         , copyToClipboardResult CopyUrlToClipboardResult
         , windowResize
         , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
+        , dndSystem.subscriptions model.dnd
         ]
 
 

@@ -1,6 +1,7 @@
-module LSystem.Draw exposing (drawBlocks, drawFixedImage, drawImage)
+module LSystem.Draw exposing (drawBlock, drawFixedImage, drawImage)
 
 import Colors exposing (Color)
+import LSystem.Core as Core exposing (Block)
 import LSystem.Image as Image exposing (Boundaries, Image)
 import Svg.Styled exposing (Svg, circle, defs, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
@@ -36,6 +37,21 @@ drawBlocks : Image -> List (Svg msg)
 drawBlocks image =
     Image.blocksToImages image
         |> List.map (drawImage Nothing True)
+
+
+drawBlock : Color -> Color -> Float -> Image.PathCurve -> Block -> Svg msg
+drawBlock backgroundColor strokeColor turnAngle curve block =
+    drawImage Nothing True <|
+        { composition = Core.fromList [ block ]
+        , backgroundColor = backgroundColor
+        , turnAngle = turnAngle
+        , strokeColor = strokeColor
+        , curve = curve
+        , scale = 1
+        , translate = ( 0, 0 )
+        , strokeWidth = 1
+        , svgPathAndBoundaries = Nothing
+        }
 
 
 drawFixedImage : Image -> Svg msg
