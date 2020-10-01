@@ -151,8 +151,8 @@ framesInterval =
     100
 
 
-subscriptions : Model -> Bool -> Sub Msg
-subscriptions model isVisible =
+subscriptions : Model -> Sub Msg
+subscriptions model =
     let
         videoSub =
             if model.isPlaying then
@@ -161,11 +161,7 @@ subscriptions model isVisible =
             else
                 Sub.none
     in
-    if isVisible then
-        videoSub
-
-    else
-        Sub.none
+    videoSub
 
 
 initialCmd : Cmd Msg

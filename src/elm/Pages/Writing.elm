@@ -381,8 +381,8 @@ framesInterval =
     100
 
 
-subscriptions : Model -> Bool -> Sub Msg
-subscriptions model isVisible =
+subscriptions : Model -> Sub Msg
+subscriptions model =
     let
         videoSub =
             if model.isPlaying then
@@ -391,7 +391,7 @@ subscriptions model isVisible =
             else
                 Sub.none
     in
-    if isVisible && model.isPlaying then
+    if model.isPlaying then
         videoSub
 
     else
@@ -400,4 +400,9 @@ subscriptions model isVisible =
 
 initialCmd : Cmd Msg
 initialCmd =
-    Task.attempt (always NoOp) (Browser.Dom.focus "WritingInput")
+    Cmd.batch
+        [ Task.attempt (always NoOp) (Browser.Dom.focus "WritingInput")
+
+        -- TODO remove this line and refactor TopBar to have an option "close on click"
+        , TopBar.closeAllDropdowns TopBarMsg
+        ]
