@@ -236,7 +236,7 @@ type Msg
       -- Fullscreen
     | FullscreenRequested
       -- Random
-    | RandomRequested
+    | RandomRequested RandomType
     | GotRandomImage PartialImage
       -- MIDI
     | GotMidiEvent Encode.Value
@@ -341,6 +341,11 @@ type ColorTarget
 type KeyboardInput
     = ShortcutsMode
     | WritingMode
+
+
+type RandomType
+    = Uniform
+    | Rectangles
 
 
 {-| Those are Strings because we use a Set to check which ones are playing
@@ -529,7 +534,8 @@ fileControls =
 
         -- TODO Maybe change to a "New" dropdown
         , div [ css (Dropdown.listItemStyle False), onClick ResetDrawing ] [ text "Reset Image" ]
-        , div [ css (Dropdown.listItemStyle False), onClick RandomRequested ] [ text "Random Image" ]
+        , div [ css (Dropdown.listItemStyle False), onClick (RandomRequested Uniform) ] [ text "Random Image" ]
+        , div [ css (Dropdown.listItemStyle False), onClick (RandomRequested Rectangles) ] [ text "Random Rectangles" ]
 
         -- TODO Remove from here and add a on-screen button
         , div [ css (Dropdown.listItemStyle False), onClick FullscreenRequested ] [ text "Enter fullscreen" ]
@@ -1097,8 +1103,13 @@ update msg model =
                 , UpdatedEditor
                 )
 
-            RandomRequested ->
-                ( model, Random.generate GotRandomImage Image.random, NothingToUpdate )
+            RandomRequested randomType ->
+                case randomType of
+                    Rectangles ->
+                        ( model, Random.generate GotRandomImage Image.randomRectangle, NothingToUpdate )
+
+                    Uniform ->
+                        ( model, Random.generate GotRandomImage Image.random, NothingToUpdate )
 
             GotRandomImage partialImage ->
                 let
@@ -1222,8 +1233,8 @@ update msg model =
                         else if keyString == "a" then
                             ( model, Task.attempt (always NoOp) (Browser.Dom.focus "TurnAngle"), NothingToUpdate )
 
-                        else if keyString == "q" then
-                            ( model, Random.generate GotRandomImage Image.random, UpdatedEditor )
+                        else if keyString == "R" then
+                            ( model, Random.generate GotRandomImage Image.randomRectangle, UpdatedEditor )
 
                         else
                             case maybeNewModelShortcut of
