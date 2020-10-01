@@ -26,6 +26,7 @@ module LSystem.Image exposing
     , polygonBlock
     , queryParser
     , random
+    , randomRectangle
     , resetBaseTo
     , resetImageComposition
     , toBlocks
@@ -449,6 +450,25 @@ random =
                     , strokeColor = Just color
                 }
             )
+
+
+randomRectangle : Random.Generator PartialImage
+randomRectangle =
+    randomTuple3 Core.randomRectangleComposition Colors.random (Random.float 0 360)
+        |> Random.map
+            (\( composition, color, turnAngle ) ->
+                { emptyPartialImage
+                    | composition = Just (Core.replaceBlankBlocks composition)
+                    , strokeColor = Just color
+                    , turnAngle = Just turnAngle
+                }
+            )
+
+
+randomTuple3 : Random.Generator a -> Random.Generator b -> Random.Generator c -> Random.Generator ( a, b, c )
+randomTuple3 genA genB genC =
+    Random.pair genA (Random.pair genB genC)
+        |> Random.map (\( a, ( b, c ) ) -> ( a, b, c ))
 
 
 

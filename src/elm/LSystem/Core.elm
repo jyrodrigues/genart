@@ -19,6 +19,7 @@ module LSystem.Core exposing
     , getBlockAtIndex
     , length
     , randomComposition
+    , randomRectangleComposition
     , replaceBlankBlocks
     , stepsLength
     , toList
@@ -313,6 +314,54 @@ randomComposition =
 randomStep : Random.Generator Step
 randomStep =
     Random.weighted ( 20, D ) [ ( 15, L ), ( 5, R ), ( 1, S ) ]
+
+
+randomRectangleComposition : Random.Generator Composition
+randomRectangleComposition =
+    Random.map fromList randomBlock
+
+
+randomBlock : Random.Generator (List Block)
+randomBlock =
+    randomList
+        [ onlyDBloc 5 15
+        , rectangle 1 5 3 10
+        , onlyDBloc 5 15
+        , rectangle 1 1 3 10
+        ]
+
+
+rectangle : Int -> Int -> Int -> Int -> Random.Generator Block
+rectangle minX maxX minY maxY =
+    Random.pair (Random.int minX maxX) (Random.int minY maxY)
+        |> Random.map
+            (\( x, y ) ->
+                List.repeat x D
+                    ++ L
+                    :: List.repeat y D
+                    ++ L
+                    :: List.repeat x D
+                    ++ L
+                    :: List.repeat y D
+                    ++ [ L ]
+            )
+
+
+onlyDBloc : Int -> Int -> Random.Generator Block
+onlyDBloc min max =
+    Random.int min max
+        |> Random.map (\num -> List.repeat num D)
+
+
+randomList : List (Random.Generator something) -> Random.Generator (List something)
+randomList generators =
+    List.foldr
+        (\prev acc ->
+            Random.pair prev acc
+                |> Random.map (\( prevBlock, listSoFar ) -> prevBlock :: listSoFar)
+        )
+        (Random.constant [])
+        generators
 
 
 
