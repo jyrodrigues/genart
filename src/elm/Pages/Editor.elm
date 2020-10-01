@@ -108,7 +108,7 @@ import Css
         )
 import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
 import Html.Styled exposing (Html, div, input, label, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (checked, css, id, type_, value)
+import Html.Styled.Attributes exposing (checked, class, css, id, type_, value)
 import Html.Styled.Events
     exposing
         ( on
@@ -458,7 +458,7 @@ view model =
             [ css [ width (pct 100), height (calc (pct 100) minus (px 41)) ] ]
             ([ Lazy.lazy2 compositionBlocksList model.image model.editingIndex
              , Lazy.lazy mainImg model.image
-             , Lazy.lazy turnAngleControl model.turnAngleInputValue
+             , Lazy.lazy2 turnAngleControl model.turnAngleInputValue model.image.backgroundColor
              ]
                 ++ alert
             )
@@ -620,15 +620,34 @@ info model =
         ]
 
 
-turnAngleControl : String -> Html Msg
-turnAngleControl turnAngleInputValue =
+turnAngleControl : String -> Color -> Html Msg
+turnAngleControl turnAngleInputValue backgroundColor =
     let
+        isBackgroundDark =
+            .v (Colors.toHsva backgroundColor) < 0.5
+
+        addContrast =
+            if isBackgroundDark then
+                class "white"
+
+            else
+                class "black"
+
         angleNumberSpan value =
             span
                 [ css
                     [ width (px angleNumberWidth)
                     , textAlign center
-                    , color (Colors.toCssColor Colors.offWhite)
+                    , color
+                        (Colors.toCssColor
+                            (if isBackgroundDark then
+                                Colors.offWhite
+
+                             else
+                                Colors.theme.active
+                            )
+                        )
+                    , fontSize (px 14)
                     ]
                 ]
                 [ text value ]
@@ -647,11 +666,9 @@ turnAngleControl turnAngleInputValue =
             , right zero
             , height (px layout.turnAngleControlHeight)
             , width (calc (pct 100) minus (px layout.transformsList))
-            , backgroundColor (Colors.toCssColor Colors.theme.backgroundColor)
-            , borderLeft3 (px 1) solid (Colors.toCssColor Colors.black)
-            , borderTop3 (px 1) solid (Colors.toCssColor Colors.black)
             , boxSizing borderBox
             ]
+        , addContrast
         ]
         [ turnAngleInput turnAngleInputValue
         , div [ css [ width (calc (pct 80) minus (px layout.turnAngleInputWidth)), flexGrow (int 2), marginRight (px 40) ] ]
@@ -827,6 +844,7 @@ compositionBlocksList image editingIndex =
             , borderRight3 (px 1) solid (toCssColor Colors.black)
             , padding (px 15)
             , paddingRight (px layout.paddingToHideScrollbars)
+            , boxShadow6 inset (px -44) zero (px 20) (px -10) (toCssColor Colors.black)
             ]
         ]
         (C.primaryButtonStyled [ marginBottom (px 20) ] AddSimpleBlock "Add new block" :: compositionBlocks)
