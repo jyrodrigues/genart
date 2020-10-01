@@ -1,8 +1,8 @@
 module Icons exposing
     ( Size(..)
-    , delete
     , duplicate
     , eye
+    , iconDelete
     , pen
     , toSvg
     , toSvgOldAPI
@@ -150,8 +150,8 @@ duplicate =
 -- , redo = "M53.66,65.67,66.19,53.13c-1.25-1.06-10-8.27-21.94-6.26A27.27,27.27,0,0,0,23.36,64.63L15,61.49c.41-1.12,7.2-18.91,26.12-23,17.3-3.73,30,7.19,31.34,8.36L85,34.33V65.67Z"
 
 
-delete : Icon msg
-delete =
+iconDelete : Icon msg
+iconDelete =
     let
         attrs =
             [ stroke "currentColor", strokeWidth "2", strokeLinecap "round", strokeLinejoin "round" ]

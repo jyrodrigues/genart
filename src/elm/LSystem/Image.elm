@@ -18,7 +18,7 @@ module LSystem.Image exposing
     , duplicateBlock
     , encode
     , hash
-    , imageStepsLenthString
+    , imageStepsLengthString
     , imageToSvgPathString
     , length
     , move
@@ -28,10 +28,12 @@ module LSystem.Image exposing
     , random
     , resetBaseTo
     , resetImageComposition
+    , toBlocks
     , toQuery
     , updateSvgPathAndBoundaries
     , welcomeImage
     , withBackgroundColor
+    , withBlocks
     , withComposition
     , withCurve
     , withImage
@@ -171,6 +173,11 @@ emptyPartialImage =
 
 
 -- UTILITIES
+
+
+toBlocks : Image -> List Block
+toBlocks =
+    .composition >> Core.toList
 
 
 blocksToImages : Image -> List Image
@@ -323,8 +330,8 @@ length image =
     Core.length image.composition
 
 
-imageStepsLenthString : Image -> String
-imageStepsLenthString image =
+imageStepsLengthString : Image -> String
+imageStepsLengthString image =
     let
         ( count, countOthers ) =
             Core.stepsLength image.composition
@@ -349,6 +356,14 @@ blockBlueprintString index image =
 withComposition : Composition -> Image -> Image
 withComposition composition image =
     { image | composition = composition }
+
+
+withBlocks : List Block -> Image -> Image
+withBlocks blocks image =
+    { image
+        | composition = Core.fromList blocks
+        , svgPathAndBoundaries = Nothing
+    }
 
 
 withBackgroundColor : Color -> Image -> Image
