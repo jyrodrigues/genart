@@ -78,14 +78,17 @@ drawImageEager maybeId drawOriginAndNextStep image =
         ( x, y ) =
             translate
 
-        -- MAIN COMPUTATION: process image and create SVG path.
-        ( mainPathString, nextStepPathString, boundaries ) =
+        { pathString, nextStepPathString, boundaries, strokeWidth } =
             case image.svgPathAndBoundaries of
                 Just svgPathAndBoundaries ->
                     svgPathAndBoundaries
 
                 Nothing ->
+                    -- MAIN COMPUTATION: process image and create SVG path.
                     Image.imageToSvgPathString image
+
+        strokeWidthClamped =
+            max strokeWidth image.strokeWidth
 
         ( ( viewBoxMinX, viewBoxMinY ), ( viewBoxWidth, viewBoxHeight ) ) =
             calculateViewBox boundaries
@@ -146,9 +149,11 @@ drawImageEager maybeId drawOriginAndNextStep image =
             ++ optionalAttrs
         )
         (path
-            [ d mainPathString
+            [ d pathString
             , stroke (Colors.toString strokeColor)
-            , strokeWidth (String.fromFloat image.strokeWidth ++ "px")
+
+            --, strokeWidth (String.fromFloat image.strokeWidth ++ "px")
+            , Svg.Styled.Attributes.strokeWidth (String.fromFloat strokeWidthClamped ++ "px")
             , strokeLinecap "square"
             , fill "none"
 

@@ -87,7 +87,11 @@ type Polygon
 
 
 type alias SvgPathAndBoundaries =
-    ( String, String, Boundaries )
+    { pathString : String
+    , nextStepPathString : String
+    , boundaries : Boundaries
+    , strokeWidth : Float
+    }
 
 
 type alias Boundaries =
@@ -715,21 +719,31 @@ imageToSvgPathString { composition, turnAngle, curve } =
 
         ( lastX, lastY ) =
             finalEverything.position
+
+        strokeWidth =
+            Utils.pairExec (-) finalEverything.boundaries.rightBottom finalEverything.boundaries.leftTop
+                |> Utils.pairMerge (*)
+                -- Magic number chosen via something like 10 manual tests
+                |> (\area -> area / 2220090)
     in
     -- Main path
     -- TODO add initial Q value when curve==Curve
-    ( "M 0 0 " ++ finalEverything.pathString
-      -- Next step path
-      -- TODO move this into a function on Svg module
-    , "M "
-        ++ String.fromFloat lastX
-        ++ " "
-        ++ String.fromFloat lastY
-        ++ " "
-        ++ segmentToString (Svg.Core.L (nextPositionDelta finalEverything.angle 10))
-      -- TopRight and BottomLeft extremes of final image
-    , finalEverything.boundaries
-    )
+    { pathString = "M 0 0 " ++ finalEverything.pathString
+
+    -- Next step path
+    -- TODO move this into a function on Svg module
+    , nextStepPathString =
+        "M "
+            ++ String.fromFloat lastX
+            ++ " "
+            ++ String.fromFloat lastY
+            ++ " "
+            ++ segmentToString (Svg.Core.L (nextPositionDelta finalEverything.angle 10))
+
+    -- TopRight and BottomLeft extremes of final image
+    , boundaries = finalEverything.boundaries
+    , strokeWidth = strokeWidth
+    }
 
 
 baseEverything : EverythingInOnePass

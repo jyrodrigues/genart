@@ -150,6 +150,11 @@ pairMap op pair =
     )
 
 
+pairMerge : (a -> b -> c) -> ( a, b ) -> c
+pairMerge op ( a, b ) =
+    op a b
+
+
 
 -- MAYBE EXTRA
 
