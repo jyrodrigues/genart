@@ -64,9 +64,11 @@ customView styles { title, body, toMsg } state =
         , onMouseLeave (toMsg MouseLeave)
         ]
         (div
-            [ css
+            -- This msg doesn't have the same semantic meaning as a click, but it's ok!
+            [ onClick (toMsg MouseEnter)
+            , css
                 [ color (Colors.toCssColor Colors.white)
-                , cursor default
+                , cursor pointer
                 ]
             ]
             [ text title ]
