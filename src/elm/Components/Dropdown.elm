@@ -1,7 +1,7 @@
 module Components.Dropdown exposing
     ( Config
+    , Model
     , Msg
-    , State
     , View
     , close
     , customView
@@ -21,34 +21,38 @@ import Json.Decode as Decode
 import Utils
 
 
-type alias State =
+type alias Model msg =
     { isOpen : Bool
-    , mouseIsInside : Bool
+    , toMsg : Msg -> msg
+    , id : String
     }
 
 
 type alias Config msg =
     { title : String
     , body : Html msg
-    , toMsg : Msg -> msg
     }
 
 
 type Msg
-    = MouseEnter
-    | MouseLeave
-    | Close
+    = TitleClicked
+    | OnMouseDown OutsideTarget
 
 
-init : Bool -> State
-init isOpen =
-    { isOpen = isOpen
-    , mouseIsInside = False
+type alias OutsideTarget =
+    Bool
+
+
+init : (Msg -> msg) -> Int -> Model msg
+init toMsg idNumber =
+    { isOpen = False
+    , toMsg = toMsg
+    , id = "dropdown-id-" ++ String.fromInt idNumber
     }
 
 
 type alias View msg =
-    Config msg -> State -> Html msg
+    Config msg -> Model msg -> Html msg
 
 
 view : View msg
@@ -57,22 +61,19 @@ view =
 
 
 customView : List Style -> View msg
-customView styles { title, body, toMsg } state =
+customView styles { title, body } { isOpen, toMsg } =
     div
-        [ css (wrapperCss state.isOpen ++ styles)
-        , onMouseEnter (toMsg MouseEnter)
-        , onMouseLeave (toMsg MouseLeave)
-        ]
+        [ css (wrapperCss isOpen ++ styles) ]
         (div
             -- This msg doesn't have the same semantic meaning as a click, but it's ok!
-            [ onClick (toMsg MouseEnter)
+            [ onClick (toMsg TitleClicked)
             , css
                 [ color (Colors.toCssColor Colors.white)
                 , cursor pointer
                 ]
             ]
             [ text title ]
-            :: wrapBody toMsg body state.isOpen
+            :: wrapBody toMsg body isOpen
         )
 
 
@@ -117,8 +118,6 @@ wrapBody toMsg element isOpen =
                 , border3 (px 1.5) solid (Colors.toCssColor Colors.black)
                 , borderRadius (px 5)
                 ]
-            , onMouseEnter (toMsg MouseEnter)
-            , onMouseLeave (toMsg MouseLeave)
             ]
             [ element ]
         ]
@@ -127,35 +126,27 @@ wrapBody toMsg element isOpen =
         []
 
 
-update : (Msg -> msg) -> Msg -> State -> ( State, Cmd msg )
-update toMsg msg state =
+update : Msg -> Model msg -> ( Model msg, Cmd msg )
+update msg model =
     case msg of
-        MouseEnter ->
-            ( { isOpen = True, mouseIsInside = True }, Cmd.none )
+        TitleClicked ->
+            ( { model | isOpen = not model.isOpen }, Cmd.none )
 
-        MouseLeave ->
-            ( { state | mouseIsInside = False }, Utils.delay 200 (toMsg Close) )
+        OnMouseDown outsideTarget ->
+            if outsideTarget then
+                ( { model | isOpen = False }, Cmd.none )
 
-        Close ->
-            ( { state
-                | isOpen =
-                    if not state.mouseIsInside then
-                        False
-                        --True
-
-                    else
-                        state.isOpen
-              }
-            , Cmd.none
-            )
+            else
+                ( model, Cmd.none )
 
 
-close : State -> State
-close state =
-    { state | isOpen = False }
+close : Model msg -> Model msg
+close model =
+    { model | isOpen = False }
 
 
 
+-- DECODER OnMouseDown
 -- STYLES PREDEFINED
 
 

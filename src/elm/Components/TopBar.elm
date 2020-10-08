@@ -18,9 +18,8 @@ import Task
 
 type State msg
     = State
-        { dropdownStates : List Dropdown.State
+        { dropdowns : List (Dropdown.Model msg)
         , toMsg : Msg -> msg
-        , openDropdownIndex : Maybe Int
         }
 
 
@@ -33,9 +32,10 @@ init toMsg =
     in
     -- This can possibly create `Dropdown.State`s for non-Dropdown elements. But it's fine for now.
     State
-        { dropdownStates = List.repeat numberOfElements (Dropdown.init False)
+        { dropdowns =
+            List.range 0 numberOfElements
+                |> List.map (\idx -> Dropdown.init (DropdownMsg idx >> toMsg) idx)
         , toMsg = toMsg
-        , openDropdownIndex = Nothing
         }
 
 
@@ -60,12 +60,12 @@ type Msg
 
 
 view : Page -> List (Element msg) -> State msg -> Html msg
-view page elements (State { dropdownStates, toMsg }) =
+view page elements (State { dropdowns, toMsg }) =
     let
         indexedElements =
             (pagesDropdown page :: elements)
                 -- (state, elem)
-                |> List.Extra.zip dropdownStates
+                |> List.Extra.zip dropdowns
                 -- (index, (state, elem))
                 |> List.indexedMap Tuple.pair
 
@@ -83,7 +83,7 @@ view page elements (State { dropdownStates, toMsg }) =
             div wrapperAttrs []
 
 
-elementToHtml : (Msg -> msg) -> Dropdown.View msg -> ( Int, ( Dropdown.State, Element msg ) ) -> Html msg
+elementToHtml : (Msg -> msg) -> Dropdown.View msg -> ( Int, ( Dropdown.Model msg, Element msg ) ) -> Html msg
 elementToHtml toMsg view_ ( index, ( state, element ) ) =
     case element of
         Any html ->
@@ -91,8 +91,7 @@ elementToHtml toMsg view_ ( index, ( state, element ) ) =
 
         Dropdown { title, body } ->
             view_
-                { toMsg = DropdownMsg index >> toMsg
-                , title = title
+                { title = title
                 , body = body
                 }
                 state
@@ -126,30 +125,26 @@ update : Msg -> State msg -> ( State msg, Cmd msg )
 update msg (State data) =
     case msg of
         CloseAllDropdowns ->
-            ( State
-                { data
-                    | openDropdownIndex = Nothing
-                    , dropdownStates = List.map Dropdown.close data.dropdownStates
-                }
+            ( State { data | dropdowns = List.map Dropdown.close data.dropdowns }
             , Cmd.none
             )
 
         DropdownMsg index dropdownMsg ->
             let
-                { dropdownStates, toMsg, openDropdownIndex } =
+                { dropdowns } =
                     data
             in
-            case List.Extra.getAt index dropdownStates of
+            case List.Extra.getAt index dropdowns of
                 Just dropdownState ->
                     let
                         ( updatedDropdown, cmd ) =
-                            Dropdown.update (DropdownMsg index >> toMsg) dropdownMsg dropdownState
+                            Dropdown.update dropdownMsg dropdownState
 
                         updatedDropdownStates =
-                            dropdownStates
+                            dropdowns
                                 |> List.Extra.setAt index updatedDropdown
 
-                        -- Close last open dropdown if it exists, is different from current updated and current one became open.
+                        {--Close last open dropdown if it exists, is different from current updated and current one became open.
                         closeLastOpenIfNeeded =
                             openDropdownIndex
                                 |> Maybe.map
@@ -161,19 +156,9 @@ update msg (State data) =
                                             identity
                                     )
                                 |> Maybe.withDefault identity
+                        --}
                     in
-                    ( State
-                        { data
-                            | dropdownStates = closeLastOpenIfNeeded updatedDropdownStates
-                            , openDropdownIndex =
-                                if updatedDropdown.isOpen then
-                                    Just index
-
-                                else
-                                    Nothing
-                        }
-                    , cmd
-                    )
+                    ( State { data | dropdowns = updatedDropdownStates }, cmd )
 
                 Nothing ->
                     ( State data, Cmd.none )
