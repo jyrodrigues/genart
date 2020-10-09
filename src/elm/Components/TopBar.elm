@@ -1,4 +1,4 @@
-module Components.TopBar exposing (Element(..), Msg, State, closeAllDropdowns, init, subscriptions, update, view)
+module Components.TopBar exposing (Element(..), Msg, State, init, subscriptions, update, view)
 
 import Colors
 import Components as C
@@ -78,7 +78,7 @@ view : Page -> List (Element msg) -> State msg -> Html msg
 view page elements (State { dropdowns, toMsg }) =
     let
         indexedElements =
-            (pagesDropdown page :: elements)
+            (pagesDropdown toMsg page :: elements)
                 -- (state, elem)
                 |> List.Extra.zip dropdowns
                 -- (index, (state, elem))
@@ -165,23 +165,17 @@ update msg (State data) =
                     ( State data, Cmd.none )
 
 
-closeAllDropdowns : (Msg -> msg) -> Cmd msg
-closeAllDropdowns toMsg =
-    -- TODO remove this line and refactor TopBar to have an option "close on click"
-    Task.perform (always (toMsg CloseAllDropdowns)) (Task.succeed ())
-
-
 
 -- HELPERS
 
 
-pagesDropdown : Page -> Element msg
-pagesDropdown currentPage =
+pagesDropdown : (Msg -> msg) -> Page -> Element msg
+pagesDropdown toMsg currentPage =
     Dropdown
         { title = "Genart " ++ Pages.toString currentPage ++ " ▾"
         , body =
             div [ css [ width (px 140) ] ] <|
-                List.map (pageToAnchor currentPage)
+                List.map (pageToAnchor toMsg currentPage)
                     [ EditorPage
                     , GalleryPage
                     , WritingPage
@@ -190,10 +184,11 @@ pagesDropdown currentPage =
         }
 
 
-pageToAnchor : Page -> Page -> Html msg
-pageToAnchor activePage page =
+pageToAnchor : (Msg -> msg) -> Page -> Page -> Html msg
+pageToAnchor toMsg activePage page =
     a
         [ css (Dropdown.listItemStyle (activePage == page))
         , href ("/" ++ Pages.routeFor page)
+        , Dropdown.listItemCloseOnClick (DropdownMsg 0 >> toMsg)
         ]
         [ text (Pages.toString page) ]

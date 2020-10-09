@@ -415,13 +415,8 @@ initialModel =
 
 
 initialCmd : Model -> Cmd Msg
-initialCmd model =
-    Cmd.batch
-        [ getImgDivPosition
-
-        -- TODO remove this line and refactor TopBar to have an option "close on click"
-        , TopBar.closeAllDropdowns TopBarMsg
-        ]
+initialCmd _ =
+    getImgDivPosition
 
 
 dndSystem : DnDList.System LSystem.Core.Block Msg

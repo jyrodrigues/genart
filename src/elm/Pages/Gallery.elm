@@ -161,13 +161,7 @@ initialModel =
 
 initialCmd : Cmd Msg
 initialCmd =
-    Cmd.batch
-        [ Task.perform (always ComputeSvgPathForEveryImage) (Task.succeed ())
-
-        -- TODO remove this line and refactor TopBar to have an option "close on click"
-        -- Also this could be done as a last step, but I think it's better to do it whenever a page initializes
-        , TopBar.closeAllDropdowns TopBarMsg
-        ]
+    Task.perform (always ComputeSvgPathForEveryImage) (Task.succeed ())
 
 
 

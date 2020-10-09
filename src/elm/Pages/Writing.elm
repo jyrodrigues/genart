@@ -399,9 +399,4 @@ subscriptions model =
 
 initialCmd : Cmd Msg
 initialCmd =
-    Cmd.batch
-        [ Task.attempt (always NoOp) (Browser.Dom.focus "WritingInput")
-
-        -- TODO remove this line and refactor TopBar to have an option "close on click"
-        , TopBar.closeAllDropdowns TopBarMsg
-        ]
+    Task.attempt (always NoOp) (Browser.Dom.focus "WritingInput")

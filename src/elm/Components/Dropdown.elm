@@ -7,6 +7,7 @@ module Components.Dropdown exposing
     , customView
     , flexListItemStyle
     , init
+    , listItemCloseOnClick
     , listItemStyle
     , subscriptions
     , update
@@ -47,6 +48,7 @@ type alias Config msg =
 type Msg
     = TitleClicked
     | OnMouseDown OutsideTarget
+    | Close
 
 
 type alias OutsideTarget =
@@ -169,6 +171,9 @@ update msg model =
             else
                 ( model, Cmd.none )
 
+        Close ->
+            ( { model | isOpen = False }, Cmd.none )
+
 
 close : Model msg -> Model msg
 close model =
@@ -206,3 +211,8 @@ listItemStyle isActive =
 flexListItemStyle : Bool -> List Style
 flexListItemStyle isActive =
     listItemStyle isActive ++ [ Css.flexGrow (Css.int 1) ]
+
+
+listItemCloseOnClick : (Msg -> msg) -> Attribute msg
+listItemCloseOnClick toMsg =
+    onClick (toMsg Close)
