@@ -1,4 +1,4 @@
-module Components.TopBar exposing (Element(..), Msg, State, closeAllDropdowns, init, update, view)
+module Components.TopBar exposing (Element(..), Msg, State, closeAllDropdowns, init, subscriptions, update, view)
 
 import Colors
 import Components as C
@@ -27,10 +27,16 @@ init : (Msg -> msg) -> State msg
 init toMsg =
     let
         numberOfElements =
-            -- max number of elements this top bar can handle
+            {--
+            Max number of elements this top bar can handle (hardcoded).
+
+            We could properly handle different types of elements (i.e. which are dropdowns and which are not)
+            but this is much simpler: we just make a dropdown model available to every list item and reach for
+            the specific one on update. This way we don't need the elements list on initialization, only the
+            view must be aware of them.
+            --}
             12
     in
-    -- This can possibly create `Dropdown.State`s for non-Dropdown elements. But it's fine for now.
     State
         { dropdowns =
             List.range 0 numberOfElements
@@ -53,6 +59,15 @@ type Element msg
 type Msg
     = DropdownMsg Int Dropdown.Msg
     | CloseAllDropdowns
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : State msg -> Sub msg
+subscriptions (State { dropdowns }) =
+    Sub.batch (List.map Dropdown.subscriptions dropdowns)
 
 
 
@@ -143,20 +158,6 @@ update msg (State data) =
                         updatedDropdownStates =
                             dropdowns
                                 |> List.Extra.setAt index updatedDropdown
-
-                        {--Close last open dropdown if it exists, is different from current updated and current one became open.
-                        closeLastOpenIfNeeded =
-                            openDropdownIndex
-                                |> Maybe.map
-                                    (\lastOpenIndex ->
-                                        if lastOpenIndex /= index && updatedDropdown.isOpen then
-                                            List.Extra.updateAt lastOpenIndex Dropdown.close
-
-                                        else
-                                            identity
-                                    )
-                                |> Maybe.withDefault identity
-                        --}
                     in
                     ( State { data | dropdowns = updatedDropdownStates }, cmd )
 

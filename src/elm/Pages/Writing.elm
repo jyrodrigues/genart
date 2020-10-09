@@ -391,11 +391,10 @@ subscriptions model =
             else
                 Sub.none
     in
-    if model.isPlaying then
-        videoSub
-
-    else
-        Sub.none
+    Sub.batch
+        [ videoSub
+        , TopBar.subscriptions model.topBar
+        ]
 
 
 initialCmd : Cmd Msg

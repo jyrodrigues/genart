@@ -1,5 +1,6 @@
 module Utils exposing (..)
 
+import Json.Decode as Decode
 import Process
 import Task
 import Url exposing (Protocol(..))
@@ -216,3 +217,41 @@ protocolToString protocol =
 
         Https ->
             "https://"
+
+
+
+-- CLICK AWAY DECODER
+
+
+type alias ClickedAway =
+    Bool
+
+
+clickAwayDecoder : String -> Decode.Decoder ClickedAway
+clickAwayDecoder elementId =
+    Decode.field "target" (clickAwayHelperDecoder elementId)
+
+
+clickAwayHelperDecoder : String -> Decode.Decoder ClickedAway
+clickAwayHelperDecoder elementId =
+    Decode.oneOf
+        -- Try and check if current node has id "elementId"
+        [ Decode.field "id" Decode.string
+            |> Decode.andThen
+                (\id ->
+                    if elementId == id then
+                        -- Mouse down inside element tree
+                        Decode.succeed False
+
+                    else
+                        -- Keep climbing the DOM tree
+                        Decode.fail "Node id isn't relevant, keep looking"
+                )
+
+        -- Recursively climb to parent node
+        , Decode.lazy (\_ -> Decode.field "parentNode" (clickAwayHelperDecoder elementId))
+
+        -- Root node is outside element tree.
+        -- Doesn't have "id" nor "parentNode" attribute:  must be the root.
+        , Decode.succeed True
+        ]

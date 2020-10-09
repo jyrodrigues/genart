@@ -8,17 +8,23 @@ module Components.Dropdown exposing
     , flexListItemStyle
     , init
     , listItemStyle
+    , subscriptions
     , update
     , view
     )
 
+import Browser.Events
 import Colors
 import Css exposing (..)
 import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (css, tabindex)
-import Html.Styled.Events exposing (on, onBlur, onClick, onMouseEnter, onMouseLeave)
+import Html.Styled.Attributes as Attributes exposing (css)
+import Html.Styled.Events exposing (onClick)
 import Json.Decode as Decode
 import Utils
+
+
+
+-- MODEL
 
 
 type alias Model msg =
@@ -34,6 +40,10 @@ type alias Config msg =
     }
 
 
+
+-- MSG
+
+
 type Msg
     = TitleClicked
     | OnMouseDown OutsideTarget
@@ -41,6 +51,10 @@ type Msg
 
 type alias OutsideTarget =
     Bool
+
+
+
+-- INIT
 
 
 init : (Msg -> msg) -> Int -> Model msg
@@ -51,8 +65,25 @@ init toMsg idNumber =
     }
 
 
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model msg -> Sub msg
+subscriptions { isOpen, toMsg, id } =
+    if isOpen then
+        Browser.Events.onMouseDown (Decode.map (OnMouseDown >> toMsg) (Utils.clickAwayDecoder id))
+
+    else
+        Sub.none
+
+
 type alias View msg =
     Config msg -> Model msg -> Html msg
+
+
+
+-- VIEW
 
 
 view : View msg
@@ -61,11 +92,12 @@ view =
 
 
 customView : List Style -> View msg
-customView styles { title, body } { isOpen, toMsg } =
+customView styles { title, body } { isOpen, toMsg, id } =
     div
-        [ css (wrapperCss isOpen ++ styles) ]
+        [ css (wrapperCss isOpen ++ styles)
+        , Attributes.id id
+        ]
         (div
-            -- This msg doesn't have the same semantic meaning as a click, but it's ok!
             [ onClick (toMsg TitleClicked)
             , css
                 [ color (Colors.toCssColor Colors.white)
@@ -73,7 +105,7 @@ customView styles { title, body } { isOpen, toMsg } =
                 ]
             ]
             [ text title ]
-            :: wrapBody toMsg body isOpen
+            :: wrapBody body isOpen
         )
 
 
@@ -82,13 +114,7 @@ wrapperCss isOpen =
     let
         activeStyle =
             if isOpen then
-                [ backgroundColor (Colors.toCssColor Colors.black)
-
-                {--
-                box-shadow: 12px 0 15px -4px #111, -12px 0 15px -4px #111;
-                border-radius: 5px;
-                --}
-                ]
+                [ backgroundColor (Colors.toCssColor Colors.black) ]
 
             else
                 []
@@ -103,8 +129,8 @@ wrapperCss isOpen =
         ++ activeStyle
 
 
-wrapBody : (Msg -> msg) -> Html msg -> Bool -> List (Html msg)
-wrapBody toMsg element isOpen =
+wrapBody : Html msg -> Bool -> List (Html msg)
+wrapBody element isOpen =
     if isOpen then
         [ div
             [ css
@@ -124,6 +150,10 @@ wrapBody toMsg element isOpen =
 
     else
         []
+
+
+
+-- UPDATE
 
 
 update : Msg -> Model msg -> ( Model msg, Cmd msg )
@@ -146,7 +176,6 @@ close model =
 
 
 
--- DECODER OnMouseDown
 -- STYLES PREDEFINED
 
 
@@ -168,10 +197,8 @@ listItemStyle isActive =
     , borderBottom3 (px 1) solid (Colors.toCssColor Colors.theme.active)
     , textAlign start
     , textDecoration none
-    , hover
-        [ backgroundColor (Colors.toCssColor Colors.theme.hover) ]
-    , active
-        [ backgroundColor (Colors.toCssColor Colors.theme.active) ]
+    , hover [ backgroundColor (Colors.toCssColor Colors.theme.hover) ]
+    , active [ backgroundColor (Colors.toCssColor Colors.theme.active) ]
     ]
         ++ activeAttrs
 

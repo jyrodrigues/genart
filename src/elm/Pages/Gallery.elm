@@ -127,7 +127,6 @@ type alias ImageItem =
 type Msg
     = RemovedFromGallery Int
     | CopiedToEditor Int
-    | BackToEditor
     | DownloadRequested
     | UploadRequested
     | SelectedGalleryFile File
@@ -177,7 +176,10 @@ initialCmd =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    dndSystem.subscriptions model.dnd
+    Sub.batch
+        [ dndSystem.subscriptions model.dnd
+        , TopBar.subscriptions model.topBar
+        ]
 
 
 
@@ -228,9 +230,6 @@ update msg model =
 
                 Nothing ->
                     ( model, Cmd.none, NothingToUpdate )
-
-        BackToEditor ->
-            ( model, Cmd.none, OpenedEditor Nothing )
 
         DownloadRequested ->
             let

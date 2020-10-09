@@ -2013,6 +2013,7 @@ subscriptions model =
         , windowResize
         , Sub.map ColorWheelMsg (ColorWheel.subscriptions model.colorWheel)
         , dndSystem.subscriptions model.dnd
+        , TopBar.subscriptions model.topBar
         ]
 
 
