@@ -324,10 +324,10 @@ randomRectangleComposition =
 randomBlock : Random.Generator (List Block)
 randomBlock =
     randomList
-        [ onlyDBloc 5 15
-        , rectangle 1 5 3 10
-        , onlyDBloc 5 15
-        , rectangle 1 1 3 10
+        [ onlyDBloc 5 12
+        , rectangle 1 7 3 10
+        , onlyDBloc 5 12
+        , rectangle 1 4 3 10
         ]
 
 

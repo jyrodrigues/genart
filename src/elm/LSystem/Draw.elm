@@ -3,22 +3,26 @@ module LSystem.Draw exposing (drawBlock, drawFixedImage, drawImage)
 import Colors exposing (Color)
 import LSystem.Core as Core exposing (Block)
 import LSystem.Image as Image exposing (Boundaries, Image)
-import Svg.Styled exposing (Svg, circle, defs, path, radialGradient, stop, svg)
+import Svg.Styled exposing (Svg, animate, circle, defs, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
     exposing
-        ( cx
+        ( attributeName
+        , cx
         , cy
         , d
+        , dur
         , fill
         , id
         , offset
         , r
+        , repeatCount
         , stopColor
         , stroke
         , strokeDasharray
         , strokeLinecap
         , strokeWidth
         , style
+        , values
         , viewBox
         )
 import Svg.Styled.Lazy as Lazy
@@ -148,19 +152,20 @@ drawImageEager maybeId drawOriginAndNextStep image =
          ]
             ++ optionalAttrs
         )
-        (path
-            [ d pathString
-            , stroke (Colors.toString strokeColor)
+        (gradients strokeColor backgroundColor
+            :: path
+                [ d pathString
 
-            --, strokeWidth (String.fromFloat image.strokeWidth ++ "px")
-            , Svg.Styled.Attributes.strokeWidth (String.fromFloat strokeWidthClamped ++ "px")
-            , strokeLinecap "square"
-            , fill "none"
+                --, stroke (Colors.toString strokeColor)
+                --, strokeWidth (String.fromFloat image.strokeWidth ++ "px")
+                , Svg.Styled.Attributes.strokeWidth (String.fromFloat strokeWidthClamped ++ "px")
+                , strokeLinecap "square"
+                , fill "none"
+                , stroke "url(#AnimatedRadialGradient3)"
 
-            --, stroke "url(#RadialGradient1)"
-            --, fill "url(#RadialGradient2)"
-            ]
-            []
+                --, fill "url(#RadialGradient2)"
+                ]
+                []
             :: originAndNextStep
         )
 
@@ -245,4 +250,127 @@ gradients strokeColor backgroundColor =
             [ stop [ offset "0%", stopColor (Colors.toString strokeColor) ] []
             , stop [ offset "100%", stopColor (Colors.toString backgroundColor) ] []
             ]
+        , radialGradient [ id "AnimatedRadialGradient1" ]
+            [ stop [ offset "0%", stopColor (Colors.toString strokeColor) ] []
+            , stop [ offset "50%", stopColor (Colors.toString backgroundColor) ] []
+            , stop [ offset "100%", stopColor (Colors.toString strokeColor) ] []
+            ]
+        , radialGradient [ id "AnimatedRadialGradient2" ]
+            (stop [ offset "0%", stopColor (Colors.toString backgroundColor) ] []
+                :: stop [ stopColor (Colors.toString strokeColor) ]
+                    [ animate [ attributeName "offset", values "0%;0%;10%", dur "5s", repeatCount "indefinite" ] [] ]
+                --:: animatedStops [ backgroundColor, strokeColor, backgroundColor ]
+                :: []
+            )
+        , radialGradient [ id "AnimatedRadialGradient3" ] (hypnosis strokeColor)
         ]
+
+
+hypnosis : Color -> List (Svg msg)
+hypnosis color =
+    let
+        colorA =
+            Colors.updateValue (.v (Colors.toHsva color) + 0.7) color
+
+        colorB =
+            Colors.updateValue (.v (Colors.toHsva color) - 0.5) color
+
+        density =
+            7
+
+        duration =
+            dur "4s"
+
+        range =
+            100 / toFloat (2 * density)
+
+        toString pct =
+            String.fromInt (round pct) ++ "%"
+
+        colors =
+            List.concat (List.repeat density [ colorA, colorB ])
+    in
+    stop [ offset "0%", stopColor (Colors.toString colorA) ] []
+        :: stop [ stopColor (Colors.toString colorB) ]
+            [ animate
+                [ attributeName "offset"
+                , values ("0%;0%;" ++ toString range)
+                , duration
+                , repeatCount "indefinite"
+                ]
+                []
+            ]
+        :: List.concat (List.indexedMap (colorToStop range duration) colors)
+        ++ [ stop [ stopColor (Colors.toString colorA) ]
+                [ animate
+                    [ attributeName "offset"
+                    , values ("100%;" ++ toString (100 + range) ++ ";" ++ toString (100 + range))
+                    , duration
+                    , repeatCount "indefinite"
+                    ]
+                    []
+                ]
+           ]
+
+
+
+{--
+animatedStops : List Color -> List (Svg msg)
+animatedStops colors =
+    let
+        range =
+            100 / toFloat (List.length colors)
+    in
+    List.indexedMap (colorToStop range) colors
+--}
+
+
+colorToStop : Float -> Svg.Styled.Attribute msg -> Int -> Color -> List (Svg msg)
+colorToStop range duration index color =
+    let
+        start =
+            round <| range * toFloat index
+
+        --+ range
+        mid =
+            start + round range
+
+        end =
+            mid + round range
+
+        asString =
+            String.fromInt start ++ "%;" ++ String.fromInt mid ++ "%;" ++ String.fromInt end ++ "%"
+
+        laterAsString =
+            String.fromInt start ++ "%;" ++ String.fromInt mid ++ "%;" ++ String.fromInt end ++ "%"
+    in
+    [ stop [ stopColor (Colors.toString color) ]
+        [ animate [ attributeName "offset", values asString, duration, repeatCount "indefinite" ] [] ]
+    , stop [ stopColor (Colors.toString color) ]
+        [ animate [ attributeName "offset", values laterAsString, duration, repeatCount "indefinite" ] [] ]
+    ]
+
+
+
+{--
+    <radialGradient id="myGradient3">
+      <stop offset="0%" stop-color="#141">
+        <animate attributeName="offset" values="0%;17%" dur="5s" repeatCount="indefinite" />
+      </stop>
+      <stop offset="0%" stop-color="#9f9">
+        <animate attributeName="offset" values="17%;34%" dur="5s" repeatCount="indefinite" />
+      </stop>
+      <stop offset="0%" stop-color="#141">
+        <animate attributeName="offset" values="34%;51%" dur="5s" repeatCount="indefinite" />
+      </stop>
+      <stop offset="0%" stop-color="#9f9">
+        <animate attributeName="offset" values="51%;67%" dur="5s" repeatCount="indefinite" />
+      </stop>
+      <stop offset="0%" stop-color="#141">
+        <animate attributeName="offset" values="67%;84%" dur="5s" repeatCount="indefinite" />
+      </stop>
+      <stop offset="0%" stop-color="#9f9">
+        <animate attributeName="offset" values="84%;100%" dur="5s" repeatCount="indefinite" />
+      </stop>
+    </radialGradient>
+--}
