@@ -87,7 +87,11 @@ type Polygon
 
 
 type alias SvgPathAndBoundaries =
-    ( String, String, Boundaries )
+    { path : String
+    , nextStep : String
+    , boundaries : Boundaries
+    , lastDance : List Position
+    }
 
 
 type alias Boundaries =
@@ -110,6 +114,7 @@ type alias Image =
     , translate : Position
     , scale : Scale
     , curve : PathCurve
+    , lastDance : List Position
     }
 
 
@@ -136,6 +141,7 @@ defaultImage =
     , translate = ( 0, 0 )
     , scale = 1
     , curve = Line
+    , lastDance = []
     }
 
 
@@ -156,6 +162,7 @@ welcomeImage =
     , translate = ( 0, 0 )
     , scale = 1.1
     , curve = Line
+    , lastDance = []
     }
 
 
@@ -433,6 +440,7 @@ withImage partial image =
     , translate = Maybe.withDefault image.translate partial.translate
     , scale = Maybe.withDefault image.scale partial.scale
     , curve = Maybe.withDefault image.curve partial.curve
+    , lastDance = []
     }
 
 
@@ -579,6 +587,7 @@ decoder =
             |> DecodeExtra.andMap translate
             |> DecodeExtra.andMap scale
             |> DecodeExtra.andMap curve
+            |> DecodeExtra.andMap (succeed [])
         , Decode.succeed Image
             |> DecodeExtra.andMap composition
             |> DecodeExtra.andMap turnAngle
@@ -589,6 +598,7 @@ decoder =
             |> DecodeExtra.andMap translate
             |> DecodeExtra.andMap scale
             |> DecodeExtra.andMap (succeed Line)
+            |> DecodeExtra.andMap (succeed [])
         , Decode.succeed Image
             |> DecodeExtra.andMap composition
             |> DecodeExtra.andMap turnAngle
@@ -599,6 +609,7 @@ decoder =
             |> DecodeExtra.andMap translate
             |> DecodeExtra.andMap scale
             |> DecodeExtra.andMap (succeed Line)
+            |> DecodeExtra.andMap (succeed [])
         ]
 
 
@@ -703,11 +714,18 @@ updateSvgPathAndBoundaries image =
             image
 
         Nothing ->
-            withSvgPathAndBoundaries (Just (imageToSvgPathString image)) image
+            let
+                svgPathAndBoundaries =
+                    imageToSvgPathString image
+            in
+            { image
+                | svgPathAndBoundaries = Just svgPathAndBoundaries
+                , lastDance = svgPathAndBoundaries.lastDance
+            }
 
 
 imageToSvgPathString : Image -> SvgPathAndBoundaries
-imageToSvgPathString { composition, turnAngle, curve } =
+imageToSvgPathString { composition, turnAngle, curve, lastDance } =
     let
         finalEverything =
             Core.digestComposition composition
@@ -717,19 +735,25 @@ imageToSvgPathString { composition, turnAngle, curve } =
             finalEverything.position
     in
     -- Main path
-    -- TODO add initial Q value when curve==Curve
-    ( "M 0 0 " ++ finalEverything.pathString
-      -- Next step path
-      -- TODO move this into a function on Svg module
-    , "M "
-        ++ String.fromFloat lastX
-        ++ " "
-        ++ String.fromFloat lastY
-        ++ " "
-        ++ segmentToString (Svg.Core.L (nextPositionDelta finalEverything.angle 10))
-      -- TopRight and BottomLeft extremes of final image
-    , finalEverything.boundaries
-    )
+    -- N.B. Even with `curve == Curve` some `T`s won't have a control point to hold onto
+    -- so they'll behave as simple lines, which gives a nice-looking image with some parts
+    -- curved and some linear.
+    { path = "M 0 0 " ++ finalEverything.pathString
+
+    -- Next step path
+    -- TODO move this into a function on Svg module
+    , nextStep =
+        "M "
+            ++ String.fromFloat lastX
+            ++ " "
+            ++ String.fromFloat lastY
+            ++ " "
+            ++ segmentToString (Svg.Core.L (nextPositionDelta finalEverything.angle 10))
+
+    -- TopRight and BottomLeft extremes of final image
+    , boundaries = finalEverything.boundaries
+    , lastDance = finalEverything.position :: lastDance
+    }
 
 
 baseEverything : EverythingInOnePass

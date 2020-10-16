@@ -51,6 +51,7 @@ drawBlock backgroundColor strokeColor turnAngle curve block =
         , translate = ( 0, 0 )
         , strokeWidth = 1
         , svgPathAndBoundaries = Nothing
+        , lastDance = []
         }
 
 
@@ -78,13 +79,13 @@ drawImageEager maybeId drawOriginAndNextStep image =
         ( x, y ) =
             translate
 
-        -- MAIN COMPUTATION: process image and create SVG path.
-        ( mainPathString, nextStepPathString, boundaries ) =
+        { path, nextStep, boundaries, lastDance } =
             case image.svgPathAndBoundaries of
                 Just svgPathAndBoundaries ->
                     svgPathAndBoundaries
 
                 Nothing ->
+                    -- MAIN COMPUTATION: process image and create SVG path.
                     Image.imageToSvgPathString image
 
         ( ( viewBoxMinX, viewBoxMinY ), ( viewBoxWidth, viewBoxHeight ) ) =
@@ -101,8 +102,8 @@ drawImageEager maybeId drawOriginAndNextStep image =
         --}
         originAndNextStep =
             if drawOriginAndNextStep then
-                [ originPoint 0 0
-                , path [ d nextStepPathString, stroke (Colors.toString Colors.red_), strokeDasharray "1" ] []
+                [ point ( 0, 0 )
+                , Svg.Styled.path [ d nextStep, stroke (Colors.toString Colors.red_), strokeDasharray "1" ] []
                 ]
 
             else
@@ -145,8 +146,8 @@ drawImageEager maybeId drawOriginAndNextStep image =
          ]
             ++ optionalAttrs
         )
-        (path
-            [ d mainPathString
+        (Svg.Styled.path
+            [ d path
             , stroke (Colors.toString strokeColor)
             , strokeWidth (String.fromFloat image.strokeWidth ++ "px")
             , strokeLinecap "square"
@@ -157,6 +158,8 @@ drawImageEager maybeId drawOriginAndNextStep image =
             ]
             []
             :: originAndNextStep
+            ++ point ( 0, 0 )
+            :: List.map point lastDance
         )
 
 
@@ -164,13 +167,15 @@ drawImageEager maybeId drawOriginAndNextStep image =
 -- ORIGIN POINT SVG
 
 
-originPoint : Float -> Float -> Svg msg
-originPoint x y =
+point : Position -> Svg msg
+point ( x, y ) =
     circle
         [ cx <| String.fromFloat x
         , cy <| String.fromFloat y
-        , r "1"
-        , fill (Colors.toString Colors.offWhite)
+        , r "0.1"
+
+        --, fill (Colors.toString Colors.offWhite)
+        , fill "rgba(255, 255, 255, 0.6)"
         ]
         []
 
