@@ -8,4 +8,4 @@ dist
 .cache
 svg_results
 dna_samples
-
+.parcel-cache

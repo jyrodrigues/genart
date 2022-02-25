@@ -1,8 +1,5 @@
 'use strict'
 
-// Import css's so it gets copied to dist
-import "./css/RangeInput.css";
-import "./css/Transitions.css";
 import { Elm } from "./elm/Main.elm";
 import { downloadSvgAsJpeg, saveSvg } from "./js/ImageDownload.js"
 
