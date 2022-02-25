@@ -156,7 +156,7 @@ function cloneSvgAndFixDimensions(svgOriginalElement) {
          * informative the other method and more involved in Web standards, something I
          * think every developer should know more about. That's the reason we keep it there.
          */
-        var regexPercentageValue = RegExp("^([0-9]+|[0-9]*\.[0-9]+)%$");
+        var regexPercentageValue = RegExp("^([0-9]+|[0-9]*\\.[0-9]+)%$");
         if (!svgElement.attributes.width || regexPercentageValue.test(svgElement.attributes.width.value)) {
             svgElement.setAttribute("width", boundingClientRect.width);
         }
