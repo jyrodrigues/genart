@@ -870,13 +870,11 @@ compositionBlocksList dnd image editingIndex =
         [ css
             [ backgroundColor (toCssColor Colors.darkGray)
             , height (pct 100)
-            , width (px (layout.transformsList + layout.paddingToHideScrollbars))
+            , width (px layout.transformsList)
             , overflowY scroll
             , boxSizing borderBox
             , borderRight3 (px 1) solid (toCssColor Colors.black)
             , padding (px 15)
-            , paddingRight (px layout.paddingToHideScrollbars)
-            , boxShadow6 inset (px -44) zero (px 20) (px -10) (toCssColor Colors.black)
             ]
         ]
         (C.primaryButtonStyled [ marginBottom (px 20) ] AddSimpleBlock "Add new block"
@@ -1045,13 +1043,11 @@ mainImg image =
 
 layout :
     { transformsList : Float
-    , paddingToHideScrollbars : Float
     , turnAngleControlHeight : Float
     , turnAngleInputWidth : Float
     }
 layout =
     { transformsList = 240
-    , paddingToHideScrollbars = 40
     , turnAngleControlHeight = 60
     , turnAngleInputWidth = 110
     }
