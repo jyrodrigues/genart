@@ -20,7 +20,7 @@ import Browser
 import Browser.Dom exposing (Element)
 import Browser.Events
 import ColorWheel
-import Colors exposing (Color, offWhite, toCssColor)
+import Colors exposing (Color, toCssColor)
 import Components as C
 import Components.Dropdown as Dropdown
 import Components.TopBar as TopBar
@@ -38,7 +38,6 @@ import Css
         , border3
         , borderBottom
         , borderBox
-        , borderLeft3
         , borderRadius
         , borderRight3
         , borderTop3
@@ -50,7 +49,6 @@ import Css
         , calc
         , center
         , color
-        , content
         , contentBox
         , cursor
         , default
@@ -60,7 +58,6 @@ import Css
         , fixed
         , flexDirection
         , flexGrow
-        , flexWrap
         , fontSize
         , height
         , hidden
@@ -69,7 +66,6 @@ import Css
         , int
         , justifyContent
         , left
-        , margin
         , margin2
         , margin3
         , marginBottom
@@ -77,19 +73,14 @@ import Css
         , marginRight
         , marginTop
         , maxWidth
-        , middle
         , minus
-        , none
         , num
         , opacity
         , overflow
         , overflowWrap
-        , overflowX
         , overflowY
         , padding
         , padding2
-        , paddingBottom
-        , paddingRight
         , pct
         , plus
         , pointer
@@ -101,15 +92,12 @@ import Css
         , row
         , scroll
         , solid
-        , spaceAround
         , spaceBetween
         , textAlign
         , top
         , transform
         , unset
-        , vw
         , width
-        , wrap
         , zero
         )
 import DnDList
@@ -124,7 +112,6 @@ import Html.Styled.Events
         , onClick
         , onFocus
         , onInput
-        , onMouseUp
         )
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy as Lazy
@@ -146,15 +133,12 @@ import List.Extra
 import Midi exposing (adjustInputForStrokeWidth)
 import Pages exposing (Page(..), routeFor)
 import Random
-import Set exposing (Set)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
 import Url
-import Url.Builder
 import Url.Parser as Parser exposing ((<?>), Parser)
-import Url.Parser.Query as Query
-import Utils exposing (Position, delay, floatModBy)
+import Utils exposing (Position, delay)
 
 
 
@@ -348,20 +332,6 @@ type RandomType
     | Rectangles
 
 
-{-| Those are Strings because we use a Set to check which ones are playing
---- and Sets can't have custom/union types in it, only comparables.
--}
-type alias Video =
-    String
-
-
-video =
-    { changeAngle = "changeAngle"
-    , changeColorLinear = "changeColorLinear"
-    , changeColorSinusoidal = "changeColorSinusoidal"
-    }
-
-
 
 -- INITIAL STUFF
 
@@ -415,7 +385,7 @@ initialModel =
 
 
 initialCmd : Model -> Cmd Msg
-initialCmd model =
+initialCmd _ =
     Cmd.batch
         [ getImgDivPosition
 
@@ -823,18 +793,6 @@ sliderExponentialInput msg oldValue exponentialConfig =
         []
 
 
-curatedSettings : Html Msg
-curatedSettings =
-    C.controlBlock "Base"
-        [ div [ css [ displayFlex, flexWrap wrap ] ]
-            [ C.primaryButton (BasePolygonChanged Triangle) "Triangle"
-            , C.primaryButton (BasePolygonChanged Square) "Square"
-            , C.primaryButton (BasePolygonChanged Pentagon) "Pentagon"
-            , C.primaryButton (BasePolygonChanged Hexagon) "Hexagon"
-            ]
-        ]
-
-
 truncateFloatString : Int -> String -> String
 truncateFloatString precision floatString =
     let
@@ -938,6 +896,7 @@ ghostBlockBox dnd image =
             []
 
 
+trash : Int -> Svg Msg
 trash index =
     Icons.trash
         |> withColor Colors.red_
@@ -945,6 +904,7 @@ trash index =
         |> Icons.toSvgOldAPI
 
 
+duplicate : Int -> Color -> Svg Msg
 duplicate index strokeColor =
     Icons.duplicate
         |> withColor strokeColor
@@ -2015,11 +1975,6 @@ subscriptions model =
 framesInterval : Float
 framesInterval =
     100
-
-
-queryParser : Query.Parser PartialImage
-queryParser =
-    Image.queryParser
 
 
 urlParser : Parser (PartialImage -> a) a
