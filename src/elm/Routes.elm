@@ -21,6 +21,7 @@ type Route
     = Editor PartialImage
     | Gallery
     | Writing
+    | Dev
     | Welcome -- Match with top "/"
     | NotFound -- TODO Show random image with a 404 overlay and a button to go to any page (gallery, editor, welcome?)
 
@@ -35,6 +36,7 @@ parseUrl url =
                     , writingParser
                     , editorParser
                     , galleryParser
+                    , devParser
                     ]
                 )
                 url
@@ -54,12 +56,22 @@ editorParser =
 
 galleryParser : Parser (Route -> a) a
 galleryParser =
-    Parser.map Gallery (Parser.s (routeFor GalleryPage))
+    simpleParser Gallery GalleryPage
 
 
 writingParser : Parser (Route -> a) a
 writingParser =
-    Parser.map Writing (Parser.s (routeFor WritingPage))
+    simpleParser Writing WritingPage
+
+
+devParser : Parser (Route -> a) a
+devParser =
+    simpleParser Dev DevPage
+
+
+simpleParser : Route -> Page -> Parser (Route -> a) a
+simpleParser route page =
+    Parser.map route (Parser.s (routeFor page))
 
 
 welcomeParser : Parser (Route -> a) a
@@ -82,6 +94,9 @@ mapRouteToPage route =
 
         Writing ->
             WritingPage
+
+        Dev ->
+            DevPage
 
         NotFound ->
             EditorPage

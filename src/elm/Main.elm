@@ -18,6 +18,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
 import Pages exposing (Page(..), routeFor)
+import Pages.DevPlayground as Dev
 import Pages.Editor as Editor
 import Pages.Gallery as Gallery
 import Pages.Welcome as Welcome
@@ -43,6 +44,7 @@ type alias Model =
     , gallery : Gallery.Model
     , welcome : Welcome.Model
     , writting : Writing.Model
+    , dev : Dev.Model
     , viewingPage : Page
 
     -- Url
@@ -62,6 +64,7 @@ type Msg
     | GalleryMsg Gallery.Msg
     | WelcomeMsg Welcome.Msg
     | WritingMsg Writing.Msg
+    | DevMsg Dev.Msg
 
 
 
@@ -79,6 +82,7 @@ initialModel url navKey =
     , gallery = Gallery.initialModel
     , writting = Writing.initialModel
     , welcome = Welcome.initialModel
+    , dev = Dev.initialModel
 
     -- Current viewing page
     , viewingPage = EditorPage
@@ -193,6 +197,9 @@ view model =
         WritingPage ->
             documentMap WritingMsg (Writing.view model.writting)
 
+        DevPage ->
+            documentMap DevMsg (Dev.view model.dev)
+
 
 
 -- UPDATE
@@ -301,6 +308,23 @@ update msg model =
                 Welcome.UpdateWelcome ->
                     ( { model | welcome = welcome }, cmd )
 
+        DevMsg devMsg ->
+            let
+                ( dev, devCmd, externalMsg ) =
+                    Dev.update devMsg model.dev
+
+                cmd =
+                    Cmd.map DevMsg devCmd
+            in
+            case externalMsg of
+                Dev.GoToEditor image ->
+                    ( { model | editor = Editor.withImage image model.editor }
+                    , Nav.replaceUrl model.navKey (routeFor EditorPage)
+                    )
+
+                Dev.UpdateWelcome ->
+                    ( { model | dev = dev }, cmd )
+
         WritingMsg writtingMsg ->
             let
                 ( writting, writtingCmd, externalMsg ) =
@@ -342,6 +366,9 @@ initializeCmds model page =
         WritingPage ->
             Cmd.map WritingMsg Writing.initialCmd
 
+        DevPage ->
+            Cmd.map DevMsg Dev.initialCmd
+
 
 
 -- SUBSCRIPTIONS
@@ -361,6 +388,9 @@ subscriptions model =
 
         WritingPage ->
             Sub.map WritingMsg <| Writing.subscriptions model.writting
+
+        DevPage ->
+            Sub.map DevMsg <| Dev.subscriptions model.dev
 
 
 

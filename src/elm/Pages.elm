@@ -6,6 +6,7 @@ type Page
     | GalleryPage
     | WelcomePage
     | WritingPage
+    | DevPage
 
 
 routeFor : Page -> String
@@ -23,6 +24,9 @@ routeFor page =
         WritingPage ->
             "writing"
 
+        DevPage ->
+            "dev"
+
 
 toString : Page -> String
 toString page =
@@ -38,3 +42,6 @@ toString page =
 
         WritingPage ->
             "Writing"
+
+        DevPage ->
+            "Development playground"
