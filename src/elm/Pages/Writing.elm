@@ -3,13 +3,10 @@ module Pages.Writing exposing (ExternalMsg(..), Model, Msg, initialCmd, initialM
 import Browser
 import Browser.Dom
 import Colors exposing (Color)
-import Components as C
 import Components.TopBar as TopBar
 import Css
     exposing
-        ( auto
-        , backgroundColor
-        , borderColor
+        ( backgroundColor
         , bottom
         , calc
         , color
@@ -17,7 +14,6 @@ import Css
         , fixed
         , height
         , hidden
-        , hover
         , inlineFlex
         , margin2
         , minus

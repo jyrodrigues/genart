@@ -15,9 +15,8 @@ module Components.Dropdown exposing
 import Colors
 import Css exposing (..)
 import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (css, tabindex)
-import Html.Styled.Events exposing (on, onBlur, onClick, onMouseEnter, onMouseLeave)
-import Json.Decode as Decode
+import Html.Styled.Attributes exposing (css)
+import Html.Styled.Events exposing (onMouseEnter, onMouseLeave)
 import Utils
 
 

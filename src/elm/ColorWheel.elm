@@ -33,7 +33,7 @@ import Css
         , toRight
         , url
         )
-import Html.Styled exposing (Html, div)
+import Html.Styled exposing (div)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events
 import Json.Decode as Decode exposing (Decoder)
@@ -64,7 +64,7 @@ import Svg.Styled.Attributes
         , y1
         , y2
         )
-import Svg.Styled.Events exposing (on, onMouseDown, onMouseOut, onMouseUp, stopPropagationOn)
+import Svg.Styled.Events exposing (on, onMouseDown, onMouseOut, onMouseUp)
 import Svg.Styled.Lazy exposing (lazy2, lazy5, lazy6)
 import Task
 
@@ -286,44 +286,42 @@ view model =
         ]
 
 
-viewForDevelopment : State -> Svg Msg
-viewForDevelopment model =
-    let
-        { v } =
-            Colors.toHsva model.color
 
-        view_ =
-            if model.dynamic then
-                viewDynamic
-
-            else
-                viewStatic
-    in
-    div
-        [ css
-            [ Css.height (pct 100)
-            , Css.width (pct 100)
-            ]
-        ]
-        [ view_ model
-        , Html.Styled.text (String.fromFloat v)
-        , gradientSliderInput SetOpacity v 0.0001 1.0001 0.01 (Colors.rangeValue model.color)
-        , Html.Styled.text (String.fromFloat model.numberOfSlices)
-        , sliderInput SetNumberOfSlices model.numberOfSlices 1 180 1
-        , Html.Styled.text (String.fromFloat model.blur)
-        , sliderInput SetBlur model.blur 0 40 1
-        , Html.Styled.text (String.fromFloat v)
-        , sliderInput SetOpacity v 0.0001 1.0001 0.01
-        , Html.Styled.button [ Html.Styled.Events.onClick ToggledDynamic ]
-            [ Html.Styled.text
-                (if model.dynamic then
-                    "Make static"
-
-                 else
-                    "Make dynamic"
-                )
-            ]
-        ]
+-- viewForDevelopment : State -> Svg Msg
+-- viewForDevelopment model =
+--     let
+--         { v } =
+--             Colors.toHsva model.color
+--         view_ =
+--             if model.dynamic then
+--                 viewDynamic
+--             else
+--                 viewStatic
+--     in
+--     div
+--         [ css
+--             [ Css.height (pct 100)
+--             , Css.width (pct 100)
+--             ]
+--         ]
+--         [ view_ model
+--         , Html.Styled.text (String.fromFloat v)
+--         , gradientSliderInput SetOpacity v 0.0001 1.0001 0.01 (Colors.rangeValue model.color)
+--         , Html.Styled.text (String.fromFloat model.numberOfSlices)
+--         , sliderInput SetNumberOfSlices model.numberOfSlices 1 180 1
+--         , Html.Styled.text (String.fromFloat model.blur)
+--         , sliderInput SetBlur model.blur 0 40 1
+--         , Html.Styled.text (String.fromFloat v)
+--         , sliderInput SetOpacity v 0.0001 1.0001 0.01
+--         , Html.Styled.button [ Html.Styled.Events.onClick ToggledDynamic ]
+--             [ Html.Styled.text
+--                 (if model.dynamic then
+--                     "Make static"
+--                  else
+--                     "Make dynamic"
+--                 )
+--             ]
+--         ]
 
 
 viewStatic : State -> Svg Msg
@@ -602,9 +600,10 @@ viewDynamic model =
         model.trackMouseOutsideWheel
 
 
-alwaysStopPropagation : Decoder a -> Decoder ( a, Bool )
-alwaysStopPropagation =
-    Decode.map (\msg -> ( msg, True ))
+
+-- alwaysStopPropagation : Decoder a -> Decoder ( a, Bool )
+-- alwaysStopPropagation =
+--     Decode.map (\msg -> ( msg, True ))
 
 
 viewDynamicEager : String -> Int -> Bool -> Float -> Color -> Bool -> Svg Msg
@@ -779,54 +778,53 @@ toppings startColor endColor id_ scale =
                 COLOR SLIDERS
 
 --}
-
-
-rgbSliders : (Color -> msg) -> Color -> Html msg
-rgbSliders toMsg color =
-    let
-        { red, green, blue } =
-            Colors.toRgba color
-    in
-    div []
-        [ colorSlider (\input -> toMsg (Colors.updateRed input color)) red (Colors.rangeRed color)
-        , colorSlider (\input -> toMsg (Colors.updateGreen input color)) green (Colors.rangeGreen color)
-        , colorSlider (\input -> toMsg (Colors.updateBlue input color)) blue (Colors.rangeBlue color)
-        ]
-
-
-hslSliders : (Color -> msg) -> Color -> Html msg
-hslSliders toMsg color =
-    let
-        { hue, saturation, lightness } =
-            Colors.toHsla color
-    in
-    div []
-        [ colorSlider (\input -> toMsg (Colors.updateHue input color)) hue (Colors.rangeHue color)
-        , colorSlider (\input -> toMsg (Colors.updateSaturation input color)) saturation (Colors.rangeSaturation color)
-        , colorSlider (\input -> toMsg (Colors.updateLightness input color)) lightness (Colors.rangeLightness color)
-        ]
+-- rgbSliders : (Color -> msg) -> Color -> Html msg
+-- rgbSliders toMsg color =
+--     let
+--         { red, green, blue } =
+--             Colors.toRgba color
+--     in
+--     div []
+--         [ colorSlider (\input -> toMsg (Colors.updateRed input color)) red (Colors.rangeRed color)
+--         , colorSlider (\input -> toMsg (Colors.updateGreen input color)) green (Colors.rangeGreen color)
+--         , colorSlider (\input -> toMsg (Colors.updateBlue input color)) blue (Colors.rangeBlue color)
+--         ]
+-- hslSliders : (Color -> msg) -> Color -> Html msg
+-- hslSliders toMsg color =
+--     let
+--         { hue, saturation, lightness } =
+--             Colors.toHsla color
+--     in
+--     div []
+--         [ colorSlider (\input -> toMsg (Colors.updateHue input color)) hue (Colors.rangeHue color)
+--         , colorSlider (\input -> toMsg (Colors.updateSaturation input color)) saturation (Colors.rangeSaturation color)
+--         , colorSlider (\input -> toMsg (Colors.updateLightness input color)) lightness (Colors.rangeLightness color)
+--         ]
 
 
 {-| TODO move this into Colors.elm?
 -}
-colorSlider : (Float -> msg) -> Float -> Colors.Range -> Html msg
-colorSlider inputToMsg oldValue colorRange =
-    div []
-        [ div
-            [ css
-                [ display inlineBlock
-                , Css.width (pct 90)
-                , Css.height (px 30)
-                , backgroundImage <|
-                    linearGradient2 toRight
-                        (Css.stop <| Colors.toCssColor colorRange.start)
-                        (Css.stop <| Colors.toCssColor colorRange.end)
-                        []
-                ]
-            ]
-            -- put 30 px on slider height
-            [ sliderInput inputToMsg oldValue 0 1 0.0001 ]
-        ]
+
+
+
+-- colorSlider : (Float -> msg) -> Float -> Colors.Range -> Html msg
+-- colorSlider inputToMsg oldValue colorRange =
+--     div []
+--         [ div
+--             [ css
+--                 [ display inlineBlock
+--                 , Css.width (pct 90)
+--                 , Css.height (px 30)
+--                 , backgroundImage <|
+--                     linearGradient2 toRight
+--                         (Css.stop <| Colors.toCssColor colorRange.start)
+--                         (Css.stop <| Colors.toCssColor colorRange.end)
+--                         []
+--                 ]
+--             ]
+--             -- put 30 px on slider height
+--             [ sliderInput inputToMsg oldValue 0 1 0.0001 ]
+--         ]
 
 
 colorWheelDataImage : String

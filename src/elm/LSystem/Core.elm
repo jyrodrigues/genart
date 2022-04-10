@@ -55,11 +55,6 @@ type Composition
 -- GET INFO FROM COMPOSITION
 
 
-base : Composition -> Block
-base (Composition base_ _) =
-    base_
-
-
 blocks : Composition -> List Block
 blocks (Composition _ blocks_) =
     blocks_

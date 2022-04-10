@@ -321,7 +321,7 @@ validHex str ( r1, r2 ) ( g1, g2 ) ( b1, b2 ) ( a1, a2 ) =
 {-| Not to be confused with Thelonious Monk or Hieronymus Bosch.
 -}
 erroneousHex : String -> Color
-erroneousHex str =
+erroneousHex _ =
     rgba 0 0 0 1
 
 
