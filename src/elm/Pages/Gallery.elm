@@ -14,17 +14,14 @@ module Pages.Gallery exposing
 
 import Browser
 import Colors exposing (toCssColor)
-import Components as C
 import Components.Dropdown as Dropdown
 import Components.TopBar as TopBar
 import Css
     exposing
         ( Style
         , absolute
-        , after
         , auto
         , backgroundColor
-        , before
         , borderBox
         , bottom
         , boxShadow5
@@ -34,39 +31,31 @@ import Css
         , color
         , cursor
         , deg
-        , display
         , displayFlex
         , flexDirection
         , flexWrap
-        , fontFamily
         , grab
         , grabbing
         , height
         , hidden
         , hover
-        , inlineBlock
-        , int
         , justifyContent
         , left
         , lineHeight
         , margin
         , minus
-        , none
         , num
         , opacity
-        , overflow
         , overflowY
         , padding
         , pct
         , pointer
         , position
-        , property
         , px
         , relative
         , right
         , rotate
         , row
-        , scroll
         , spaceAround
         , textAlign
         , top
@@ -75,7 +64,6 @@ import Css
         , visible
         , width
         , wrap
-        , zIndex
         , zero
         )
 import DnDList
@@ -87,7 +75,7 @@ import Html.Styled.Attributes exposing (css, fromUnstyled, id, title)
 import Html.Styled.Events exposing (onClick, onMouseEnter, onMouseLeave)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy as Lazy
-import Icons exposing (iconDelete, withColor, withCss, withOnClick)
+import Icons exposing (iconDelete)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Draw as LDraw
@@ -95,7 +83,6 @@ import LSystem.Image as Image exposing (Image)
 import List.Extra
 import Pages exposing (Page(..))
 import Task
-import Utils
 
 
 
@@ -291,18 +278,6 @@ computeSvgPath { image, hash } =
 
 -- VIEW
 -- TODO this is duplicated here and on Editor.elm
-
-
-layout :
-    { controlPanel : Float
-    , transformsList : Float
-    , mainImg : Float
-    }
-layout =
-    { controlPanel = 15
-    , transformsList = 15
-    , mainImg = 70
-    }
 
 
 view : Model -> Browser.Document Msg
