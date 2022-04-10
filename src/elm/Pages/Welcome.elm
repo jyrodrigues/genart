@@ -5,8 +5,7 @@ import Colors exposing (Color)
 import Components as C
 import Css
     exposing
-        ( auto
-        , backgroundColor
+        ( backgroundColor
         , borderColor
         , bottom
         , calc

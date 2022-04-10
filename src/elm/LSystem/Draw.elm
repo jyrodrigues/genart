@@ -3,7 +3,16 @@ module LSystem.Draw exposing (drawBlock, drawFixedImage, drawImage)
 import Colors exposing (Color)
 import LSystem.Core as Core exposing (Block)
 import LSystem.Image as Image exposing (Boundaries, Image)
-import Svg.Styled exposing (Svg, circle, defs, path, radialGradient, stop, svg)
+import Svg.Styled
+    exposing
+        ( Svg
+        , circle
+          -- , defs
+        , path
+          -- , radialGradient
+          -- , stop
+        , svg
+        )
 import Svg.Styled.Attributes
     exposing
         ( cx
@@ -11,9 +20,9 @@ import Svg.Styled.Attributes
         , d
         , fill
         , id
-        , offset
+          -- , offset
         , r
-        , stopColor
+          -- , stopColor
         , stroke
         , strokeDasharray
         , strokeLinecap
@@ -31,12 +40,6 @@ type alias Id =
 
 
 -- DRAW
-
-
-drawBlocks : Image -> List (Svg msg)
-drawBlocks image =
-    Image.blocksToImages image
-        |> List.map (drawImage Nothing True)
 
 
 drawBlock : Color -> Color -> Float -> Image.PathCurve -> Block -> Svg msg
@@ -227,17 +230,15 @@ calculateViewBox { leftTop, rightBottom, centerOfMass, counter } =
         <stop offset="100%" stop-color="blue"/>
       </radialGradient>
 --}
-
-
-gradients : Color -> Color -> Svg msg
-gradients strokeColor backgroundColor =
-    defs []
-        [ radialGradient [ id "RadialGradient1" ]
-            [ stop [ offset "30%", stopColor (Colors.toString backgroundColor) ] []
-            , stop [ offset "100%", stopColor (Colors.toString strokeColor) ] []
-            ]
-        , radialGradient [ id "RadialGradient2" ]
-            [ stop [ offset "0%", stopColor (Colors.toString strokeColor) ] []
-            , stop [ offset "100%", stopColor (Colors.toString backgroundColor) ] []
-            ]
-        ]
+-- gradients : Color -> Color -> Svg msg
+-- gradients strokeColor backgroundColor =
+--     defs []
+--         [ radialGradient [ id "RadialGradient1" ]
+--             [ stop [ offset "30%", stopColor (Colors.toString backgroundColor) ] []
+--             , stop [ offset "100%", stopColor (Colors.toString strokeColor) ] []
+--             ]
+--         , radialGradient [ id "RadialGradient2" ]
+--             [ stop [ offset "0%", stopColor (Colors.toString strokeColor) ] []
+--             , stop [ offset "100%", stopColor (Colors.toString backgroundColor) ] []
+--             ]
+--         ]

@@ -10,12 +10,10 @@ port module Main exposing (decoder, encode, main)
 
 import Browser
 import Browser.Navigation as Nav
-import Components as C
-import Components.TopBar as TopBar
 import Css
 import Css.Global
 import Html
-import Html.Styled exposing (Html)
+import Html.Styled
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
