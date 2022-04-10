@@ -1,4 +1,5 @@
 # Genart
+
 https://genart.world
 
 Genart is an interactive web app where one can create their own generative art. Its core mechanics are based on [L-Systems](https://en.wikipedia.org/wiki/L-system). Written in Elm and deployed via Netlify. This is currently a work in progress hobby project.
@@ -20,11 +21,9 @@ Genart is an interactive web app where one can create their own generative art. 
 
 <img width="500" alt="image" src="https://user-images.githubusercontent.com/4342234/133002768-58cc726f-d9cc-4831-bcd9-62d2e3aafbba.png">
 
-
 [Open in app](https://genart.world/editor?composition=%5B%22D%22%2C%22DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD%22%2C%22DLDLDLDLDLDL%22%2C%22DD%22%2C%22DLD%22%5D&turnAngle=159.94664453611628&backgroundColor=%22%2300104d%22&strokeColor=%22%234dc7bc%22&strokeWidth=0.010313385377218032&translateX=1.6723226288274804&translateY=-0.9250000000000015&scale=0.7399999999999982&curve=%22curve%22)
 
 <img width="500" alt="image" src="https://user-images.githubusercontent.com/4342234/133002669-496d3640-cade-43a6-b4a3-e63ede32c11f.png">
-
 
 ### Keyboard Controls
 
@@ -54,4 +53,3 @@ Genart is an interactive web app where one can create their own generative art. 
 ---
 
 Made with <3 from Brazil.
-

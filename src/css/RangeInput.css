@@ -5,17 +5,17 @@
 /**
  * Make it almost invisible
  */
-input[type=range] {
+input[type="range"] {
   -webkit-appearance: none;
   width: 100%;
   margin: 0;
   background: transparent;
 }
-input[type=range]:focus {
+input[type="range"]:focus {
   outline: none;
   border: none;
 }
-input[type=range]::-moz-focus-outer {
+input[type="range"]::-moz-focus-outer {
   /* From https://stackoverflow.com/questions/18794026/remove-dotted-outline-from-range-input-element-in-firefox */
   border: 0;
 }
@@ -23,7 +23,7 @@ input[type=range]::-moz-focus-outer {
 /**
  * Slider track
  */
-input[type=range]::-moz-range-track {
+input[type="range"]::-moz-range-track {
   width: 100%;
   height: 5px;
   cursor: pointer;
@@ -32,7 +32,7 @@ input[type=range]::-moz-range-track {
   border-radius: 3px;
   border: none;
 }
-input[type=range]::-webkit-slider-runnable-track {
+input[type="range"]::-webkit-slider-runnable-track {
   width: 100%;
   height: 5px;
   cursor: pointer;
@@ -41,7 +41,7 @@ input[type=range]::-webkit-slider-runnable-track {
   border-radius: 3px;
   border: none;
 }
-input[type=range]::-ms-track {
+input[type="range"]::-ms-track {
   width: 100%;
   height: 5px;
   cursor: pointer;
@@ -49,13 +49,13 @@ input[type=range]::-ms-track {
   border-color: transparent;
   color: transparent;
 }
-input[type=range]::-ms-fill-lower {
+input[type="range"]::-ms-fill-lower {
   box-shadow: none;
   background: rgba(0, 0, 0, 0.4);
   border-radius: 3px;
   border: none;
 }
-input[type=range]::-ms-fill-upper {
+input[type="range"]::-ms-fill-upper {
   box-shadow: none;
   background: rgba(0, 0, 0, 0.4);
   border-radius: 3px;
@@ -63,53 +63,53 @@ input[type=range]::-ms-fill-upper {
 }
 
 /* White */
-.white input[type=range]::-moz-range-track {
+.white input[type="range"]::-moz-range-track {
   background: #c8c8c8;
 }
-.white input[type=range]::-webkit-slider-runnable-track {
+.white input[type="range"]::-webkit-slider-runnable-track {
   background: #c8c8c8;
 }
-.white input[type=range]::-ms-fill-lower {
+.white input[type="range"]::-ms-fill-lower {
   background: #c8c8c8;
 }
-.white input[type=range]::-ms-fill-upper {
+.white input[type="range"]::-ms-fill-upper {
   background: #c8c8c8;
 }
 
 /**
  * Slider track on focus
  */
-input[type=range]:focus::-moz-range-track {
+input[type="range"]:focus::-moz-range-track {
   background: rgba(0, 0, 0, 0.4);
 }
-input[type=range]:focus::-webkit-slider-runnable-track {
+input[type="range"]:focus::-webkit-slider-runnable-track {
   background: rgba(0, 0, 0, 0.4);
 }
-input[type=range]:focus::-ms-fill-lower {
+input[type="range"]:focus::-ms-fill-lower {
   background: rgba(0, 0, 0, 0.4);
 }
-input[type=range]:focus::-ms-fill-upper {
+input[type="range"]:focus::-ms-fill-upper {
   background: rgba(0, 0, 0, 0.4);
 }
 
 /* White */
-.white input[type=range]:focus::-moz-range-track {
+.white input[type="range"]:focus::-moz-range-track {
   background: #c8c8c8;
 }
-.white input[type=range]:focus::-webkit-slider-runnable-track {
+.white input[type="range"]:focus::-webkit-slider-runnable-track {
   background: #c8c8c8;
 }
-.white input[type=range]:focus::-ms-fill-lower {
+.white input[type="range"]:focus::-ms-fill-lower {
   background: #c8c8c8;
 }
-.white input[type=range]:focus::-ms-fill-upper {
+.white input[type="range"]:focus::-ms-fill-upper {
   background: #c8c8c8;
 }
 
 /**
  * Slider thumb
  */
-input[type=range]::-moz-range-thumb {
+input[type="range"]::-moz-range-thumb {
   box-shadow: 0px 0px 0px #000000, 0px 0px 0.4px #0d0d0d;
   border: 0.1px solid rgba(0, 0, 0, 0.09);
   height: 16px;
@@ -118,7 +118,7 @@ input[type=range]::-moz-range-thumb {
   background: #ffffff;
   cursor: pointer;
 }
-input[type=range]::-webkit-slider-thumb {
+input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   box-shadow: 0px 0px 0px #000000, 0px 0px 1px #0d0d0d;
   border: 0.1px solid rgba(0, 0, 0, 0.09);
@@ -130,7 +130,7 @@ input[type=range]::-webkit-slider-thumb {
   cursor: pointer;
   margin-top: -5.15px;
 }
-input[type=range]::-ms-thumb {
+input[type="range"]::-ms-thumb {
   box-shadow: 0px 0px 0px #000000, 0px 0px 0.4px #0d0d0d;
   border: 0.1px solid rgba(0, 0, 0, 0.09);
   height: 16px;
@@ -144,29 +144,29 @@ input[type=range]::-ms-thumb {
 }
 
 /* White */
-.white input[type=range]::-moz-range-thumb {
+.white input[type="range"]::-moz-range-thumb {
   background: #fff;
   box-shadow: 0px 0px 4px 1px rgba(0, 0, 0, 0.5);
 }
-.white input[type=range]::-webkit-slider-thumb {
+.white input[type="range"]::-webkit-slider-thumb {
   background: #fff;
   box-shadow: 0px 0px 4px 1px rgba(0, 0, 0, 0.5);
 }
-.white input[type=range]::-ms-thumb {
+.white input[type="range"]::-ms-thumb {
   background: #fff;
   box-shadow: 0px 0px 4px 1px rgba(0, 0, 0, 0.5);
 }
 
 /* Black */
-.black input[type=range]::-moz-range-thumb {
+.black input[type="range"]::-moz-range-thumb {
   background: #333;
   box-shadow: 0px 0px 2px 1px rgba(200, 200, 200, 0.3);
 }
-.black input[type=range]::-webkit-slider-thumb {
+.black input[type="range"]::-webkit-slider-thumb {
   background: #333;
   box-shadow: 0px 0px 2px 1px rgba(200, 200, 200, 0.3);
 }
-.black input[type=range]::-ms-thumb {
+.black input[type="range"]::-ms-thumb {
   background: #333;
   box-shadow: 0px 0px 2px 1px rgba(200, 200, 200, 0.3);
 }
