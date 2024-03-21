@@ -1,7 +1,7 @@
 # Genart
 
 ```
-yarn serve
+npm run serve
 ```
 
 https://genart.world

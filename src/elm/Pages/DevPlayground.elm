@@ -48,19 +48,8 @@ initialImage =
             (Core.fromList
                 -- [ [ D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D ]
                 [ [ D, D, D, D, D, D, D ]
-                , [ D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L ]
-                , [ Glyph 'A'
-                  , Glyph 'B'
-                  , Glyph 'C'
-                  , R
-                  , R
-                  , Core.S
-                  , Core.S
-                  , Core.S
-                  , R
-                  , R
-                  , Core.S
-                  ]
+                , [ D, L, L, S, L, L, D, L, L, S, L, L, D, L, L, S, L, L ]
+                , [ Glyph 'A', Glyph 'B', Glyph 'C', R, R, S, S, S, R, R, S ]
                 ]
             )
 
@@ -98,10 +87,7 @@ view model =
     { title = "Developer playground"
     , body =
         [ div
-            [ css [ width (pct 100), height (pct 100), overflow hidden ]
-
-            -- , onClick ShowEnterButton
-            ]
+            [ css [ width (pct 100), height (pct 100), overflow hidden ] ]
             (drawImage (Just "WelcomeVideo") False model.image
                 :: showEnterButton
             )

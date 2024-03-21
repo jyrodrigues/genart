@@ -9,10 +9,12 @@
     "sserve": "parcel src/index.html --cert ../cert-self-signed-localhost/localhost.crt --key ../cert-self-signed-localhost/localhost.key",
     "clean": "rm -rf ./dist",
     "copy": "cp _redirects dist/",
-    "build": "yarn bundle && yarn copy",
+    "build": "npm run bundle && npm run copy",
     "test": "elm-test"
   },
-  "dependencies": {},
+  "dependencies": {
+    "elm-format": "^0.8.7"
+  },
   "devDependencies": {
     "@parcel/transformer-elm": "^2.4.0",
     "cssnano": "^5.1.4",
