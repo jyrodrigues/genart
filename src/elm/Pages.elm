@@ -1,4 +1,4 @@
-module Pages exposing (Page(..), routeFor, toString)
+module Pages exposing (Page(..), allPages, routeFor, toString)
 
 
 type Page
@@ -7,6 +7,16 @@ type Page
     | WelcomePage
     | WritingPage
     | DevPage
+
+
+allPages : List Page
+allPages =
+    [ EditorPage
+    , GalleryPage
+    , WelcomePage
+    , WritingPage
+    , DevPage
+    ]
 
 
 routeFor : Page -> String
@@ -44,4 +54,4 @@ toString page =
             "Writing"
 
         DevPage ->
-            "Development playground"
+            "Dev playground"

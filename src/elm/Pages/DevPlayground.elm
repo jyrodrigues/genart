@@ -26,9 +26,9 @@ import Css
         )
 import Html.Styled exposing (Html, div, toUnstyled)
 import Html.Styled.Attributes exposing (css)
-import Html.Styled.Events exposing (onClick)
+import LSystem.Core as Core exposing (Step(..))
 import LSystem.Draw exposing (drawImage)
-import LSystem.Image as Image exposing (Image)
+import LSystem.Image as Image exposing (Image, withComposition)
 import Time
 import Utils exposing (delay)
 
@@ -41,9 +41,33 @@ type alias Model =
     }
 
 
+initialImage : Image
+initialImage =
+    Image.welcomeImage
+        |> withComposition
+            (Core.fromList
+                -- [ [ D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D ]
+                [ [ D, D, D, D, D, D, D ]
+                , [ D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L ]
+                , [ Glyph 'A'
+                  , Glyph 'B'
+                  , Glyph 'C'
+                  , R
+                  , R
+                  , Core.S
+                  , Core.S
+                  , Core.S
+                  , R
+                  , R
+                  , Core.S
+                  ]
+                ]
+            )
+
+
 initialModel : Model
 initialModel =
-    { image = Image.welcomeImage
+    { image = initialImage
     , isPlaying = True
     , videoAngleChangeRate = 0.0001
     , showEnterButton = False
@@ -71,11 +95,12 @@ view model =
             else
                 []
     in
-    { title = "Welcome to Genart"
+    { title = "Developer playground"
     , body =
         [ div
             [ css [ width (pct 100), height (pct 100), overflow hidden ]
-            , onClick ShowEnterButton
+
+            -- , onClick ShowEnterButton
             ]
             (drawImage (Just "WelcomeVideo") False model.image
                 :: showEnterButton
@@ -132,7 +157,7 @@ update msg model =
                         |> Image.withStrokeColor strokeColor
                         |> Image.withTurnAngle newAngle
                         |> Image.withStrokeWidth (min (model.image.strokeWidth * 1.01) 0.1)
-                , videoAngleChangeRate = min (model.videoAngleChangeRate * 1.07) 0.03
+                , videoAngleChangeRate = min (model.videoAngleChangeRate * 1.17) 0.03
               }
             , Cmd.none
             , UpdateWelcome

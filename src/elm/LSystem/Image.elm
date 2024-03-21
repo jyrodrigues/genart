@@ -146,7 +146,70 @@ welcomeImage =
             --[ [ D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D ]
             [ [ D, D, D, D, D, D, D ]
             , [ D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L ]
-            , [ Glyph 'W', Glyph 'E', Glyph 'L', Glyph 'C', Glyph 'O', Glyph 'M', Glyph 'E', R, R, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, R, R, R, Core.S, Core.S, R, R, R, Core.S, Core.S, Glyph 'T', Glyph 'O', R, R, Core.S, Core.S, Core.S, Core.S, R, R, R, Core.S, Core.S, R, R, R, Glyph 'G', Glyph 'E', Glyph 'N', Glyph 'A', Glyph 'R', Glyph 'T', R, R, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, R, Core.S, Core.S, Core.S, Core.S, R, Core.S ]
+            , [ Glyph 'W'
+              , Glyph 'E'
+              , Glyph 'L'
+              , Glyph 'C'
+              , Glyph 'O'
+              , Glyph 'M'
+              , Glyph 'E'
+              , R
+              , R
+              , Core.S
+              , Core.S
+              , Core.S
+              , Core.S
+              , Core.S
+              , Core.S
+              , Core.S
+              , R
+              , R
+              , R
+              , Core.S
+              , Core.S
+              , R
+              , R
+              , R
+              , Core.S
+              , Core.S
+              , Glyph 'T'
+              , Glyph 'O'
+              , R
+              , R
+              , Core.S
+              , Core.S
+              , Core.S
+              , Core.S
+              , R
+              , R
+              , R
+              , Core.S
+              , Core.S
+              , R
+              , R
+              , R
+              , Glyph 'G'
+              , Glyph 'E'
+              , Glyph 'N'
+              , Glyph 'A'
+              , Glyph 'R'
+              , Glyph 'T'
+              , R
+              , R
+              , Core.S
+              , Core.S
+              , Core.S
+              , Core.S
+              , Core.S
+              , Core.S
+              , R
+              , Core.S
+              , Core.S
+              , Core.S
+              , Core.S
+              , R
+              , Core.S
+              ]
             ]
     , turnAngle = polygonAngle Square
     , svgPathAndBoundaries = Nothing
