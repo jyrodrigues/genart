@@ -1,14 +1,14 @@
-module Components.TopBar exposing (Element(..), Msg, State, closeAllDropdowns, init, update, view)
+module UIComponents.TopBar exposing (Element(..), Msg, State, closeAllDropdowns, init, update, view)
 
 import Colors
 import Components as C
-import Components.Dropdown as Dropdown
 import Css exposing (..)
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (css, href)
 import List.Extra
 import Pages exposing (Page(..))
 import Task
+import UIComponents.Dropdown as Dropdown
 
 
 

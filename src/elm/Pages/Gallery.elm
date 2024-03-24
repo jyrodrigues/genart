@@ -14,8 +14,6 @@ module Pages.Gallery exposing
 
 import Browser
 import Colors exposing (toCssColor)
-import Components.Dropdown as Dropdown
-import Components.TopBar as TopBar
 import Css
     exposing
         ( Style
@@ -83,6 +81,8 @@ import LSystem.Image as Image exposing (Image)
 import List.Extra
 import Pages exposing (Page(..))
 import Task
+import UIComponents.Dropdown as Dropdown
+import UIComponents.TopBar as TopBar
 
 
 

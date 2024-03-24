@@ -3,7 +3,6 @@ module Pages.Writing exposing (ExternalMsg(..), Model, Msg, initialCmd, initialM
 import Browser
 import Browser.Dom
 import Colors exposing (Color)
-import Components.TopBar as TopBar
 import Css
     exposing
         ( backgroundColor
@@ -35,6 +34,7 @@ import LSystem.Image as Image exposing (Image)
 import Pages exposing (Page(..))
 import Task
 import Time
+import UIComponents.TopBar as TopBar
 
 
 

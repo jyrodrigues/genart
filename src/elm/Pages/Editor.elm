@@ -22,8 +22,6 @@ import Browser.Events
 import ColorWheel
 import Colors exposing (Color, toCssColor)
 import Components as C
-import Components.Dropdown as Dropdown
-import Components.TopBar as TopBar
 import Css
     exposing
         ( Style
@@ -136,6 +134,8 @@ import Random
 import Svg.Styled exposing (Svg)
 import Task
 import Time
+import UIComponents.Dropdown as Dropdown
+import UIComponents.TopBar as TopBar
 import Url
 import Url.Parser as Parser exposing ((<?>), Parser)
 import Utils exposing (Position, delay)

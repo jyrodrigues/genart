@@ -1,4 +1,4 @@
-module Components.Dropdown exposing
+module UIComponents.Dropdown exposing
     ( Config
     , Msg
     , State
