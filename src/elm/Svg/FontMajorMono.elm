@@ -1,7 +1,7 @@
-module ABALA.FontMajorMono exposing (dict)
+module Svg.FontMajorMono exposing (dict)
 
-import ABALA.Core exposing (PathSegment(..))
 import Dict exposing (Dict)
+import Svg.Core exposing (PathSegment(..))
 
 
 dict : Dict Char ( List PathSegment, Float )

@@ -1,4 +1,4 @@
-module ABALA.Core exposing
+module Svg.Core exposing
     ( PathSegment(..)
     , PathSegmentString
     , rotateSegmentTo

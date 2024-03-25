@@ -16,7 +16,6 @@ port module Pages.Editor exposing
     , withUrl
     )
 
-import ABALA.Icon exposing (withColor, withCss, withOnClick)
 import Browser
 import Browser.Dom exposing (Element)
 import Browser.Events
@@ -131,6 +130,7 @@ import List.Extra
 import Midi exposing (adjustInputForStrokeWidth)
 import Pages exposing (Page(..), routeFor)
 import Random
+import Svg.Icon exposing (withColor, withCss, withOnClick)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
@@ -898,15 +898,15 @@ ghostBlockBox dnd image =
 
 trash : Int -> Svg Msg
 trash index =
-    ABALA.Icon.trash
+    Svg.Icon.trash
         |> withColor Colors.red_
         |> withOnClick (DropBlock index)
-        |> ABALA.Icon.toSvgOldAPI
+        |> Svg.Icon.toSvgOldAPI
 
 
 duplicate : Int -> Color -> Svg Msg
 duplicate index strokeColor =
-    ABALA.Icon.duplicate
+    Svg.Icon.duplicate
         |> withColor strokeColor
         |> withOnClick (DuplicateAndAppendBlock index)
         |> withCss
@@ -914,7 +914,7 @@ duplicate index strokeColor =
             , right (px 5)
             , bottom (px 2)
             ]
-        |> ABALA.Icon.toSvgOldAPI
+        |> Svg.Icon.toSvgOldAPI
 
 
 borderBottomWidth : Float

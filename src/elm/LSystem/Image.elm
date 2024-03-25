@@ -47,8 +47,6 @@ module LSystem.Image exposing
     , zoom
     )
 
-import ABALA.Core exposing (PathSegment(..), rotateSegmentTo, segmentToString)
-import ABALA.FontMajorMono as FontToSVG
 import Colors exposing (Color)
 import Dict
 import Json.Decode as Decode exposing (Decoder)
@@ -57,6 +55,8 @@ import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
 import Murmur3
 import Random
+import Svg.Core exposing (PathSegment(..), rotateSegmentTo, segmentToString)
+import Svg.FontMajorMono as FontToSVG
 import Url.Builder
 import Url.Parser.Query as Query
 import Utils exposing (Position)
@@ -729,7 +729,7 @@ imageToSvgPathString { composition, turnAngle, curve } =
         ++ " "
         ++ String.fromFloat lastY
         ++ " "
-        ++ segmentToString (ABALA.Core.L (nextPositionDelta finalEverything.angle 10))
+        ++ segmentToString (Svg.Core.L (nextPositionDelta finalEverything.angle 10))
       -- TopRight and BottomLeft extremes of final image
     , finalEverything.boundaries
     )
@@ -789,10 +789,10 @@ processCompositionStep pathCurve turnAngleSize step currentEverything =
         curve =
             case pathCurve of
                 Line ->
-                    ABALA.Core.L
+                    Svg.Core.L
 
                 Curve ->
-                    ABALA.Core.T
+                    Svg.Core.T
 
         turnWith compoundAngle =
             EverythingInOnePass

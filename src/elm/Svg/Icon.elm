@@ -1,4 +1,4 @@
-module ABALA.Icon exposing
+module Svg.Icon exposing
     ( Size(..)
     , duplicate
     , eye

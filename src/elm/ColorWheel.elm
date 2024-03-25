@@ -10,7 +10,6 @@ module ColorWheel exposing
     , withColor
     )
 
-import ABALA.Core exposing (PathSegment(..), PathSegmentString)
 import Browser.Dom exposing (Element)
 import Browser.Events
 import Colors exposing (Color)
@@ -38,6 +37,7 @@ import Html.Styled exposing (div)
 import Html.Styled.Attributes exposing (css)
 import Html.Styled.Events
 import Json.Decode as Decode exposing (Decoder)
+import Svg.Core exposing (PathSegment(..), PathSegmentString)
 import Svg.Styled exposing (Svg, circle, defs, line, path, radialGradient, stop, svg)
 import Svg.Styled.Attributes
     exposing

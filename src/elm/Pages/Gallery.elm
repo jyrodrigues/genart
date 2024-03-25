@@ -12,7 +12,6 @@ module Pages.Gallery exposing
     , view
     )
 
-import ABALA.Icon exposing (iconDelete)
 import Browser
 import Colors exposing (toCssColor)
 import Css
@@ -80,6 +79,7 @@ import LSystem.Draw as LDraw
 import LSystem.Image as Image exposing (Image)
 import List.Extra
 import Pages exposing (Page(..))
+import Svg.Icon exposing (iconDelete)
 import Task
 import UIComponents.Dropdown as Dropdown
 import UIComponents.TopBar as TopBar
@@ -365,7 +365,7 @@ imageBox { image, hash } dndEvents hasHover isDragging styles =
             , title "Delete"
             , css (setVisibility (hasHover && not isDragging) :: deleteStyle)
             ]
-            [ ABALA.Icon.toSvg { iconDelete | size = ABALA.Icon.Square 30, color = Colors.white } ]
+            [ Svg.Icon.toSvg { iconDelete | size = Svg.Icon.Square 30, color = Colors.white } ]
 
         -- Copy to Editor
         , div
