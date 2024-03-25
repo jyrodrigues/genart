@@ -47,6 +47,8 @@ module LSystem.Image exposing
     , zoom
     )
 
+import ABALA.Core exposing (PathSegment(..), rotateSegmentTo, segmentToString)
+import ABALA.FontMajorMono as FontToSVG
 import Colors exposing (Color)
 import Dict
 import Json.Decode as Decode exposing (Decoder)
@@ -55,8 +57,6 @@ import Json.Encode as Encode
 import LSystem.Core as Core exposing (Block, Composition, Step(..))
 import Murmur3
 import Random
-import Svg.Core exposing (PathSegment(..), rotateSegmentTo, segmentToString)
-import Svg.FontMajorMono as FontToSVG
 import Url.Builder
 import Url.Parser.Query as Query
 import Utils exposing (Position)
@@ -146,70 +146,7 @@ welcomeImage =
             --[ [ D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D, D ]
             [ [ D, D, D, D, D, D, D ]
             , [ D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L, D, Core.L, Core.L, Core.S, Core.L, Core.L ]
-            , [ Glyph 'W'
-              , Glyph 'E'
-              , Glyph 'L'
-              , Glyph 'C'
-              , Glyph 'O'
-              , Glyph 'M'
-              , Glyph 'E'
-              , R
-              , R
-              , Core.S
-              , Core.S
-              , Core.S
-              , Core.S
-              , Core.S
-              , Core.S
-              , Core.S
-              , R
-              , R
-              , R
-              , Core.S
-              , Core.S
-              , R
-              , R
-              , R
-              , Core.S
-              , Core.S
-              , Glyph 'T'
-              , Glyph 'O'
-              , R
-              , R
-              , Core.S
-              , Core.S
-              , Core.S
-              , Core.S
-              , R
-              , R
-              , R
-              , Core.S
-              , Core.S
-              , R
-              , R
-              , R
-              , Glyph 'G'
-              , Glyph 'E'
-              , Glyph 'N'
-              , Glyph 'A'
-              , Glyph 'R'
-              , Glyph 'T'
-              , R
-              , R
-              , Core.S
-              , Core.S
-              , Core.S
-              , Core.S
-              , Core.S
-              , Core.S
-              , R
-              , Core.S
-              , Core.S
-              , Core.S
-              , Core.S
-              , R
-              , Core.S
-              ]
+            , [ Glyph 'W', Glyph 'E', Glyph 'L', Glyph 'C', Glyph 'O', Glyph 'M', Glyph 'E', R, R, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, R, R, R, Core.S, Core.S, R, R, R, Core.S, Core.S, Glyph 'T', Glyph 'O', R, R, Core.S, Core.S, Core.S, Core.S, R, R, R, Core.S, Core.S, R, R, R, Glyph 'G', Glyph 'E', Glyph 'N', Glyph 'A', Glyph 'R', Glyph 'T', R, R, Core.S, Core.S, Core.S, Core.S, Core.S, Core.S, R, Core.S, Core.S, Core.S, Core.S, R, Core.S ]
             ]
     , turnAngle = polygonAngle Square
     , svgPathAndBoundaries = Nothing
@@ -481,6 +418,9 @@ withImage partial image =
     let
         updatedSvgPathAndBoundaries =
             case ( partial.composition, partial.turnAngle ) of
+                -- TODO Question: looks like this has some meaning
+                -- but I can't recall. Try refactoring or adding a
+                -- comment explaining.
                 ( Nothing, Nothing ) ->
                     image.svgPathAndBoundaries
 
@@ -773,7 +713,7 @@ imageToSvgPathString : Image -> SvgPathAndBoundaries
 imageToSvgPathString { composition, turnAngle, curve } =
     let
         finalEverything =
-            Core.digestComposition composition
+            Core.processComposition composition
                 |> List.foldl (processCompositionStep curve turnAngle) baseEverything
 
         ( lastX, lastY ) =
@@ -789,7 +729,7 @@ imageToSvgPathString { composition, turnAngle, curve } =
         ++ " "
         ++ String.fromFloat lastY
         ++ " "
-        ++ segmentToString (Svg.Core.L (nextPositionDelta finalEverything.angle 10))
+        ++ segmentToString (ABALA.Core.L (nextPositionDelta finalEverything.angle 10))
       -- TopRight and BottomLeft extremes of final image
     , finalEverything.boundaries
     )
@@ -849,10 +789,10 @@ processCompositionStep pathCurve turnAngleSize step currentEverything =
         curve =
             case pathCurve of
                 Line ->
-                    Svg.Core.L
+                    ABALA.Core.L
 
                 Curve ->
-                    Svg.Core.T
+                    ABALA.Core.T
 
         turnWith compoundAngle =
             EverythingInOnePass

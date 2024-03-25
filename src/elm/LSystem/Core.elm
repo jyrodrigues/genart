@@ -9,7 +9,6 @@ module LSystem.Core exposing
     , changeBase
     , changeBlocks
     , compositionDecoder
-    , digestComposition
     , dropAllBlocksButBase
     , dropBlockAtIndex
     , dropLastBlock
@@ -18,6 +17,7 @@ module LSystem.Core exposing
     , fromList
     , getBlockAtIndex
     , length
+    , processComposition
     , randomComposition
     , randomRectangleComposition
     , replaceBlankBlocks
@@ -95,8 +95,8 @@ stepsLength composition =
 -- PROCESS COMPOSITION
 
 
-digestComposition : Composition -> Block
-digestComposition (Composition base_ blocks_) =
+processComposition : Composition -> Block
+processComposition (Composition base_ blocks_) =
     let
         digestOne block step =
             case step of

@@ -16,6 +16,7 @@ port module Pages.Editor exposing
     , withUrl
     )
 
+import ABALA.Icon exposing (withColor, withCss, withOnClick)
 import Browser
 import Browser.Dom exposing (Element)
 import Browser.Events
@@ -113,7 +114,6 @@ import Html.Styled.Events
         )
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy as Lazy
-import Icons exposing (withColor, withCss, withOnClick)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Core exposing (Step(..))
@@ -898,15 +898,15 @@ ghostBlockBox dnd image =
 
 trash : Int -> Svg Msg
 trash index =
-    Icons.trash
+    ABALA.Icon.trash
         |> withColor Colors.red_
         |> withOnClick (DropBlock index)
-        |> Icons.toSvgOldAPI
+        |> ABALA.Icon.toSvgOldAPI
 
 
 duplicate : Int -> Color -> Svg Msg
 duplicate index strokeColor =
-    Icons.duplicate
+    ABALA.Icon.duplicate
         |> withColor strokeColor
         |> withOnClick (DuplicateAndAppendBlock index)
         |> withCss
@@ -914,7 +914,7 @@ duplicate index strokeColor =
             , right (px 5)
             , bottom (px 2)
             ]
-        |> Icons.toSvgOldAPI
+        |> ABALA.Icon.toSvgOldAPI
 
 
 borderBottomWidth : Float

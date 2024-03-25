@@ -1,4 +1,4 @@
-module Icons exposing
+module ABALA.Icon exposing
     ( Size(..)
     , duplicate
     , eye

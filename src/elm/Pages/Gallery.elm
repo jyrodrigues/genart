@@ -12,6 +12,7 @@ module Pages.Gallery exposing
     , view
     )
 
+import ABALA.Icon exposing (iconDelete)
 import Browser
 import Colors exposing (toCssColor)
 import Css
@@ -73,7 +74,6 @@ import Html.Styled.Attributes exposing (css, fromUnstyled, id, title)
 import Html.Styled.Events exposing (onClick, onMouseEnter, onMouseLeave)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy as Lazy
-import Icons exposing (iconDelete)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import LSystem.Draw as LDraw
@@ -365,7 +365,7 @@ imageBox { image, hash } dndEvents hasHover isDragging styles =
             , title "Delete"
             , css (setVisibility (hasHover && not isDragging) :: deleteStyle)
             ]
-            [ Icons.toSvg { iconDelete | size = Icons.Square 30, color = Colors.white } ]
+            [ ABALA.Icon.toSvg { iconDelete | size = ABALA.Icon.Square 30, color = Colors.white } ]
 
         -- Copy to Editor
         , div
