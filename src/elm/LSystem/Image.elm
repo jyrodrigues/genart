@@ -799,6 +799,8 @@ processCompositionStep pathCurve turnAngleSize step currentEverything =
                 pathString
                 (modBy360 compoundAngle)
                 position
+                -- This must be `boundaries` for now.
+                -- If we used `updatedBoundaries`, turning a thousand times would mess it up.
                 boundaries
     in
     case step of
@@ -814,7 +816,7 @@ processCompositionStep pathCurve turnAngleSize step currentEverything =
                 (pathString ++ segmentToString (M nextPositionDelta_))
                 angle
                 nextPosition
-                boundaries
+                updatedBoundaries
 
         Core.Glyph char ->
             Maybe.withDefault currentEverything (Maybe.map (drawWithGlyph currentEverything) (Dict.get char FontToSVG.dict))
