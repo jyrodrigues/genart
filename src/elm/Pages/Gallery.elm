@@ -14,56 +14,7 @@ module Pages.Gallery exposing
 
 import Browser
 import Colors exposing (toCssColor)
-import Css
-    exposing
-        ( Style
-        , absolute
-        , auto
-        , backgroundColor
-        , borderBox
-        , bottom
-        , boxShadow5
-        , boxSizing
-        , calc
-        , center
-        , color
-        , cursor
-        , deg
-        , displayFlex
-        , flexDirection
-        , flexWrap
-        , grab
-        , grabbing
-        , height
-        , hidden
-        , hover
-        , justifyContent
-        , left
-        , lineHeight
-        , margin
-        , minus
-        , num
-        , opacity
-        , overflowY
-        , padding
-        , pct
-        , pointer
-        , position
-        , px
-        , relative
-        , right
-        , rotate
-        , row
-        , spaceAround
-        , textAlign
-        , top
-        , transform
-        , visibility
-        , visible
-        , width
-        , wrap
-        , zero
-        )
+import Css exposing (Style, absolute, auto, backgroundColor, borderBox, bottom, boxShadow5, boxSizing, calc, center, color, cursor, deg, displayFlex, flexDirection, flexWrap, grab, grabbing, height, hidden, hover, justifyContent, left, lineHeight, margin, minus, num, opacity, overflowY, padding, pct, pointer, position, px, relative, right, rotate, row, spaceAround, textAlign, top, transform, visibility, visible, width, wrap, zero)
 import DnDList
 import File exposing (File)
 import File.Download as Download

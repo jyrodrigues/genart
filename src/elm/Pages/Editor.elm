@@ -27,7 +27,17 @@ import DnDList
 import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
 import Html.Styled exposing (Html, div, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (checked, class, css, fromUnstyled, id, title, type_, value)
-import Html.Styled.Events exposing (on, onBlur, onCheck, onClick, onFocus, onInput, onMouseEnter, onMouseLeave)
+import Html.Styled.Events
+    exposing
+        ( on
+        , onBlur
+        , onCheck
+        , onClick
+        , onFocus
+        , onInput
+        , onMouseEnter
+        , onMouseLeave
+        )
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy as Lazy
 import Json.Decode as Decode exposing (Decoder)
@@ -47,6 +57,7 @@ import List.Extra
 import Midi exposing (adjustInputForStrokeWidth)
 import Pages exposing (Page(..), routeFor)
 import Random
+import Set exposing (Set)
 import Svg.Icon as Icon exposing (iconDuplicate, iconTrash)
 import Svg.Styled exposing (Svg)
 import Task
@@ -55,7 +66,7 @@ import UIComponents.Dropdown as Dropdown
 import UIComponents.TopBar as TopBar
 import Url
 import Url.Parser as Parser exposing ((<?>), Parser)
-import Utils exposing (Position, delay, onMouseDownStopPropagation)
+import Utils exposing (Position, delay, floatModBy, onMouseDownStopPropagation)
 
 
 

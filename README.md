@@ -1,9 +1,5 @@
 # Genart
 
-```
-npm run serve
-```
-
 https://genart.world
 
 Genart is an interactive web app where one can create their own generative art. Its core mechanics are based on [L-Systems](https://en.wikipedia.org/wiki/L-system). Written in Elm and deployed via Netlify. This is currently a work in progress hobby project.
@@ -53,6 +49,14 @@ Genart is an interactive web app where one can create their own generative art. 
 - `a` -- Focus on angle input (while there, up/down-arrow will change the angle at playback rate)
 - `[` -- Make stroke width thinner
 - `]` -- Make stroke width thicker
+
+### Local development
+
+
+```
+npm install
+npm run serve
+```
 
 ---
 
