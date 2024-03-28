@@ -27,7 +27,7 @@ import DnDList
 import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
 import Html.Styled exposing (Html, div, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (checked, class, css, fromUnstyled, id, title, type_, value)
-import Html.Styled.Events exposing (on, onBlur, onCheck, onClick, onFocus, onInput)
+import Html.Styled.Events exposing (on, onBlur, onCheck, onClick, onFocus, onInput, onMouseEnter, onMouseLeave)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy as Lazy
 import Json.Decode as Decode exposing (Decoder)
@@ -100,6 +100,8 @@ type Msg
     | BasePolygonChanged Polygon
     | DuplicateAndAppendBlock Int
     | SetEditingIndex Int
+    | MouseEnteredBlock Int
+    | MouseLeftBlock
     | DropBlock Int
       -- Storage
     | SavedToGallery
@@ -149,11 +151,14 @@ type Msg
     | NoOp
 
 
+{-| NOTE
 
--- Could be updated to `type alias ExternalMsg = { updatedEditor : Bool, updatedGallery : Bool, ... }`
--- if we want to "send" more than one msg at a time
+Could be updated to `type alias ExternalMsg = { updatedEditor : Bool, updatedGallery : Bool, ... }`
+if we want to "send" more than one msg at a time
 
+TODO: Maybe change `UpdatedEditor` to `UpdatedLocalStorage` or a combination of both?
 
+-}
 type ExternalMsg
     = UpdatedEditor
     | UpdatedGallery Image
@@ -197,6 +202,9 @@ type alias Model =
 
     -- Top Bar
     , topBar : TopBar.State Msg
+
+    -- Left block list
+    , hoveredBlockIndex : Maybe Int
 
     -- Drag and Drop
     , dnd : DnDList.Model
@@ -290,6 +298,9 @@ initialModel =
     -- Top Bar
     , topBar = TopBar.init TopBarMsg
 
+    -- Left block list
+    , hoveredBlockIndex = Nothing
+
     -- Alert Popup
     , alert = Nothing
 
@@ -374,7 +385,7 @@ view model =
         [ Lazy.lazy3 TopBar.view EditorPage (topBarElements model) model.topBar |> toUnstyled
         , div
             [ css [ width (pct 100), height (calc (pct 100) minus (px 41)) ] ]
-            ([ Lazy.lazy3 compositionBlocksList model.dnd model.image model.editingIndex
+            ([ Lazy.lazy4 compositionBlocksList model.dnd model.image model.editingIndex model.hoveredBlockIndex
              , Lazy.lazy mainImg model.image
              , Lazy.lazy2 turnAngleControl model.turnAngleInputValue model.image.backgroundColor
              ]
@@ -731,14 +742,14 @@ truncateFloatString precision floatString =
             floatString
 
 
-compositionBlocksList : DnDList.Model -> Image -> Int -> Html Msg
-compositionBlocksList dnd image editingIndex =
+compositionBlocksList : DnDList.Model -> Image -> Int -> Maybe Int -> Html Msg
+compositionBlocksList dnd image editingIndex hoveredBlockIndex =
     let
         compositionBlocks =
             image
                 |> Image.toBlocks
                 |> List.map (Lazy.lazy5 drawBlock image.backgroundColor image.strokeColor image.turnAngle image.curve)
-                |> List.indexedMap (blockBox dnd editingIndex image.strokeColor)
+                |> List.indexedMap (blockBox dnd editingIndex hoveredBlockIndex image.strokeColor)
                 |> List.reverse
     in
     C.fixedDiv
@@ -758,8 +769,8 @@ compositionBlocksList dnd image editingIndex =
         )
 
 
-blockBox : DnDList.Model -> Int -> Color -> Int -> Svg Msg -> Html Msg
-blockBox dnd editingIndex strokeColor index blockSvg =
+blockBox : DnDList.Model -> Int -> Maybe Int -> Color -> Int -> Svg Msg -> Html Msg
+blockBox dnd editingIndex hoveredBlockIndex strokeColor index blockSvg =
     let
         blockId =
             "editor-block-id-" ++ String.fromInt index
@@ -774,36 +785,57 @@ blockBox dnd editingIndex strokeColor index blockSvg =
 
         attrs =
             -- `blockBoxBorderSelectedStyle` *must* be in the same class and come after for its css to take effect (i.e. to overwrite margins)
-            css (blockBoxStyle strokeColor ++ blockBoxBorderSelectedStyle strokeColor (index == editingIndex)) :: clickAndId
+            css
+                (blockBoxStyle strokeColor
+                    ++ blockBoxBorderSelectedStyle
+                        strokeColor
+                        (index == editingIndex)
+                        (hoveredBlockIndex /= Nothing && not isHovered)
+                )
+                :: clickAndId
+
+        isHovered =
+            (dndSystem.info dnd == Nothing) && (hoveredBlockIndex == Just index)
 
         html =
-            [ blockSvg
-            , div
-                [ title "Trash"
-                , onMouseDownStopPropagation NoOp
-                , onClick (DropBlock index)
-                , css [ position absolute, left (px 5), bottom (px 2), cursor pointer ]
+            if isHovered then
+                [ blockSvg
+                , div
+                    [ title "Duplicate"
+                    , onMouseDownStopPropagation NoOp
+                    , onClick (DuplicateAndAppendBlock index)
+                    , css [ position absolute, right (px 5), top (px 10), cursor pointer ]
+                    ]
+                    [ Icon.toSvg { iconDuplicate | fillColor = strokeColor } ]
+                , div
+                    [ title "Delete"
+                    , onMouseDownStopPropagation NoOp
+                    , onClick (DropBlock index)
+                    , css [ position absolute, right (px 4), bottom (px 6), cursor pointer ]
+                    ]
+                    [ Icon.toSvg iconTrash ]
                 ]
-                [ Icon.toSvg iconTrash ]
-            , div
-                [ title "Duplicate"
-                , onMouseDownStopPropagation NoOp
-                , onClick (DuplicateAndAppendBlock index)
-                , css [ position absolute, right (px 5), bottom (px 2), cursor pointer ]
-                ]
-                [ Icon.toSvg { iconDuplicate | fillColor = strokeColor } ]
-            ]
+
+            else
+                [ blockSvg ]
     in
     case dndSystem.info dnd of
         Just { dragIndex } ->
-            if dragIndex /= index then
-                div (attrs ++ List.map fromUnstyled (dndSystem.dropEvents index blockId)) html
-
-            else
+            if dragIndex == index then
                 div (css [ opacity (num 0.3) ] :: attrsWithoutSelect) html
 
+            else
+                div (attrs ++ List.map fromUnstyled (dndSystem.dropEvents index blockId)) html
+
         Nothing ->
-            div (attrs ++ List.map fromUnstyled (dndSystem.dragEvents index blockId)) html
+            div
+                (attrs
+                    ++ [ onMouseEnter (MouseEnteredBlock index)
+                       , onMouseLeave MouseLeftBlock
+                       ]
+                    ++ List.map fromUnstyled (dndSystem.dragEvents index blockId)
+                )
+                html
 
 
 ghostBlockBox : DnDList.Model -> Image -> List (Html Msg)
@@ -832,12 +864,12 @@ borderBottomWidth =
 
 borderWidthSelected : Float
 borderWidthSelected =
-    3
+    2
 
 
 borderWidthHover : Float
 borderWidthHover =
-    5
+    3
 
 
 blockBoxStyle : Color -> List Style
@@ -848,7 +880,7 @@ blockBoxStyle strokeColor =
     , cursor grab
     , borderRadius (px 3)
     , hover
-        [ border3 (px 5) solid (toCssColor strokeColor)
+        [ border3 (px borderWidthHover) solid (toCssColor strokeColor)
 
         -- Changing the border style for aesthetic reasons.
         -- This rule is more specific so it overrides `borderOnSelected`.
@@ -867,10 +899,18 @@ blockBoxStyle strokeColor =
     ]
 
 
-blockBoxBorderSelectedStyle : Color -> Bool -> List Style
-blockBoxBorderSelectedStyle strokeColor isSelected =
+blockBoxBorderSelectedStyle : Color -> Bool -> Bool -> List Style
+blockBoxBorderSelectedStyle strokeColor isSelected otherBlockBeingHovered =
+    let
+        color =
+            if otherBlockBeingHovered then
+                Colors.gray
+
+            else
+                strokeColor
+    in
     if isSelected then
-        [ border3 (px borderWidthSelected) solid (toCssColor strokeColor)
+        [ border3 (px borderWidthSelected) solid (toCssColor color)
         , margin3
             (px -borderWidthSelected)
             (px -borderWidthSelected)
@@ -1055,6 +1095,12 @@ update msg model =
                 , Cmd.none
                 , NothingToUpdate
                 )
+
+            MouseEnteredBlock index ->
+                ( { model | hoveredBlockIndex = Just index }, Cmd.none, NothingToUpdate )
+
+            MouseLeftBlock ->
+                ( { model | hoveredBlockIndex = Nothing }, Cmd.none, NothingToUpdate )
 
             DropBlock index ->
                 ( { model
