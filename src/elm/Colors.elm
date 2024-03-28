@@ -39,6 +39,7 @@ module Colors exposing
     , toHsva
     , toRgba
     , toString
+    , transparent
     , updateAlpha
     , updateBlue
     , updateGreen
@@ -515,6 +516,11 @@ theme =
 -- CONSTANTS
 
 
+transparent : Color
+transparent =
+    rgba 0 0 0 0
+
+
 gray : Color
 gray =
     rgb255 170 170 170
@@ -558,7 +564,9 @@ offWhite =
 
 red_ : Color
 red_ =
-    rgb255 240 0 0
+    -- https://tailwindcss.com/docs/customizing-colors
+    -- red 800
+    fromHexString "#b91c1c"
 
 
 green_ : Color

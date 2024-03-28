@@ -22,95 +22,12 @@ import Browser.Events
 import ColorWheel
 import Colors exposing (Color, toCssColor)
 import Components as C
-import Css
-    exposing
-        ( Style
-        , absolute
-        , after
-        , alignItems
-        , auto
-        , backgroundColor
-        , before
-        , block
-        , border
-        , border3
-        , borderBottom
-        , borderBox
-        , borderRadius
-        , borderRight3
-        , borderTop3
-        , bottom
-        , boxShadow5
-        , boxShadow6
-        , boxSizing
-        , breakWord
-        , calc
-        , center
-        , color
-        , contentBox
-        , cursor
-        , default
-        , deg
-        , display
-        , displayFlex
-        , fixed
-        , flexDirection
-        , flexGrow
-        , fontSize
-        , height
-        , hidden
-        , hover
-        , inset
-        , int
-        , justifyContent
-        , left
-        , margin2
-        , margin3
-        , marginBottom
-        , marginLeft
-        , marginRight
-        , marginTop
-        , maxWidth
-        , minus
-        , num
-        , opacity
-        , overflow
-        , overflowWrap
-        , overflowY
-        , padding
-        , padding2
-        , pct
-        , plus
-        , pointer
-        , position
-        , px
-        , relative
-        , right
-        , rotate
-        , row
-        , scroll
-        , solid
-        , spaceBetween
-        , textAlign
-        , top
-        , transform
-        , unset
-        , width
-        , zero
-        )
+import Css exposing (Style, absolute, after, alignItems, auto, backgroundColor, before, block, border, border3, borderBottom, borderBox, borderRadius, borderRight3, borderTop3, bottom, boxShadow5, boxShadow6, boxSizing, breakWord, calc, center, color, contentBox, cursor, default, deg, display, displayFlex, fixed, flexDirection, flexGrow, fontSize, grab, height, hidden, hover, inset, int, justifyContent, left, margin2, margin3, marginBottom, marginLeft, marginRight, marginTop, maxWidth, minus, num, opacity, overflow, overflowWrap, overflowY, padding, padding2, pct, plus, pointer, position, px, relative, right, rotate, row, scroll, solid, spaceBetween, textAlign, top, transform, unset, width, zero)
 import DnDList
 import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
 import Html.Styled exposing (Html, div, input, label, p, span, text, toUnstyled)
 import Html.Styled.Attributes exposing (checked, class, css, fromUnstyled, id, title, type_, value)
-import Html.Styled.Events
-    exposing
-        ( on
-        , onBlur
-        , onCheck
-        , onClick
-        , onFocus
-        , onInput
-        )
+import Html.Styled.Events exposing (on, onBlur, onCheck, onClick, onFocus, onInput)
 import Html.Styled.Keyed as Keyed
 import Html.Styled.Lazy as Lazy
 import Json.Decode as Decode exposing (Decoder)
@@ -138,7 +55,7 @@ import UIComponents.Dropdown as Dropdown
 import UIComponents.TopBar as TopBar
 import Url
 import Url.Parser as Parser exposing ((<?>), Parser)
-import Utils exposing (Position, delay)
+import Utils exposing (Position, delay, onMouseDownStopPropagation)
 
 
 
@@ -398,7 +315,7 @@ dndSystem : DnDList.System LSystem.Core.Block Msg
 dndSystem =
     DnDList.create
         { beforeUpdate = \_ _ list -> list
-        , movement = DnDList.Free
+        , movement = DnDList.Vertical
         , listen = DnDList.OnDrag
         , operation = DnDList.Rotate
         }
@@ -861,12 +778,18 @@ blockBox dnd editingIndex strokeColor index blockSvg =
 
         html =
             [ blockSvg
-            , { iconTrash | fillColor = Colors.red_, onClick = Just (DropBlock index) }
-                |> Icon.toSvg
+            , div
+                [ title "Trash"
+                , onMouseDownStopPropagation NoOp
+                , onClick (DropBlock index)
+                , css [ position absolute, left (px 5), bottom (px 2), cursor pointer ]
+                ]
+                [ Icon.toSvg iconTrash ]
             , div
                 [ title "Duplicate"
+                , onMouseDownStopPropagation NoOp
                 , onClick (DuplicateAndAppendBlock index)
-                , css [ position absolute, right (px 5), bottom (px 2) ]
+                , css [ position absolute, right (px 5), bottom (px 2), cursor pointer ]
                 ]
                 [ Icon.toSvg { iconDuplicate | fillColor = strokeColor } ]
             ]
@@ -922,7 +845,7 @@ blockBoxStyle strokeColor =
     [ height (px 150)
     , width (pct 100)
     , margin3 zero auto (px 20)
-    , cursor pointer
+    , cursor grab
     , borderRadius (px 3)
     , hover
         [ border3 (px 5) solid (toCssColor strokeColor)

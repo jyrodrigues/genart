@@ -1,5 +1,8 @@
 module Utils exposing (..)
 
+import Html.Styled exposing (Attribute)
+import Html.Styled.Events exposing (preventDefaultOn, stopPropagationOn)
+import Json.Decode as Decode
 import Process
 import Task
 import Url exposing (Protocol(..))
@@ -183,3 +186,27 @@ protocolToString protocol =
 
         Https ->
             "https://"
+
+
+
+-- HTML
+
+
+onClickStopPropagation : msg -> Attribute msg
+onClickStopPropagation msg =
+    stopPropagationOn "click" (Decode.succeed ( msg, True ))
+
+
+onClickPreventDefault : msg -> Attribute msg
+onClickPreventDefault msg =
+    preventDefaultOn "click" (Decode.succeed ( msg, True ))
+
+
+onMouseDownStopPropagation : msg -> Attribute msg
+onMouseDownStopPropagation msg =
+    stopPropagationOn "mousedown" (Decode.succeed ( msg, True ))
+
+
+onMouseDownPreventDefault : msg -> Attribute msg
+onMouseDownPreventDefault msg =
+    preventDefaultOn "mousedown" (Decode.succeed ( msg, True ))

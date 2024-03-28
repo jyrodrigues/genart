@@ -361,8 +361,8 @@ imageBox { image, hash } dndEvents hasHover isDragging styles =
 
         -- Icon delete
         , div
-            [ onClick (RemovedFromGallery hash)
-            , title "Delete"
+            [ title "Delete"
+            , onClick (RemovedFromGallery hash)
             , css (setVisibility (hasHover && not isDragging) :: deleteStyle)
             ]
             [ Svg.Icon.toSvg { iconDelete | size = 30, fillColor = Colors.white } ]
@@ -464,6 +464,7 @@ deleteStyle =
     , position absolute
     , top (px 8)
     , right (px 8)
+    , cursor pointer
     , hover [ backgroundColor (Colors.toCssColor Colors.theme.active) ]
     ]
 

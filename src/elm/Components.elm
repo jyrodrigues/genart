@@ -242,7 +242,7 @@ controlBlockFlex =
 
 
 
--- MISCELLANEA
+-- MISC
 
 
 separator : Html msg
