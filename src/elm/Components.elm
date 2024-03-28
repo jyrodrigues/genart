@@ -1,57 +1,7 @@
 module Components exposing (..)
 
 import Colors exposing (toCssColor)
-import Css
-    exposing
-        ( active
-        , auto
-        , backgroundColor
-        , block
-        , border
-        , border3
-        , borderBottom3
-        , borderBox
-        , borderRadius
-        , boxShadow5
-        , boxSizing
-        , calc
-        , center
-        , color
-        , cursor
-        , default
-        , display
-        , displayFlex
-        , fixed
-        , flexWrap
-        , fontFamily
-        , fontSize
-        , height
-        , hover
-        , left
-        , lineHeight
-        , margin2
-        , marginBottom
-        , minWidth
-        , minus
-        , none
-        , padding
-        , pct
-        , pointer
-        , position
-        , px
-        , relative
-        , right
-        , sansSerif
-        , solid
-        , textAlign
-        , textDecoration
-        , top
-        , transparent
-        , width
-        , wrap
-        , zIndex
-        , zero
-        )
+import Css exposing (active, auto, backgroundColor, block, border, border3, borderBottom3, borderBox, borderRadius, boxShadow5, boxSizing, calc, center, color, cursor, default, display, displayFlex, fixed, flexWrap, fontFamily, fontSize, height, hover, left, lineHeight, margin2, marginBottom, minWidth, minus, none, padding, pct, pointer, position, px, relative, right, sansSerif, solid, textAlign, textDecoration, top, transparent, width, wrap, zIndex, zero)
 import Html.Styled exposing (Html, a, button, div, span, text)
 import Html.Styled.Attributes exposing (class, css, href)
 import Html.Styled.Events exposing (onClick)

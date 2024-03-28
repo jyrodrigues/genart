@@ -79,8 +79,8 @@ welcomeParser =
     Parser.map Welcome Parser.top
 
 
-mapRouteToPage : Route -> Page
-mapRouteToPage route =
+mapRouteToPage : Route -> Bool -> Page
+mapRouteToPage route overrideWelcomeWithEditorPage =
     -- TODO think about this flow that requires this function. It doesn't seem the best one.
     case route of
         Gallery ->
@@ -90,7 +90,12 @@ mapRouteToPage route =
             EditorPage
 
         Welcome ->
-            WelcomePage
+            -- TODO this looks shitty -- I'm tired -- but works.
+            if overrideWelcomeWithEditorPage then
+                EditorPage
+
+            else
+                WelcomePage
 
         Writing ->
             WritingPage

@@ -117,13 +117,17 @@ init : Encode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init locallyStoredModel url navKey =
     let
         -- Decode Local Storage or fallback to default values
-        ( editorFromStorage, galleryFromStorage ) =
+        --
+        -- Note: Assuming after first visit there will be something in local storage to decode.
+        --       and so we don't want to show the Welcome page again, go straight to Editor.
+        --
+        ( editorFromStorage, galleryFromStorage, overrideWelcomeWithEditorPage ) =
             case Decode.decodeValue decoder locallyStoredModel of
                 Ok ( storedEditor, storedGallery ) ->
-                    ( storedEditor, storedGallery )
+                    ( storedEditor, storedGallery, True )
 
                 Err _ ->
-                    ( Editor.initialModel, Gallery.initialModel )
+                    ( Editor.initialModel, Gallery.initialModel, False )
 
         route =
             parseUrl url
@@ -139,6 +143,12 @@ init locallyStoredModel url navKey =
                     , Nav.replaceUrl navKey (routeFor EditorPage)
                     )
 
+                NotFound ->
+                    ( editorFromStorage
+                      -- Replace URL to get rid of unknown path and have a clean URL
+                    , Nav.replaceUrl navKey (routeFor EditorPage)
+                    )
+
                 _ ->
                     ( editorFromStorage, Cmd.none )
 
@@ -149,7 +159,7 @@ init locallyStoredModel url navKey =
             { model
                 | editor = Editor.withUrl url editor
                 , gallery = galleryFromStorage
-                , viewingPage = mapRouteToPage route
+                , viewingPage = mapRouteToPage route overrideWelcomeWithEditorPage
             }
     in
     ( modelWithUrlAndStorage
@@ -176,7 +186,6 @@ documentMap msg document =
     , body =
         List.map (Html.map msg) body
             ++ [ Html.Styled.toUnstyled
-                    -- TODO remove all `Css.fontFamily` from codebase; this should suffice.
                     (Css.Global.global [ Css.Global.selector "body" [ Css.fontFamily Css.sansSerif ] ])
                ]
     }
@@ -211,7 +220,7 @@ update msg model =
         UrlChanged url ->
             let
                 viewingPage =
-                    mapRouteToPage (parseUrl url)
+                    mapRouteToPage (parseUrl url) False
             in
             -- Called via replaceUrl (and indirectly via click on internal links/href, see LinkClicked above)
             ( { model | viewingPage = viewingPage }, initializeCmds model viewingPage )
