@@ -365,7 +365,7 @@ imageBox { image, hash } dndEvents hasHover isDragging styles =
             , title "Delete"
             , css (setVisibility (hasHover && not isDragging) :: deleteStyle)
             ]
-            [ Svg.Icon.toSvg { iconDelete | size = Svg.Icon.Square 30, color = Colors.white } ]
+            [ Svg.Icon.toSvg { iconDelete | size = 30, fillColor = Colors.white } ]
 
         -- Copy to Editor
         , div

@@ -101,7 +101,7 @@ import Css
 import DnDList
 import Events exposing (ShiftKey, keyPressDecoder, midiEventDecoder, mousePositionDecoder, onKeyDown, onWheel)
 import Html.Styled exposing (Html, div, input, label, p, span, text, toUnstyled)
-import Html.Styled.Attributes exposing (checked, class, css, fromUnstyled, id, type_, value)
+import Html.Styled.Attributes exposing (checked, class, css, fromUnstyled, id, title, type_, value)
 import Html.Styled.Events
     exposing
         ( on
@@ -130,7 +130,7 @@ import List.Extra
 import Midi exposing (adjustInputForStrokeWidth)
 import Pages exposing (Page(..), routeFor)
 import Random
-import Svg.Icon exposing (withColor, withCss, withOnClick)
+import Svg.Icon as Icon exposing (iconDuplicate, iconTrash)
 import Svg.Styled exposing (Svg)
 import Task
 import Time
@@ -861,8 +861,14 @@ blockBox dnd editingIndex strokeColor index blockSvg =
 
         html =
             [ blockSvg
-            , trash index
-            , duplicate index strokeColor
+            , { iconTrash | fillColor = Colors.red_, onClick = Just (DropBlock index) }
+                |> Icon.toSvg
+            , div
+                [ title "Duplicate"
+                , onClick (DuplicateAndAppendBlock index)
+                , css [ position absolute, right (px 5), bottom (px 2) ]
+                ]
+                [ Icon.toSvg { iconDuplicate | fillColor = strokeColor } ]
             ]
     in
     case dndSystem.info dnd of
@@ -894,27 +900,6 @@ ghostBlockBox dnd image =
 
         Nothing ->
             []
-
-
-trash : Int -> Svg Msg
-trash index =
-    Svg.Icon.trash
-        |> withColor Colors.red_
-        |> withOnClick (DropBlock index)
-        |> Svg.Icon.toSvgOldAPI
-
-
-duplicate : Int -> Color -> Svg Msg
-duplicate index strokeColor =
-    Svg.Icon.duplicate
-        |> withColor strokeColor
-        |> withOnClick (DuplicateAndAppendBlock index)
-        |> withCss
-            [ position absolute
-            , right (px 5)
-            , bottom (px 2)
-            ]
-        |> Svg.Icon.toSvgOldAPI
 
 
 borderBottomWidth : Float
