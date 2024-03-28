@@ -144,7 +144,7 @@ type Msg
       -- MIDI
     | GotMidiEvent Encode.Value
       -- Alert popup
-    | HideAlert
+    | HideAlert String
       -- Drag and Drop
     | DnDListMsg DnDList.Msg
       -- Sometimes there is nothing to do
@@ -1053,9 +1053,8 @@ update msg model =
                         else
                             "There was an error :("
                 in
-                -- `4000` here is enough to make the transition visible until it removes the node from the DOM.
                 ( { model | alert = Just message }
-                , delay 4000 HideAlert
+                , Cmd.batch [ hideAlertWithDelay message, TopBar.closeAllDropdowns TopBarMsg ]
                 , NothingToUpdate
                 )
 
@@ -1437,9 +1436,8 @@ update msg model =
                 )
 
             SavedToGallery ->
-                -- `4000` here is enough to make the transition visible until it removes the node from the DOM.
                 ( { model | alert = Just "Image saved!" }
-                , delay 4000 HideAlert
+                , Cmd.batch [ hideAlertWithDelay "Image saved!", TopBar.closeAllDropdowns TopBarMsg ]
                 , UpdatedGallery model.image
                 )
 
@@ -1448,11 +1446,21 @@ update msg model =
                 -- TODO make it save when needed (it'll be fine if `processMidi` calls `update` with proper msgs
                 ( processMidi value model, Cmd.none, NothingToUpdate )
 
-            HideAlert ->
-                ( { model | alert = Nothing }, Cmd.none, NothingToUpdate )
+            HideAlert text ->
+                if model.alert == Just text then
+                    ( { model | alert = Nothing }, Cmd.none, NothingToUpdate )
+
+                else
+                    -- Might happen if we trigger a bunch in a row
+                    ( model, Cmd.none, NothingToUpdate )
 
             NoOp ->
                 ( model, Cmd.none, NothingToUpdate )
+
+
+hideAlertWithDelay : String -> Cmd Msg
+hideAlertWithDelay text =
+    delay 3000 (HideAlert text)
 
 
 updateColorWheel : Image -> ColorTarget -> ColorWheel.State -> ColorWheel.State

@@ -3,10 +3,11 @@
 }
 
 @keyframes fadeout {
-  from {
+  0%,
+  10% {
     opacity: 1;
   }
-  to {
+  100% {
     opacity: 0;
   }
 }
